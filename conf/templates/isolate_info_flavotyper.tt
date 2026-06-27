@@ -2,7 +2,10 @@
 [% IF FlavoTyper %]
 <h3>FlavoTyper</h3>
 <div class="scrollable">
-
-<p style="font-size:0.8em"><em>Analysis performed: [% FlavoTyper.datestamp %]</em>; [% FlavoTyper.results.version %]</p>
+[% IF FlavoTyper.results.image %]
+<img src="data:image/png;base64,[% FlavoTyper.results.image %]" style="max-width:1200px" />
+[% END %]
 </div>
+<p style="font-size:0.8em"><em>Analysis performed: [% FlavoTyper.datestamp %]</em>; [% FlavoTyper.results.version %]</p>
+
 [% END %]

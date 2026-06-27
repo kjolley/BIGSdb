@@ -25,7 +25,7 @@ use parent qw(BIGSdb::Plugin);
 use BIGSdb::Exceptions;
 use List::MoreUtils qw(uniq);
 use MIME::Base64    qw(encode_base64);
-use Encode qw(decode_utf8);
+use Encode          qw(decode_utf8);
 use IPC::Open3;
 use Symbol     qw(gensym);
 use File::Path qw(rmtree);
@@ -169,7 +169,7 @@ sub run_job {
 	my $job         = $self->{'jobManager'}->get_job($job_id);
 	if ( !-x "$self->{'config'}->{'flavotyper_path'}" ) {
 		$logger->error("FlavoTyper not executable: Path is $self->{'config'}->{'flavotyper_path'}");
-		return;
+		BIGSdb::Exception::Plugin->throw('FlavoTyper run failed.');
 	}
 	my $version  = $self->_get_flavotyper_version;
 	my $out_dir  = "$self->{'config'}->{'secure_tmp_dir'}/$job_id/";
@@ -258,21 +258,21 @@ sub run_job {
 		$self->{'jobManager'}->update_job_output( $job_id,
 			{ filename => "$job_id.xlsx", description => '20_Results (Excel)', compress => 1 } );
 	}
-
-	#rmtree($out_dir);
+	rmtree($out_dir);
+	return;
 }
 
 sub _store_results {
 	my ( $self, $isolate_id, $out_dir ) = @_;
-	
-	my $results = {};
+
+	my $results     = {};
 	my $output_file = qq(${out_dir}typing_results.jsonl);
 	if ( -e $output_file ) {
 		my $contents_ref = BIGSdb::Utils::slurp($output_file);
 		eval { $results = decode_json($$contents_ref); };
 		$logger->error($@) if $@;
 	}
-	my $version     = $self->_get_flavotyper_version;
+	my $version = $self->_get_flavotyper_version;
 	$results->{'version'} = $version;
 	my $img_file = qq(${out_dir}id-${isolate_id}_locus_analysis/id-${isolate_id}_locus_map.png);
 	if ( -e $img_file ) {
@@ -282,7 +282,6 @@ sub _store_results {
 	}
 	my $json      = encode_json($results);
 	my $json_text = decode_utf8($json);
-	$logger->error($json_text);
 	eval {
 		$self->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, 'FlavoTyper' );
