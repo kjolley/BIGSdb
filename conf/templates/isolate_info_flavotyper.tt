@@ -1,9 +1,12 @@
 [% # Template file for outputting formatted FlavoTyper analysis in the isolate information page. %]
 [% IF FlavoTyper %]
 <h3>FlavoTyper</h3>
-<div class="scrollable">
+
 [% IF FlavoTyper.results.image %]
-<img src="data:image/png;base64,[% FlavoTyper.results.image %]" style="max-width:1200px" />
+<h4>Locus map</h4>
+<div class="scrollable">
+<a data-lightbox="inline-image" href="data:image/png;base64,[% FlavoTyper.results.image %]">
+<img src="data:image/png;base64,[% FlavoTyper.results.image %]" style="width:800px;max-width:100%" /></a>
 [% END %]
 </div>
 <p style="font-size:0.8em"><em>Analysis performed: [% FlavoTyper.datestamp %]</em>; [% FlavoTyper.results.version %]</p>

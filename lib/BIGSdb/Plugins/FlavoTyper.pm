@@ -344,9 +344,15 @@ sub _print_info_panel {
 	say << "HTML";
 <div class="box" id="resultspanel">
 <p>FlavoTyper is a bioinformatics tool that performs <i>in silico</i> serotyping of <i>Flavobacterium psychrophilum</i>
-genome assemblies.</p>
-<p>This plugin is a wrapper for the command-line tool that enables you to run FlavoTyper against genomes in the
-database.</p>
+genome assemblies. Phenotypic characterization of this pathogen (including serotyping based on the structural 
+variations in the O-polysaccharide moiety of cell surface lipopolysaccharide) provides critical information for 
+epidemiological surveillance, outbreak investigation, and the design of effective vaccines. 
+FlavoTyper enables this characterization directly from genome assemblies, making serotyping scalable, 
+reproducible, and independent of wet-lab assays.</p>
+<p>FlavoTyper is based on previously published data including a multiplex PCR serotyping scheme by 
+<a href="https://doi.org/10.3389/fmicb.2017.01752">Rochat et al., 2017</a> and the functional characterization of the 
+O-polysaccharide encoding locus in a subset of strains by 
+<a href="https://doi.org/10.3389/fmicb.2019.01041">Cisar et al. 2019</a>.</p>
 <p>FlavoTyper was developed by Salma Mbarki in the Laboratory of Eric Duchaud, Unit&eacute; Virologie et Immunologie 
 Mol&eacute;culaires (INRAE), France. The code can be found at <a href="https://pypi.org/project/flavotyper/">
 https://pypi.org/project/flavotyper/</a>.</p>
