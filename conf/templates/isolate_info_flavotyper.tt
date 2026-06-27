@@ -1,7 +1,30 @@
 [% # Template file for outputting formatted FlavoTyper analysis in the isolate information page. %]
 [% IF FlavoTyper %]
-<h3>FlavoTyper</h3>
 
+[% fields = ['o_type','r_type','s_type','serotype','ambiguity_state','alternative_serotypes',
+'warnings','present_markers','serotype_reference' ] %]
+[% labels = {
+    o_type  = 'O type',
+    r_type  = 'R type',
+    s_type  = 'S type',
+    ambiguity_state = 'call state'
+ } %]
+<h3>FlavoTyper</h3>
+<div class="field_group">
+<dl class="data">
+[% FOREACH field IN fields %]
+	[% value = FlavoTyper.results.$field %]
+	
+	[% label = labels.$field ? labels.$field : field %]
+	[% label = label.replace('_',' ') %]
+	[% IF value.defined && value.list.size %] 
+		<span class="dontsplit">
+		<dt>[% label %]</dt>
+		<dd>[% value.list.join('; ') %]</dd>
+		</span>
+	[% END %]
+[% END %]
+</dl></div>
 [% IF FlavoTyper.results.image %]
 <h4>Locus map</h4>
 <div class="scrollable">
