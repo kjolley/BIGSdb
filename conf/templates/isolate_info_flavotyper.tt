@@ -2,7 +2,7 @@
 [% IF FlavoTyper %]
 
 [% fields = ['o_type','r_type','s_type','serotype','ambiguity_state','alternative_serotypes',
-'warnings','present_markers','serotype_reference' ] %]
+'warnings','present_markers','serotype_reference','reason_codes' ] %]
 [% labels = {
     o_type  = 'O type',
     r_type  = 'R type',
@@ -17,6 +17,10 @@
 	
 	[% label = labels.$field ? labels.$field : field %]
 	[% label = label.replace('_',' ') %]
+	[% IF field == 'serotype_reference' %]
+		[% value = value.replace('\b(GCA_\d+\.\d+)\b','<a href="https://www.ncbi.nlm.nih.gov/assembly/$1">$1</a>') %]
+		[% value = value.replace('\bPMID:\s*(\d+)\b','PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/$1/">$1</a>') %]
+	[% END %]
 	[% IF value.defined && value.list.size %] 
 		<span class="dontsplit">
 		<dt>[% label %]</dt>
