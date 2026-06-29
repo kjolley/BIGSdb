@@ -191,13 +191,14 @@ sub run_job {
 		$i++;
 		$self->_run_flavotyper( $job_id, $isolate_id );
 		my $output_tsv = "$out_dir/typing_results.tsv";
+		my @headings;
 		if ( -e $output_tsv ) {
 			open( my $fh, '<:encoding(utf8)', $output_tsv )
 			  || $logger->error("Cannot open $output_tsv for reading.");
 			my $first_line = <$fh>;
 			chomp $first_line;
 			if ( !$table_header ) {
-				my @headings = split /\t/x, $first_line;
+				@headings = split /\t/x, $first_line;
 				unshift @headings, 'id';
 				$headings[1] = $self->{'system'}->{'labelfield'};
 				local $" = q(</th><th>);
@@ -209,7 +210,13 @@ sub run_job {
 			chomp $result_line;
 			my @results = split /\t/x, $result_line;
 			unshift @results, $isolate_id;
-
+			if (@headings > @results){
+				$logger->error(scalar @headings);
+				$logger->error(scalar @results);
+				for (1 .. (@headings - @results)){
+					push @results, q();
+				}
+			}
 			$results[1] = $self->get_isolate_name_from_id($isolate_id);
 			local $" = qq(\t);
 			$self->_append_text_output( $text_file, qq(@results) );

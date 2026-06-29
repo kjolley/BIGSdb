@@ -2,7 +2,7 @@
 [% IF FlavoTyper %]
 
 [% fields = ['o_type','r_type','s_type','serotype','ambiguity_state','alternative_serotypes',
-'warnings','present_markers','serotype_reference','reason_codes' ] %]
+'warnings','present_markers','serotype_reference','reason_codes' ] -%]
 [% labels = {
     o_type  = 'O type',
     r_type  = 'R type',
@@ -12,30 +12,40 @@
 <h3>FlavoTyper</h3>
 <div class="field_group">
 <dl class="data">
-[% FOREACH field IN fields %]
-	[% value = FlavoTyper.results.$field %]
-	
-	[% label = labels.$field ? labels.$field : field %]
-	[% label = label.replace('_',' ') %]
-	[% IF field == 'serotype_reference' %]
-		[% value = value.replace('\b(GCA_\d+\.\d+)\b','<a href="https://www.ncbi.nlm.nih.gov/assembly/$1">$1</a>') %]
-		[% value = value.replace('\bPMID:\s*(\d+)\b','PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/$1/">$1</a>') %]
-	[% END %]
-	[% IF value.defined && value.list.size %] 
-		<span class="dontsplit">
-		<dt>[% label %]</dt>
-		<dd>[% value.list.join('; ') %]</dd>
-		</span>
-	[% END %]
-[% END %]
+[% FOREACH field IN fields -%]
+	[% value = FlavoTyper.results.$field -%]	
+	[% label = labels.$field ? labels.$field : field -%]
+	[% label = label.replace('_',' ') -%]
+	[% IF field == 'serotype_reference' -%]
+		[% value = value.replace('\b(GCA_\d+\.\d+)\b','<a href="https://www.ncbi.nlm.nih.gov/assembly/$1">$1</a>') -%]
+		[% value = value.replace('\bPMID:\s*(\d+)\b','PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/$1/">$1</a>') -%]
+	[%- END -%]
+	[% IF value.defined && value.list.size && value != '' -%] 
+		<span class="dontsplit"><dt>[% label %]</dt><dd>[% value.list.join('; ') %]</dd></span>
+	[%- END -%]
+[%- END %]
+[% qc = ['quality_passed','quality_messages','quality_warnings'] -%]
+[% FOREACH field IN qc -%]
+	[% value = FlavoTyper.results.qc.$field -%]	
+	[% IF field == 'quality_passed' -%]
+		[% value = value ? 'true' : 'false' -%]
+	[%- END %]
+	[% label = labels.$field ? labels.$field : field -%]
+	[% label = label.replace('_',' ') -%]
+	[% IF value.defined && value.list.size && value != '' -%] 
+		<span class="dontsplit"><dt>[% label %]</dt><dd>[% value.list.join('; ') %]</dd></span>
+	[%- END -%]
+[%- END %]
+
 </dl></div>
 [% IF FlavoTyper.results.image %]
 <h4>Locus map</h4>
 <div class="scrollable">
 <a data-lightbox="inline-image" href="data:image/png;base64,[% FlavoTyper.results.image %]">
 <img src="data:image/png;base64,[% FlavoTyper.results.image %]" style="width:800px;max-width:100%" /></a>
-[% END %]
 </div>
+[% END %]
+
 <p style="font-size:0.8em"><em>Analysis performed: [% FlavoTyper.datestamp %]</em>; [% FlavoTyper.results.version %]</p>
 
 [% END %]
