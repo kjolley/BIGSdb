@@ -1978,7 +1978,7 @@ sub _print_seqbin_fields {
 		-values => [ q(), @values ],
 		-labels => { size => 'total length (Mbp)', contigs => 'number of contigs', percent_GC => '%GC', N => 'Ns' },
 		-class  => 'fieldlist',
-		-style  => 'width:160px',
+		-style  => 'width:170px',
 		-class  => 'do_not_calc_width'
 	);
 	my $values = [ '>', '>=', '<', '<=', '=' ];
