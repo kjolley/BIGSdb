@@ -10,7 +10,7 @@
 		aspect-ratio: 1/1;
 		margin: 0 auto;
 		box-sizing: border-box;
-		overflow: hidden;
+		overflow: auto;
 		border: 1px dashed #888;
 		background: #fff !important;
 	}
@@ -61,6 +61,7 @@
 
 	input[type="number"] {
 		-moz-appearance: textfield;
+		appearance: textfield;
 	}
 
 	div#waiting {
@@ -87,7 +88,7 @@
 		<div id="label-controls" style="display:flex;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:4px;margin-top:4px;margin-bottom:8px">
 			<div>
 				<p style="margin:0;">
-					Label depth:
+					Labels:
 					<button id="depth-decr" type="button" aria-label="Decrease depth" style="margin-left:8px;"><span class="fas fa-minus"></span></button>
 					<input id="depth" type="number" min="0" value="1" style="width:56px; text-align:center; margin:0" />
 					<button id="depth-incr" type="button" aria-label="Increase depth"><span class="fas fa-plus"></span></button>
@@ -109,7 +110,7 @@
 						</div>
 						<div style="font-size:11px;color:#666;margin-bottom:4px;line-height:1.35;">
 							Enter one exact LIN prefix per line.<br>
-							When populated, label depth is ignored.
+							When populated, automatic labels are ignored.
 						</div>
 						<textarea id="selected-labels" rows="5" style="width:100%;box-sizing:border-box;resize:vertical;max-width:100%;min-width:100%;font-family:monospace;" placeholder="Example:
 34_0_0_0_0
@@ -137,6 +138,7 @@
 	<div id="linvis_chart" tabindex="0"></div>
 	<div id="tooltip" class="tooltip"></div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="/javascript/sunburst.min.js"></script>
 <script src="/javascript/Plugins/LINvis_sunburst.min.js"></script>
