@@ -42,13 +42,14 @@ sub get_attributes {
 				email       => 'keith.jolley@biology.ox.ac.uk',
 			}
 		],
-		description         => 'Dynamic hierarchical LIN code visualisation',
-		full_description    => 'LINvis uses D3 circle-packing hierarchical visualisations to summarise LIN code data',
+		description      => 'Dynamic hierarchical LIN code visualisation',
+		full_description => 'LINvis uses D3 circle-packing and sunburst hierarchical visualisations to '
+		  . 'summarise LIN code data',
 		category            => 'Analysis',
 		buttontext          => 'LINvis',
 		menutext            => 'LINvis',
 		module              => 'LINvis',
-		version             => '1.1.1',
+		version             => '1.2.0',
 		dbtype              => 'isolates',
 		section             => 'analysis,postquery',
 		input               => 'query',
@@ -76,9 +77,13 @@ sub _print_info_panel {
 	say q(<div style="float:left">);
 	say qq(<img src="$logo" style="height:150px;margin-right:50px;filter:drop-shadow(5px 5px 4px #888)" />);
 	say q(</div>);
-	say q(<p>LINvis displays a dataset of LIN code values as a hierarchical circle-packing visualisation.</p>);
-	say q(<p>Hovering over each node will display the partial or full LIN code associated with it and you can choose )
-	  . q(to set labels for any LIN code threshold.</p>);
+	say q(<p>LINvis displays a dataset of LIN code values as either a hierarchical circle-packing visualisation or )
+	  . q(a sunburst chart.</p>);
+	say q(<p>In the circle-packing diagram, hovering over each node will display the partial or full LIN code )
+	  . q(associated with it and you can choose to set labels for any LIN code threshold. Note that leaf nodes )
+	  . q(are drawn proportionally but other nodes are constrained by the packing of descendents, so outer nodes )
+	  . q(may have inconsistent sizes even when their leaf totals are the same. This is an inherent artefact of )
+	  . q(the circle-packing algorithm.</p>);
 	say q(</div>);
 	return;
 }
@@ -252,11 +257,12 @@ sub run_job {
 
 		}
 		$node->{'value'} = ( $node->{'value'} || 0 ) + 1;
-		$node->{'records'} //=[];
-		push @{$node->{'records'}}, {
-			id => $isolate_id,
+		$node->{'records'} //= [];
+		push @{ $node->{'records'} },
+		  {
+			id   => $isolate_id,
 			name => $self->get_isolate_name_from_id($isolate_id)
-		};
+		  };
 
 		$count++;
 		$progress = int( 100 * ( $count / @$isolate_ids ) );
@@ -286,8 +292,11 @@ sub run_job {
 			{
 					message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
 				  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=pluginViewer&amp;plugin=LINvis&job=$job_id" target="_blank" )
-				  . q(class="launchbutton">Launch LINvis</a></p>)
+				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=circle&amp;job=$job_id" target="_blank" )
+				  . q(class="launchbutton" style="margin-right:0.5em">Launch Circle Packing</a>)
+				 . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=sunburst&amp;job=$job_id" target="_blank" )
+				  . q(class="launchbutton">Launch Sunburst</a> </p>)
 			}
 		);
 	}

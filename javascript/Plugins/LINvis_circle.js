@@ -1,4 +1,4 @@
-/*LINvis.js
+/*LINvis_circle.js
 Written by Keith Jolley
 Copyright (c) 2026, University of Oxford
 E-mail: keith.jolley@biology.ox.ac.uk
@@ -21,7 +21,7 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-Version 1.1.1.
+Version 1.2.0.
 */
 
 

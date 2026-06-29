@@ -32,12 +32,16 @@ sub print_content {
 		say q(<h1>Plugin viewer</h1>);
 		return $self->print_bad_status( { message => q(No plugin selected.) } );
 	}
-	if (  !-e "$self->{'lib_dir'}/BIGSdb/Plugins/HTML/$plugin.html" ) {
+	if (  !-d "$self->{'lib_dir'}/BIGSdb/Plugins/HTML/$plugin" ) {
 		say q(<h1>Plugin viewer</h1>);
 		return $self->print_bad_status( { message => q(Invalid plugin selected.) } );
-	}
+	} 
 	say qq(<h1>$plugin viewer</h1>);
-	my $content_ref = BIGSdb::Utils::slurp("$self->{'lib_dir'}/BIGSdb/Plugins/HTML/$plugin.html");
+	my $function = $q->param('function');
+	if (!-e "$self->{'lib_dir'}/BIGSdb/Plugins/HTML/$plugin/$function.html"){
+		return $self->print_bad_status( { message => q(Viewer function not defined.) } );
+	}
+	my $content_ref = BIGSdb::Utils::slurp("$self->{'lib_dir'}/BIGSdb/Plugins/HTML/$plugin/$function.html");
 	say $$content_ref;
 	return;
 }
