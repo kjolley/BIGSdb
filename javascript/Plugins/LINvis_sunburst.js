@@ -22,9 +22,9 @@ Version 1.2.0.
     const width = 960, height = 960;
     const margin = 10;
     const radius = Math.min(width, height) / 2 - margin;
-    let labelDepth = 8;   // now means: number of largest visible sectors to label
+    let labelDepth = 0;   // number of largest visible sectors to label
     let labelScale = 1;
-    const initialLabelDepth = 1;
+    const initialLabelDepth = 0;
 
     let searchState = {
         mode: "id",
@@ -466,6 +466,7 @@ Version 1.2.0.
     }
 
     function buildAutoLabelSet(visibleNodes, limit) {
+		if (limit <= 0) return new Set();
         const ranked = visibleNodes
             .filter(d => d.depth > 0)
             .slice()
@@ -477,7 +478,6 @@ Version 1.2.0.
             chosen.push(d);
             if (chosen.length >= limit) break;
         }
-        if (!chosen.length && ranked.length) chosen.push(ranked[0]);
         return new Set(chosen.map(d => d.id));
     }
 
@@ -545,7 +545,7 @@ Version 1.2.0.
             ? new Set()
             : buildAutoLabelSet(
                 visibleNodes,
-                Math.max(1, parseInt(depthInput ? depthInput.value : labelDepth, 10) || 1)
+                Math.max(0, parseInt(depthInput ? depthInput.value : labelDepth, 10) || 0)
             );
 
 
