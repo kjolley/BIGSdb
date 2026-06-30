@@ -22,6 +22,8 @@ Version 1.2.0.
 	const width = 960, height = 960;
 	const margin = 10;
 	const radius = Math.min(width, height) / 2 - margin;
+	// Maximum number of automatic labels that may be displayed.
+	const MAX_AUTO_LABELS = 50;
 	let labelDepth = 0;   // number of largest visible sectors to label
 	let labelScale = 1;
 	const initialLabelDepth = 0;
@@ -198,6 +200,18 @@ Version 1.2.0.
 		.attr("height", height)
 		.attr("fill", "#fff");
 
+	// Clicking anywhere in the chart container background resets the view.
+	container.on("click", function(event) {
+		if (suppressNextClick) { suppressNextClick = false; return; }
+		if (event.target && event.target.closest && event.target.closest("g.slice")) return;
+		panX = 0;
+		panY = 0;
+		chartScale = 1;
+		applyPan();
+		focusNode = root;
+		render();
+	});
+
 	const svgNode = svg.node();
 	let svgRectCache = null;
 	function updateSvgRectCache() { svgRectCache = svgNode.getBoundingClientRect(); }
@@ -289,7 +303,7 @@ Version 1.2.0.
 	const depthInput = document.getElementById("depth");
 	if (depthInput) {
 		depthInput.min = 0;
-		depthInput.max = 30;
+		depthInput.max = MAX_AUTO_LABELS;
 		depthInput.value = Math.min(initialLabelDepth, Math.max(1, nodes.length - 1));
 	}
 
@@ -312,7 +326,7 @@ Version 1.2.0.
 
 			function stepDelta(delta) {
 				const cur = parseInt(depthInput.value || 0, 10);
-				const next = Math.max(0, Math.min(30, cur + delta));
+				const next = Math.max(0, Math.min(MAX_AUTO_LABELS, cur + delta));
 				if (next !== cur) {
 					depthInput.value = next;
 					onDepthChange();
@@ -467,18 +481,53 @@ Version 1.2.0.
 
 	function buildAutoLabelSet(visibleNodes, limit) {
 		if (limit <= 0) return new Set();
+
 		const ranked = visibleNodes
 			.filter(d => d.depth > 0)
 			.slice()
 			.sort((a, b) => labelScore(b) - labelScore(a));
 
 		const chosen = [];
+
+		function angleOf(d) {
+			return (xScale(d.x0) + xScale(d.x1)) / 2;
+		}
+
+		function angularDistance(a, b) {
+			let da = Math.abs(angleOf(a) - angleOf(b));
+			return Math.min(da, 2 * Math.PI - da);
+		}
+
+		function clashes(d, minAngle) {
+			for (const c of chosen) {
+				if (c === d || isAncestor(c, d) || isAncestor(d, c)) return true;
+				if (minAngle > 0 && angularDistance(d, c) < minAngle) return true;
+			}
+			return false;
+		}
+
+		// Pass 1: strict spacing
 		for (const d of ranked) {
+			if (chosen.length >= limit) break;
+			if (!clashes(d, 0.28)) chosen.push(d);
+		}
+
+		// Pass 2: loosen spacing
+		for (const d of ranked) {
+			if (chosen.length >= limit) break;
+			if (chosen.includes(d)) continue;
+			if (!clashes(d, 0.12)) chosen.push(d);
+		}
+
+		// Pass 3: fill remaining slots, but still avoid ancestor/descendant labels
+		for (const d of ranked) {
+			if (chosen.length >= limit) break;
+			if (chosen.includes(d)) continue;
 			if (chosen.some(c => c === d || isAncestor(c, d) || isAncestor(d, c))) continue;
 			chosen.push(d);
-			if (chosen.length >= limit) break;
 		}
-		return new Set(chosen.map(d => d.id));
+
+		return new Set(chosen.slice(0, limit).map(d => d.id));
 	}
 
 
@@ -731,7 +780,7 @@ Version 1.2.0.
 		if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
 		if (!depthInput) return;
 		if (e.key === '+' || e.key === '=') {
-			depthInput.value = Math.min(30, parseInt(depthInput.value || 0, 10) + 1);
+			depthInput.value = Math.min(MAX_AUTO_LABELS, parseInt(depthInput.value || 0, 10) + 1);
 			onDepthChange();
 		} else if (e.key === '-' || e.key === '_') {
 			depthInput.value = Math.max(0, parseInt(depthInput.value || 0, 10) - 1);
