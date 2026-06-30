@@ -79,53 +79,79 @@
 			<input id="linvis-file" type="file" accept=".json">
 			<button onclick="location.reload()">Load File</button>
 		</div>
-		<p>
+		<p style="margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-right:28px;">
 			<button id="linvis-recenter-btn" type="button"><span class="fas fa-anchor"></span> Anchor top-left</button>
-			<button id="linvis-fit-width-btn" type="button" style="margin-left:6px;"><span class="fas fa-arrows-h"></span> Fit width</button>
-			<button id="linvis-fit-height-btn" type="button" style="margin-left:6px;"><span class="fas fa-arrows-v"></span> Fit height</button>
-			<button id="linvis-export-svg-btn" type="button" style="margin-left:6px;"><span class="fas fa-download"></span> Export SVG</button>
+			<button id="linvis-fit-width-btn" type="button"><span class="fas fa-arrows-h"></span> Fit width</button>
+			<button id="linvis-fit-height-btn" type="button"><span class="fas fa-arrows-v"></span> Fit height</button>
+			<button id="linvis-export-svg-btn" type="button"><span class="fas fa-download"></span> Export SVG</button>
+
 		</p>
-		<div id="label-controls" style="display:flex;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:4px;margin-top:4px;margin-bottom:8px">
+		<details id="linvis-help" style="position:absolute;top:8px;right:8px;z-index:1001;">
+			<summary
+				style="list-style:none;cursor:pointer;width:18px;height:18px;border:1px solid #888;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;user-select:none;background:#fff;line-height:1;">
+				?</summary>
+			<div
+				style="position:absolute;right:0;top:calc(100% + 6px);width:min(260px,calc(100vw - 24px));padding:10px;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1000;font-size:12px;line-height:1.5;white-space:normal;overflow-wrap:anywhere;">
+				<b>Navigation</b><br><br>
+				Click a segment to zoom into that branch.<br>
+				Click outside the circle to return to the full view.<br>
+				Drag to move the chart.<br>
+				Mouse wheel zooms the chart.<br>
+				<em>Anchor top-left</em> repositions the chart.
+			</div>
+		</details>
+		<div id="label-controls"
+			style="display:flex;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:4px;margin-top:4px;margin-bottom:8px">
 			<div>
 				<p style="margin:0;">
 					Labels:
-					<button id="depth-decr" type="button" aria-label="Decrease depth" style="margin-left:8px;"><span class="fas fa-minus"></span></button>
+					<button id="depth-decr" type="button" aria-label="Decrease depth" style="margin-left:8px;"><span
+							class="fas fa-minus"></span></button>
 					<input id="depth" type="number" min="0" value="1" style="width:56px; text-align:center; margin:0" />
-					<button id="depth-incr" type="button" aria-label="Increase depth"><span class="fas fa-plus"></span></button>
+					<button id="depth-incr" type="button" aria-label="Increase depth"><span
+							class="fas fa-plus"></span></button>
 				</p>
 			</div>
 			<div>
 				<p style="margin:0;">
 					Label size:
-					<button id="label-size-decr" type="button" aria-label="Smaller" style="margin-left:8px;"><span class="fas fa-minus"></span></button>
-					<button id="label-size-incr" type="button" aria-label="Larger"><span class="fas fa-plus"></span></button>
+					<button id="label-size-decr" type="button" aria-label="Smaller" style="margin-left:8px;"><span
+							class="fas fa-minus"></span></button>
+					<button id="label-size-incr" type="button" aria-label="Larger"><span
+							class="fas fa-plus"></span></button>
 				</p>
 			</div>
 			<div style="min-width:240px;max-width:100%;">
 				<details id="selected-labels-details" style="position:relative;display:inline-block;">
 					<summary style="cursor:pointer;white-space:nowrap;">Show specific labels</summary>
-					<div style="position:absolute;top:100%;left:0;z-index:1000;background:rgba(255,255,255,0.98);border:1px solid #ccc;border-radius:6px;padding:8px;margin-top:4px;box-shadow:0 2px 6px rgba(0,0,0,0.15);width:260px;box-sizing:border-box;">
+					<div
+						style="position:absolute;top:100%;left:0;z-index:1000;background:rgba(255,255,255,0.98);border:1px solid #ccc;border-radius:6px;padding:8px;margin-top:4px;box-shadow:0 2px 6px rgba(0,0,0,0.15);width:260px;box-sizing:border-box;">
 						<div style="text-align:right;margin-bottom:4px;">
-							<button id="selected-labels-popout" type="button" style="font-size:11px;padding:2px 6px;">Pop out</button>
+							<button id="selected-labels-popout" type="button"
+								style="font-size:11px;padding:2px 6px;">Pop out</button>
 						</div>
 						<div style="font-size:11px;color:#666;margin-bottom:4px;line-height:1.35;">
 							Enter one exact LIN prefix per line.<br>
 							When populated, automatic labels are ignored.
 						</div>
-						<textarea id="selected-labels" rows="5" style="width:100%;box-sizing:border-box;resize:vertical;max-width:100%;min-width:100%;font-family:monospace;" placeholder="Example:
+						<textarea id="selected-labels" rows="5"
+							style="width:100%;box-sizing:border-box;resize:vertical;max-width:100%;min-width:100%;font-family:monospace;"
+							placeholder="Example:
 34_0_0_0_0
 6_0_1_19"></textarea>
 					</div>
 				</details>
 			</div>
 		</div>
-		<div id="search-controls" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px;margin-bottom:8px;">
+		<div id="search-controls"
+			style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px;margin-bottom:8px;">
 			<label for="search-mode" style="white-space:nowrap;">Search by:</label>
 			<select id="search-mode">
 				<option value="id">ID</option>
 				<option value="name">Name</option>
 			</select>
-			<input id="search-query" type="text" placeholder="Enter exact id or name" style="min-width:180px;max-width:100%;">
+			<input id="search-query" type="text" placeholder="Enter exact id or name"
+				style="min-width:180px;max-width:100%;">
 			<button id="search-run" type="button">Search</button>
 			<button id="search-clear" type="button">Clear</button>
 		</div>
