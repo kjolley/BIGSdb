@@ -37,8 +37,12 @@ sub print_content {
 		say q(<h1>Plugin viewer</h1>);
 		return $self->print_bad_status( { message => q(Invalid plugin selected.) } );
 	}
-	say qq(<h1>$plugin viewer</h1>);
 	my $function = $q->param('function');
+	(my $display_function = ucfirst($function // q())) =~ s/_/ /gx;
+	my $title = qq($plugin viewer);
+	$title .= qq( - $display_function) if $display_function;
+	say qq(<h1>$title</h1>);
+	
 	if ( !defined $function ) {
 		opendir my $dh, $dir or $logger->error("Cannot open $dir for reading. $!");
 		my @available;
@@ -49,6 +53,7 @@ sub print_content {
 			if ( $file =~ /(\w+)\.html$/x ) {
 				my $function_name = $1;
 				my $name          = ucfirst $function_name;
+				$name =~ s/_/ /gx;
 				push @available, qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=pluginViewer&amp;plugin=$plugin&amp;function=$function_name&amp;job=$job_id">$name</a>);
 
