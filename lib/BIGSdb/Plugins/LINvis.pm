@@ -290,13 +290,13 @@ sub run_job {
 		$self->{'jobManager'}->update_job_status(
 			$job_id,
 			{
-					message_html => q(<p style="margin-top:2em;margin-bottom:2em">)
+					message_html => q(<div class="launch_buttonset">)
 				  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=circle&amp;job=$job_id" target="_blank" )
-				  . q(class="launchbutton" style="margin-right:0.5em">Launch Circle Packing</a>)
+				  . q(class="launchbutton">Launch Circle Packing</a>)
 				 . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=sunburst&amp;job=$job_id" target="_blank" )
-				  . q(class="launchbutton">Launch Sunburst</a> </p>)
+				  . q(class="launchbutton">Launch Sunburst</a> </div>)
 			}
 		);
 	}

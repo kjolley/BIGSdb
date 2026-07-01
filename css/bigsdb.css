@@ -845,6 +845,13 @@ input#file_upload {
 	max-width: 17em;
 }
 
+div.launch_buttonset {
+	display: flex;
+	flex-wrap: wrap;
+	gap:10px;
+	margin: 20px 0;
+}
+
 .launchbutton {
 	background: #3498db;
 	background-image: linear-gradient(to bottom, #3498db, #2980b9);
