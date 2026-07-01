@@ -649,14 +649,15 @@ Version 1.2.0.
 		const selectedLabels = getSelectedLabels();
 		const visibleNodes = nodes.filter(arcVisible);
 		const labelNodes = focus.descendants().filter(d => d.depth > focus.depth && arcVisible(d));
-		const requestedLabelCount = Math.max(0, parseInt(depthInput ? depthInput.value : labelDepth, 10) || 0);
-		const effectiveLabelCount = Math.max(0, requestedLabelCount - Math.max(0, focus.depth - 1));
+		const requestedLabelCount =
+		    Math.max(0, parseInt(depthInput ? depthInput.value : labelDepth, 10) || 0);
+
 		const autoLabelIds = selectedLabels
-			? new Set()
-			: buildAutoLabelSet(
-				labelNodes,
-				effectiveLabelCount
-			);
+		    ? new Set()
+		    : buildAutoLabelSet(
+		        labelNodes,
+		        requestedLabelCount
+		    );
 
 
 		const slices = arcLayer.selectAll("g.slice")

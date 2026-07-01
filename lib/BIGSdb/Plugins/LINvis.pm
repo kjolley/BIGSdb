@@ -84,6 +84,9 @@ sub _print_info_panel {
 	  . q(are drawn proportionally but other nodes are constrained by the packing of descendents, so outer nodes )
 	  . q(may have inconsistent sizes even when their leaf totals are the same. This is an inherent artefact of )
 	  . q(the circle-packing algorithm.</p>);
+	say q(<p>In the sunburst diagram, rings represent the different thresholds making up the LIN code and each )
+	. q(segment within a ring, representing a specific LIN code prefix, is sized proportionally with its frequency.)
+	. q(</p>);
 	say q(</div>);
 	return;
 }
