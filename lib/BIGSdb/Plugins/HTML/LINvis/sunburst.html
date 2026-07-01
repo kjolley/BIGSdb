@@ -11,7 +11,8 @@
 		margin: 0 auto;
 		box-sizing: border-box;
 		overflow: auto;
-		border: 1px dashed #888;
+		border: 1px solid rgba(130, 145, 165, 0.28);
+		border-radius: 12px;
 		background: #fff !important;
 	}
 
@@ -38,6 +39,7 @@
 		padding: 6px 8px;
 		border-radius: 6px;
 		font-size: 13px;
+		box-shadow: 0 8px 24px rgba(17, 24, 39, 0.10);
 	}
 
 	.file-control {
@@ -101,7 +103,7 @@
 			</div>
 		</details>
 		<div id="label-controls"
-			style="display:flex;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:4px;margin-top:4px;margin-bottom:8px">
+			style="display:flex;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:4px;margin-top:12px;margin-bottom:8px">
 			<div>
 				<p style="margin:0;">
 					Labels:
@@ -126,9 +128,14 @@
 					<summary style="cursor:pointer;white-space:nowrap;">Show specific labels</summary>
 					<div
 						style="position:absolute;top:100%;left:0;z-index:1000;background:rgba(255,255,255,0.98);border:1px solid #ccc;border-radius:6px;padding:8px;margin-top:4px;box-shadow:0 2px 6px rgba(0,0,0,0.15);width:260px;box-sizing:border-box;">
-						<div style="text-align:right;margin-bottom:4px;">
-							<button id="selected-labels-popout" type="button"
-								style="font-size:11px;padding:2px 6px;">Pop out</button>
+						<div style="text-align:right;margin-bottom:4px;display:flex;justify-content:flex-end;gap:6px;">
+							<button id="selected-labels-clear" type="button" style="font-size:11px;padding:2px 6px;">
+								<span class="fas fa-eraser"></span> Clear</button>
+							<button id="selected-labels-popout" type="button" style="font-size:11px;padding:2px 6px;">
+								<span class="fas fa-up-right-from-square"></span> Pop out</button>
+							<button id="selected-labels-close" type="button" style="font-size:11px;padding:2px 6px;">
+								<span class="fas fa-times"></span> Close
+							</button>
 						</div>
 						<div style="font-size:11px;color:#666;margin-bottom:4px;line-height:1.35;">
 							Enter one exact LIN prefix per line.<br>

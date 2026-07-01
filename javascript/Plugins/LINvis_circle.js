@@ -332,6 +332,8 @@ Version 1.2.0.
 
 	const selectedLabelsInput = document.getElementById("selected-labels");
 	const selectedLabelsPopoutBtn = document.getElementById("selected-labels-popout");
+	const selectedLabelsClearBtn = document.getElementById("selected-labels-clear");
+	const selectedLabelsCloseBtn = document.getElementById("selected-labels-close");
 	const selectedLabelsDetails = document.getElementById("selected-labels-details");
 
 	let selectedLabelsDetached = false;
@@ -844,6 +846,17 @@ Version 1.2.0.
 		if (!selectedLabelsPopoutBtn || !selectedLabelsDetails) return;
 
 		let dragState = null;
+		if (selectedLabelsClearBtn && selectedLabelsInput) {
+			selectedLabelsClearBtn.addEventListener('click', function() {
+				selectedLabelsInput.value = '';
+				selectedLabelsInput.dispatchEvent(new Event('input', { bubbles: true }));
+			});
+		}
+		if (selectedLabelsCloseBtn && selectedLabelsDetails) {
+			selectedLabelsCloseBtn.addEventListener('click', function() {
+				selectedLabelsDetails.open = false;
+			});
+		}
 
 		selectedLabelsPopoutBtn.addEventListener('click', function() {
 
@@ -865,8 +878,8 @@ Version 1.2.0.
 				panel.style.overflow = 'auto';
 				panel.style.cursor = 'move';
 
-				selectedLabelsPopoutBtn.textContent = 'Dock';
-
+				selectedLabelsPopoutBtn.innerHTML =
+					'<span class="fas fa-down-left-and-up-right-to-center"></span> Dock';
 				panel.addEventListener('pointerdown', function(ev) {
 
 					// avoid dragging while interacting with textarea/buttons
@@ -910,7 +923,8 @@ Version 1.2.0.
 				panel.style.resize = '';
 				panel.style.cursor = '';
 
-				selectedLabelsPopoutBtn.textContent = 'Pop out';
+				selectedLabelsPopoutBtn.innerHTML =
+					'<span class="fas fa-up-right-from-square"></span> Pop out';
 			}
 		});
 	})();

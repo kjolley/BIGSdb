@@ -309,6 +309,8 @@ Version 1.2.0.
 
 	const selectedLabelsInput = document.getElementById("selected-labels");
 	const selectedLabelsPopoutBtn = document.getElementById("selected-labels-popout");
+	const selectedLabelsClearBtn = document.getElementById("selected-labels-clear");
+	const selectedLabelsCloseBtn = document.getElementById("selected-labels-close");
 	const selectedLabelsDetails = document.getElementById("selected-labels-details");
 	let selectedLabelsDetached = false;
 
@@ -646,11 +648,14 @@ Version 1.2.0.
 
 		const selectedLabels = getSelectedLabels();
 		const visibleNodes = nodes.filter(arcVisible);
+		const labelNodes = focus.descendants().filter(d => d.depth > focus.depth && arcVisible(d));
+		const requestedLabelCount = Math.max(0, parseInt(depthInput ? depthInput.value : labelDepth, 10) || 0);
+		const effectiveLabelCount = Math.max(0, requestedLabelCount - Math.max(0, focus.depth - 1));
 		const autoLabelIds = selectedLabels
 			? new Set()
 			: buildAutoLabelSet(
-				visibleNodes,
-				Math.max(0, parseInt(depthInput ? depthInput.value : labelDepth, 10) || 0)
+				labelNodes,
+				effectiveLabelCount
 			);
 
 
@@ -923,6 +928,17 @@ Version 1.2.0.
 	(function attachSelectedLabelsPopout() {
 		if (!selectedLabelsPopoutBtn || !selectedLabelsDetails) return;
 		let dragState = null;
+		if (selectedLabelsClearBtn && selectedLabelsInput) {
+			selectedLabelsClearBtn.addEventListener('click', function() {
+				selectedLabelsInput.value = '';
+				selectedLabelsInput.dispatchEvent(new Event('input', { bubbles: true }));
+			});
+		}
+		if (selectedLabelsCloseBtn && selectedLabelsDetails) {
+			selectedLabelsCloseBtn.addEventListener('click', function() {
+				selectedLabelsDetails.open = false;
+			});
+		}
 		selectedLabelsPopoutBtn.addEventListener('click', function() {
 			const panel = selectedLabelsInput ? selectedLabelsInput.parentElement : null;
 			if (!panel) return;
@@ -935,7 +951,8 @@ Version 1.2.0.
 				panel.style.resize = 'none';
 				panel.style.overflow = 'auto';
 				panel.style.cursor = 'move';
-				selectedLabelsPopoutBtn.textContent = 'Dock';
+				selectedLabelsPopoutBtn.innerHTML =
+					'<span class="fas fa-down-left-and-up-right-to-center"></span> Dock';
 				panel.addEventListener('pointerdown', function(ev) {
 					if (ev.target.tagName === 'TEXTAREA' || ev.target.tagName === 'BUTTON') return;
 					dragState = { x: ev.clientX, y: ev.clientY, left: parseInt(panel.style.left || 0, 10), top: parseInt(panel.style.top || 0, 10) };
@@ -954,7 +971,8 @@ Version 1.2.0.
 				panel.style.zIndex = '1000';
 				panel.style.resize = '';
 				panel.style.cursor = '';
-				selectedLabelsPopoutBtn.textContent = 'Pop out';
+				selectedLabelsPopoutBtn.innerHTML =
+					'<span class="fas fa-up-right-from-square"></span> Pop out';
 			}
 		});
 	})();

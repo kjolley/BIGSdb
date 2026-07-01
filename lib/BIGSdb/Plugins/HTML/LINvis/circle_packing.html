@@ -18,7 +18,7 @@
 		border: 1px solid rgba(130, 145, 165, 0.28);
 		border-radius: 12px;
 		background: radial-gradient(circle at top left, #ffffff 0%, #f6f8fc 55%, #eef3f8 100%) !important;
-		box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08), inset 0 1px 0 rgba(255,255,255,0.75);
+		box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.75);
 	}
 
 	.tooltip {
@@ -46,7 +46,7 @@
 		font-size: 13px;
 		box-shadow: 0 8px 24px rgba(17, 24, 39, 0.10);
 	}
-	
+
 	#linvis_chart svg {
 		display: block;
 	}
@@ -135,8 +135,12 @@
 						border:1px solid #ccc;border-radius:6px;padding:8px;margin-top:4px;
 						box-shadow:0 2px 6px rgba(0,0,0,0.15);width:260px;box-sizing:border-box;">
 						<div style="text-align:right;margin-bottom:4px;">
+							<button id="selected-labels-clear" type="button" style="font-size:11px;padding:2px 6px;">
+								<span class="fas fa-eraser"></span> Clear</button>
 							<button id="selected-labels-popout" type="button" style="font-size:11px;padding:2px 6px;">
-								Pop out
+								<span class="fas fa-up-right-from-square"></span> Pop out</button>
+							<button id="selected-labels-close" type="button" style="font-size:11px;padding:2px 6px;">
+								<span class="fas fa-times"></span> Close
 							</button>
 						</div>
 						<div style="font-size:11px;color:#666;margin-bottom:4px;line-height:1.35;">

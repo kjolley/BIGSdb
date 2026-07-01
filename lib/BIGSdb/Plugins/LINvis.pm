@@ -292,7 +292,7 @@ sub run_job {
 			{
 					message_html => q(<div class="launch_buttonset">)
 				  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=circle&amp;job=$job_id" target="_blank" )
+				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=circle_packing&amp;job=$job_id" target="_blank" )
 				  . q(class="launchbutton">Launch Circle Packing</a>)
 				 . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=sunburst&amp;job=$job_id" target="_blank" )
