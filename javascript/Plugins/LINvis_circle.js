@@ -1175,7 +1175,7 @@ Version 1.2.0.
 			textEl.style.removeProperty('stroke');
 			textEl.style.removeProperty('stroke-width');
 
-			if (labelDepth === 0 || collapsedDepths.has(d.depth)) {
+			if ((!selectedLabels && labelDepth === 0) || collapsedDepths.has(d.depth)) {
 				textEl.style.opacity = '0';
 				continue;
 			}
