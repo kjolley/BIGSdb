@@ -1445,7 +1445,10 @@ Version 1.2.0.
 		if (nodes.length === 1) {
 			const d = nodes[0];
 			const recs = (d.data && Array.isArray(d.data.records)) ? d.data.records : [];
-			const found = recs.length ? recs[0] : null;
+			const query = String(searchState.query || "").trim();
+			const found = searchState.mode === "name"
+				? (recs.find(rec => rec && rec.name === query) || recs[0] || null)
+				: (recs.find(rec => rec && String(rec.id) === query) || recs[0] || null);
 
 			if (searchState.mode === "id") {
 				searchResultsEl.textContent = found && found.id != null
