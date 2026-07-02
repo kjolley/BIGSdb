@@ -358,7 +358,8 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	my $icon = $self->get_form_icon( 'profiles', 'plus' );
 	say $icon;
-	say qq(<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).$msg</p>);
+	say q(<p>Please fill in the fields below - required fields are marked )
+	  . qq(<label class="required">in bold</label>.$msg</p>);
 	say q(<fieldset style="float:left"><legend>Record</legend>);
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $fields       = $self->{'datastore'}->get_scheme_fields($scheme_id);

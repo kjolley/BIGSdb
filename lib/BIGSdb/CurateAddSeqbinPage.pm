@@ -126,7 +126,8 @@ sub _print_interface {
 	say $q->start_form;
 	my ( $users, $user_names ) =
 	  $self->{'datastore'}->get_users( { blank_message => 'Select sender...' } );
-	say q(<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>);
+	say q(<p>Please fill in the following fields - required fields are marked )
+	  . q(<label class="required">in bold</label>.</p>);
 	say q(<fieldset style="float:left"><legend>Paste in sequences in FASTA format:</legend>);
 	say $q->hidden($_) foreach qw (page db);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
