@@ -369,8 +369,9 @@ sub _print_interface {
 	print $q->start_form;
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (page db sent scheme_id submission_id);
+	( my $cleaned_pk = $primary_key ) =~ s/_/ /gx;
 	say q(<div class="form_container">);
-	say qq(<div class="form_label"><label for="field_$primary_key" class="required">$primary_key:</label></div>);
+	say qq(<div class="form_label"><label for="field_$primary_key" class="required">$cleaned_pk:</label></div>);
 	say q(<div class="form_value">);
 	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my %html5_args    = ( required => 'required' );
@@ -395,6 +396,7 @@ sub _print_interface {
 		$html5_args{'type'} = 'number'
 		  if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
 		my $cleaned = $self->clean_locus( $locus, { no_common_name => 1, strip_links => 1 } );
+		$cleaned =~ s/_/ /gx;
 		say qq(<div class="form_label"><label for="locus_$locus" class="required">$cleaned:</label></div>);
 		say q(<div class="form_value">);
 		say $self->textfield(
@@ -423,7 +425,8 @@ sub _print_interface {
 		$scheme_field_info  = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		%html5_args         = ();
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
-		say qq(<div class="form_label"><label for="field_$field">$field:</label></div>);
+		( my $cleaned = $field ) =~ s/_/ /gx;
+		say qq(<div class="form_label"><label for="field_$field">$cleaned:</label></div>);
 		say q(<div class="form_value">);
 		if ( defined $scheme_field_info->{'option_list'} ) {
 			my @optlist = split /\|/x, $scheme_field_info->{'option_list'};
@@ -450,7 +453,7 @@ sub _print_interface {
 	say q(<div class="form_label"><label class="required">curator:</label></div>);
 	say q(<div class="form_value">);
 	say $self->get_curator_name . q[ (] . $self->{'username'} . q[)</div>];
-	say q(<div class="form_label"><label class="required">date_entered:</label></div>);
+	say q(<div class="form_label"><label class="required">date entered:</label></div>);
 	say q(<div class="form_value">);
 	say BIGSdb::Utils::get_datestamp();
 	say q(</div>);
