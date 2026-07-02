@@ -457,7 +457,7 @@ sub _print_interface {
 	say q(<div class="form_value">);
 	say BIGSdb::Utils::get_datestamp();
 	say q(</div>);
-	say q(<div class="form_label"><label class="required">datestamp: !</label></div>);
+	say q(<div class="form_label"><label class="required">datestamp:</label></div>);
 	say q(<div class="form_value">);
 	say BIGSdb::Utils::get_datestamp();
 	say q(</div>);
