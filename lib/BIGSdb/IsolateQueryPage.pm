@@ -1947,7 +1947,7 @@ sub _print_annotation_status_fields {
 		-name   => "annotation_status_value$row",
 		-id     => "annotation_status_value$row",
 		-values => $values,
-		-style  => 'width:120px',
+		-style  => 'width:140px',
 		-class  => 'do_not_calc_width'
 	);
 	if ( $row == 1 ) {
