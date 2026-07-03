@@ -57,7 +57,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer allowExpand);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer allowExpand lightbox);
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	foreach my $field ( keys %$field_attributes ) {
 		if ( $field_attributes->{$field}->{'type'} eq 'geography_point'

@@ -199,8 +199,8 @@ sub get_plugin_categories {
 			}
 		}
 	}
-	my @ordered = grep { $have{$_} } @preferred_order;
-	my %in_pref = map { $_ => 1 } @preferred_order;
+	my @ordered   = grep { $have{$_} } @preferred_order;
+	my %in_pref   = map  { $_ => 1 } @preferred_order;
 	my @remaining = grep { $have{$_} && !$in_pref{$_} } @categories;
 	@remaining = sort { lc $a cmp lc $b } @remaining;
 	push @ordered, @remaining;
@@ -416,7 +416,8 @@ sub _has_required_item {
 		rmlst_access_secret    => 'rmlst_oauth',
 		plasmidfinder          => 'PlasmidFinder',
 		plasmidfinder_db_path  => 'PlasmidFinder',
-		lintree_path           => 'LINtree'
+		lintree_path           => 'LINtree',
+		flavotyper_path        => 'FlavoTyper'
 	);
 	return 1 if !$required_attr;
 	foreach my $config_param ( keys %requires ) {
