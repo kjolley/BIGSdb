@@ -359,13 +359,13 @@ sub _get_lincode_values {
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)', [ $scheme_id, $field ] );
 		}
-		my $order =
+		my $typed_value =
 		  $self->{'cache'}->{'lincode_field_type'}->{$field} eq 'integer'
 		  ? 'CAST(value AS integer)'
 		  : 'value';
 		my $field_values = $self->{'datastore'}->run_query(
-			"SELECT DISTINCT(value) FROM $join_table WHERE "
-			  . "(lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)=(?,?,?) ORDER BY $order",
+			"SELECT DISTINCT($typed_value) FROM $join_table WHERE "
+			  . "(lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)=(?,?,?) ORDER BY $typed_value",
 			[ $scheme_id, $field, $lincode ],
 			{ fetch => 'col_arrayref' }
 		);
