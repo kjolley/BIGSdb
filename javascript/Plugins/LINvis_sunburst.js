@@ -654,14 +654,14 @@ Version 1.2.0.
 		const visibleNodes = nodes.filter(arcVisible);
 		const labelNodes = focus.descendants().filter(d => d.depth > focus.depth && arcVisible(d));
 		const requestedLabelCount =
-		    Math.max(0, parseInt(depthInput ? depthInput.value : labelDepth, 10) || 0);
+			Math.max(0, parseInt(depthInput ? depthInput.value : labelDepth, 10) || 0);
 
 		const autoLabelIds = selectedLabels
-		    ? new Set()
-		    : buildAutoLabelSet(
-		        labelNodes,
-		        requestedLabelCount
-		    );
+			? new Set()
+			: buildAutoLabelSet(
+				labelNodes,
+				requestedLabelCount
+			);
 
 
 		const slices = arcLayer.selectAll("g.slice")
@@ -889,11 +889,18 @@ Version 1.2.0.
 		if (nodesForResult.length === 1) {
 			const d = nodesForResult[0];
 			const recs = (d.data && Array.isArray(d.data.records)) ? d.data.records : [];
-			const found = recs.length ? recs[0] : null;
+			const query = String(searchState.query || "").trim();
+				const found = searchState.mode === "name"
+					? (recs.find(rec => rec && rec.name === query) || recs[0] || null)
+					: (recs.find(rec => rec && String(rec.id) === query) || recs[0] || null);
 			if (searchState.mode === "id") {
-				searchResultsEl.textContent = found && found.id != null ? ("Isolate " + found.id + " found.") : "Isolate found.";
+				searchResultsEl.textContent = found && found.id != null
+					? ("Isolate " + found.id + " found.")
+					: "Isolate found.";
 			} else {
-				searchResultsEl.textContent = found && found.name ? ("Isolate " + found.name + " found.") : "Isolate found.";
+				searchResultsEl.textContent = found && found.name
+					? ("Isolate " + found.name + " found.")
+					: "Isolate found.";
 			}
 			return;
 		}
