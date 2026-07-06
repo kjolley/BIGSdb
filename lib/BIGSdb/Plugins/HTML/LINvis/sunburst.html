@@ -6,19 +6,14 @@
 
 	#linvis_chart {
 		position: relative;
-		/* critical: makes children absolute position relative to this div */
 		width: 100%;
 		aspect-ratio: 1/1;
-		/* set desired area height (or use min-height) */
 		margin: 0 auto;
-		/* optional centering */
 		box-sizing: border-box;
-		overflow: hidden;
-		/* keep canvas/svg inside container */
+		overflow: auto;
 		border: 1px solid rgba(130, 145, 165, 0.28);
 		border-radius: 12px;
-		background: radial-gradient(circle at top left, #ffffff 0%, #f6f8fc 55%, #eef3f8 100%) !important;
-		box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08), inset 0 1px 0 rgba(255,255,255,0.75);
+		background: #fff !important;
 	}
 
 	.tooltip {
@@ -46,10 +41,6 @@
 		font-size: 13px;
 		box-shadow: 0 8px 24px rgba(17, 24, 39, 0.10);
 	}
-	
-	#linvis_chart svg {
-		display: block;
-	}
 
 	.file-control {
 		margin-bottom: 10px
@@ -64,7 +55,6 @@
 		width: 56px;
 	}
 
-	/* hide native number input spinners (desktop) so explicit buttons are used */
 	input[type="number"]::-webkit-inner-spin-button,
 	input[type="number"]::-webkit-outer-spin-button {
 		-webkit-appearance: none;
@@ -73,6 +63,7 @@
 
 	input[type="number"] {
 		-moz-appearance: textfield;
+		appearance: textfield;
 	}
 
 	div#waiting {
@@ -84,28 +75,38 @@
 		color: crimson;
 	}
 </style>
-
 <div style="position:relative">
 	<div class="control">
 		<div id="linvis-file-wrapper" class="file-control">
 			<input id="linvis-file" type="file" accept=".json">
 			<button onclick="location.reload()">Load File</button>
 		</div>
-		<p>
+		<p style="margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-right:28px;">
 			<button id="linvis-recenter-btn" type="button"><span class="fas fa-anchor"></span> Anchor top-left</button>
-			<button id="linvis-fit-width-btn" type="button" style="margin-left:6px;"><span
-					class="fas fa-arrows-h"></span> Fit width</button>
-			<button id="linvis-fit-height-btn" type="button" style="margin-left:6px;"><span
-					class="fas fa-arrows-v"></span> Fit height</button>
-			<button id="linvis-export-svg-btn" type="button" style="margin-left:6px;"><span
-					class="fas fa-download"></span> Export SVG</button>
-		</p>
-		<div id="label-controls"
-			style="display:flex;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:4px;margin-top:4px;margin-bottom:8px">
+			<button id="linvis-fit-width-btn" type="button"><span class="fas fa-arrows-h"></span> Fit width</button>
+			<button id="linvis-fit-height-btn" type="button"><span class="fas fa-arrows-v"></span> Fit height</button>
+			<button id="linvis-export-svg-btn" type="button"><span class="fas fa-download"></span> Export SVG</button>
 
+		</p>
+		<details id="linvis-help" style="position:absolute;top:8px;right:8px;z-index:1001;">
+			<summary
+				style="list-style:none;cursor:pointer;width:18px;height:18px;border:1px solid #888;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;user-select:none;background:#fff;line-height:1;">
+				?</summary>
+			<div
+				style="position:absolute;right:0;top:calc(100% + 6px);width:min(260px,calc(100vw - 24px));padding:10px;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1000;font-size:12px;line-height:1.5;white-space:normal;overflow-wrap:anywhere;">
+				<b>Navigation</b><br><br>
+				Click a segment to zoom into that branch.<br>
+				Click outside the circle to return to the full view.<br>
+				Drag to move the chart.<br>
+				Mouse wheel zooms the chart.<br>
+				<em>Anchor top-left</em> repositions the chart.
+			</div>
+		</details>
+		<div id="label-controls"
+			style="display:flex;flex-wrap:wrap;align-items:center;column-gap:18px;row-gap:4px;margin-top:12px;margin-bottom:8px">
 			<div>
 				<p style="margin:0;">
-					Label depth:
+					Labels:
 					<button id="depth-decr" type="button" aria-label="Decrease depth" style="margin-left:8px;"><span
 							class="fas fa-minus"></span></button>
 					<input id="depth" type="number" min="0" value="1" style="width:56px; text-align:center; margin:0" />
@@ -113,7 +114,6 @@
 							class="fas fa-plus"></span></button>
 				</p>
 			</div>
-
 			<div>
 				<p style="margin:0;">
 					Label size:
@@ -123,29 +123,27 @@
 							class="fas fa-plus"></span></button>
 				</p>
 			</div>
-
 			<div style="min-width:240px;max-width:100%;">
-
 				<details id="selected-labels-details" style="position:relative;display:inline-block;">
-					<summary style="cursor:pointer;white-space:nowrap;">
-						Show specific labels
-					</summary>
-
-					<div style="position:absolute;top:100%;left:0;z-index:1000;	background:rgba(255,255,255,0.98);
-						border:1px solid #ccc;border-radius:6px;padding:8px;margin-top:4px;
-						box-shadow:0 2px 6px rgba(0,0,0,0.15);width:260px;box-sizing:border-box;">
-						<div style="text-align:right;margin-bottom:4px;">
+					<summary style="cursor:pointer;white-space:nowrap;">Show specific labels</summary>
+					<div
+						style="position:absolute;top:100%;left:0;z-index:1000;background:rgba(255,255,255,0.98);border:1px solid #ccc;border-radius:6px;padding:8px;margin-top:4px;box-shadow:0 2px 6px rgba(0,0,0,0.15);width:260px;box-sizing:border-box;">
+						<div style="text-align:right;margin-bottom:4px;display:flex;justify-content:flex-end;gap:6px;">
+							<button id="selected-labels-clear" type="button" style="font-size:11px;padding:2px 6px;">
+								<span class="fas fa-eraser"></span> Clear</button>
 							<button id="selected-labels-popout" type="button" style="font-size:11px;padding:2px 6px;">
-								Pop out
+								<span class="fas fa-up-right-from-square"></span> Pop out</button>
+							<button id="selected-labels-close" type="button" style="font-size:11px;padding:2px 6px;">
+								<span class="fas fa-times"></span> Close
 							</button>
 						</div>
 						<div style="font-size:11px;color:#666;margin-bottom:4px;line-height:1.35;">
 							Enter one exact LIN prefix per line.<br>
-							When populated, label depth is ignored.
+							When populated, automatic labels are ignored.
 						</div>
-
-						<textarea id="selected-labels" rows="5" style="width:100%;
-						box-sizing:border-box;resize:vertical;max-width:100%;min-width:100%;font-family:monospace;" placeholder="Example:
+						<textarea id="selected-labels" rows="5"
+							style="width:100%;box-sizing:border-box;resize:vertical;max-width:100%;min-width:100%;font-family:monospace;"
+							placeholder="Example:
 34_0_0_0_0
 6_0_1_19"></textarea>
 					</div>
@@ -174,5 +172,5 @@
 	<div id="tooltip" class="tooltip"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
-<script src="/javascript/Plugins/LINvis.min.js"></script>
+<script src="/javascript/d3.v6.min.js"></script>
+<script src="/javascript/Plugins/LINvis_sunburst.min.js"></script>

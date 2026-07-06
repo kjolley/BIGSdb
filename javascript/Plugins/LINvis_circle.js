@@ -1,4 +1,4 @@
-/*LINvis.js
+/*LINvis_circle.js
 Written by Keith Jolley
 Copyright (c) 2026, University of Oxford
 E-mail: keith.jolley@biology.ox.ac.uk
@@ -21,7 +21,7 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-Version 1.1.1.
+Version 1.2.0.
 */
 
 
@@ -332,6 +332,8 @@ Version 1.1.1.
 
 	const selectedLabelsInput = document.getElementById("selected-labels");
 	const selectedLabelsPopoutBtn = document.getElementById("selected-labels-popout");
+	const selectedLabelsClearBtn = document.getElementById("selected-labels-clear");
+	const selectedLabelsCloseBtn = document.getElementById("selected-labels-close");
 	const selectedLabelsDetails = document.getElementById("selected-labels-details");
 
 	let selectedLabelsDetached = false;
@@ -844,6 +846,17 @@ Version 1.1.1.
 		if (!selectedLabelsPopoutBtn || !selectedLabelsDetails) return;
 
 		let dragState = null;
+		if (selectedLabelsClearBtn && selectedLabelsInput) {
+			selectedLabelsClearBtn.addEventListener('click', function() {
+				selectedLabelsInput.value = '';
+				selectedLabelsInput.dispatchEvent(new Event('input', { bubbles: true }));
+			});
+		}
+		if (selectedLabelsCloseBtn && selectedLabelsDetails) {
+			selectedLabelsCloseBtn.addEventListener('click', function() {
+				selectedLabelsDetails.open = false;
+			});
+		}
 
 		selectedLabelsPopoutBtn.addEventListener('click', function() {
 
@@ -865,8 +878,8 @@ Version 1.1.1.
 				panel.style.overflow = 'auto';
 				panel.style.cursor = 'move';
 
-				selectedLabelsPopoutBtn.textContent = 'Dock';
-
+				selectedLabelsPopoutBtn.innerHTML =
+					'<span class="fas fa-down-left-and-up-right-to-center"></span> Dock';
 				panel.addEventListener('pointerdown', function(ev) {
 
 					// avoid dragging while interacting with textarea/buttons
@@ -910,7 +923,8 @@ Version 1.1.1.
 				panel.style.resize = '';
 				panel.style.cursor = '';
 
-				selectedLabelsPopoutBtn.textContent = 'Pop out';
+				selectedLabelsPopoutBtn.innerHTML =
+					'<span class="fas fa-up-right-from-square"></span> Pop out';
 			}
 		});
 	})();
@@ -1161,7 +1175,7 @@ Version 1.1.1.
 			textEl.style.removeProperty('stroke');
 			textEl.style.removeProperty('stroke-width');
 
-			if (labelDepth === 0 || collapsedDepths.has(d.depth)) {
+			if ((!selectedLabels && labelDepth === 0) || collapsedDepths.has(d.depth)) {
 				textEl.style.opacity = '0';
 				continue;
 			}
@@ -1431,7 +1445,10 @@ Version 1.1.1.
 		if (nodes.length === 1) {
 			const d = nodes[0];
 			const recs = (d.data && Array.isArray(d.data.records)) ? d.data.records : [];
-			const found = recs.length ? recs[0] : null;
+			const query = String(searchState.query || "").trim();
+			const found = searchState.mode === "name"
+				? (recs.find(rec => rec && rec.name === query) || recs[0] || null)
+				: (recs.find(rec => rec && String(rec.id) === query) || recs[0] || null);
 
 			if (searchState.mode === "id") {
 				searchResultsEl.textContent = found && found.id != null
