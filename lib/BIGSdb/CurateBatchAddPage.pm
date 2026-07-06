@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -989,6 +989,12 @@ sub _run_table_specific_reformatting {
 		},
 		dna_mutations => sub {
 			$self->_rewrite_mutations_data($new_args);
+		},
+		probes => sub {
+			$self->_rewrite_sequence_data($new_args);
+		},
+		pcr => sub {
+			$self->_rewrite_primer_data($new_args);
 		}
 	);
 	$methods{$table}->() if $methods{$table};
@@ -1011,6 +1017,26 @@ sub _rewrite_geography_point_data {
 	return if !$geo_fields->{$field};
 	if ( $$value =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
 		$$value = $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
+	}
+	return;
+}
+
+sub _rewrite_sequence_data {
+	my ( $self,  $args )  = @_;
+	my ( $field, $value ) = @{$args}{qw(field value)};
+	if ($field eq 'sequence'){
+		$$value =~ s/\s//gx;
+		$$value = uc($$value);
+	}
+	return;
+}
+
+sub _rewrite_primer_data {
+	my ( $self,  $args )  = @_;
+	my ( $field, $value ) = @{$args}{qw(field value)};
+	if ($field =~ /^primer\d$/x){
+		$$value =~ s/\s//gx;
+		$$value = uc($$value);
 	}
 	return;
 }
