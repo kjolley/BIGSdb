@@ -27,6 +27,7 @@ use List::MoreUtils qw(uniq);
 use Text::CSV;
 use File::Path qw(make_path rmtree);
 use JSON;
+use Encode qw(decode_utf8);
 use File::Copy;
 
 use Log::Log4perl qw(get_logger);
@@ -58,7 +59,7 @@ sub get_attributes {
 		buttontext          => 'Kaptive',
 		menutext            => 'Kaptive',
 		module              => 'Kaptive',
-		version             => '1.0.2',
+		version             => '1.0.3',
 		dbtype              => 'isolates',
 		section             => 'analysis,isolate_info,postquery',
 		input               => 'query',
@@ -481,12 +482,13 @@ sub _store_results {
 	  qw(strain contig_count N50 largest_contig total_size ambiguous_bases ST Chr_ST gapA infB mdh pgi phoE rpoB tonB);
 	my $version = $self->_get_kaptive_version;
 	my $json    = encode_json( { version => $version, data => $data } );
+	my $json_text = decode_utf8($json);
 	my $att     = $self->get_attributes;
 	eval {
 		$self->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );
 		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
-			undef, $att->{'module'}, $isolate_id, $json );
+			undef, $att->{'module'}, $isolate_id, $json_text );
 		$self->{'db'}->do(
 			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
 			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',
