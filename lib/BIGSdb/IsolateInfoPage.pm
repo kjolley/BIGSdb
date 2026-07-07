@@ -301,6 +301,7 @@ sub _get_child_group_scheme_tables {
 	);
 	my $parent_buffer;
 	my $parent_group_info = $self->{'datastore'}->get_scheme_group_info($group_id);
+
 	if ( $self->{'groups_with_data'}->{$group_id} ) {
 		my $parent_level = $level - 1;
 		if ( $self->{'open_divs'} > $parent_level ) {
@@ -311,14 +312,15 @@ sub _get_child_group_scheme_tables {
 			}
 		}
 		my $style = $options->{'no_render'} ? q() : q( style="float:left;padding-right:0.5em");
-		$parent_buffer .=
-		  qq(<div$style>\n) . qq(<h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>\n);
+		$parent_buffer .= qq(<div$style>\n<h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>\n);
 		$self->{'open_divs'}++;
 	}
 	my $group_buffer = q();
 	if (@$child_groups) {
+		my $child_group_with_data;
 		foreach my $child_group (@$child_groups) {
 			if ( $self->{'groups_with_data'}->{$child_group} ) {
+				$child_group_with_data = 1;
 				my $group_info = $self->{'datastore'}->get_scheme_group_info($child_group);
 				my $new_level  = $level;
 				last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
@@ -335,6 +337,11 @@ sub _get_child_group_scheme_tables {
 					$group_buffer .= $buffer;
 				}
 			}
+		}
+		if ( !$child_group_with_data ) {
+
+			#discarding unopened div.
+			$self->{'open_divs'}--;
 		}
 	} else {
 		my $buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id, $options );
@@ -763,6 +770,7 @@ sub _close_divs {
 	my ($self) = @_;
 	if ( $self->{'open_divs'} ) {
 		for ( 0 .. $self->{'open_divs'} - 1 ) {
+			$self->{'open_divs'}--;
 			say q(</div>);
 		}
 		$self->{'open_divs'} = 0;
