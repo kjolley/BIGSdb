@@ -1,4 +1,4 @@
-/*Version: 20260706*/
+/*Version: 20260708*/
 /*@font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2');
@@ -2249,7 +2249,7 @@ div#chart {
 }
 
 div#sequence {
-	background: #efefff
+	background: #f3f7fc
 }
 
 div#curator {
