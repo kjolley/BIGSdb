@@ -2035,10 +2035,13 @@ sub _simulate_hybridization {
 		$probe_info{ $probe->{'id'} } = $probe;
 	}
 	close $fh;
-	if ( !$self->{'probe_db_created'}->{$fasta_file} ) {
+	my $contig_db_exists;
+	foreach my $suffix (qw(nsq nin nhr)) {
+		$contig_db_exists = 1 if -e "$fasta_file.$suffix";
+	}
+	if ( !$contig_db_exists ) {
 		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
 			( -in => $fasta_file, -logfile => '/dev/null', -dbtype => 'nucl' ) );
-		$self->{'probe_db_created'}->{$fasta_file} = 1;
 	}
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 
