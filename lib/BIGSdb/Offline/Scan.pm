@@ -1573,7 +1573,17 @@ sub _identify_match_ends {
 
 sub _predict_allele_ends {
 	my ( $self, $length, $match, $record ) = @_;
-	if ( $length != $match->{'alignment'} ) {
+
+	# Don't use BLAST alignment length here.
+	# A gapped alignment may have alignment_length == allele_length
+	# while still not covering all allele positions (e.g. send < allele_length).
+	# Use subject coordinate coverage instead.
+	my $subject_start = $record->[8] < $record->[9] ? $record->[8] : $record->[9];
+	my $subject_end   = $record->[8] > $record->[9] ? $record->[8] : $record->[9];
+
+	my $subject_coverage = $subject_end - $subject_start + 1;
+
+	if ( $subject_coverage != $length ) {
 		if ( $match->{'reverse'} ) {
 			if ( $record->[8] < $record->[9] ) {
 				$match->{'predicted_start'} = $match->{'start'} - $length + $record->[9];
