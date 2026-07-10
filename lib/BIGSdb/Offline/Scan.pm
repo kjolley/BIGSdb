@@ -2032,8 +2032,13 @@ sub _simulate_hybridization {
 		$probe_info{ $probe->{'id'} } = $probe;
 	}
 	close $fh;
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-		( -in => $fasta_file, -logfile => '/dev/null', -dbtype => 'nucl' ) );
+	if ( !$self->{'probe_db_created'}->{$fasta_file} ) {
+		system(
+			"$self->{'config'}->{'blast+_path'}/makeblastdb",
+			( -in => $fasta_file, -logfile => '/dev/null', -dbtype => 'nucl' )
+		);
+		$self->{'probe_db_created'}->{$fasta_file} = 1;
+	}
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
 	system(
 		"$self->{'config'}->{'blast+_path'}/blastn",
