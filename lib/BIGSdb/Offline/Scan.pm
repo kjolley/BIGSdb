@@ -2017,9 +2017,11 @@ sub _simulate_hybridization {
 	open( my $fh, '>', $probe_fasta_file )
 	  or $logger->error("Can't open temp file $probe_fasta_file for writing");
 	my %probe_info;
+	my $shortest_probe_length = INF;
 
 	foreach my $probe (@$probes) {
 		$probe->{'sequence'} =~ s/\s//gx;
+		my $length = length( $probe->{'sequence'} );
 		print $fh ">$probe->{'id'}\n$probe->{'sequence'}\n";
 		$probe->{'max_mismatch'} = 0 if !$probe->{'max_mismatch'};
 		if ( $q->param('alter_probe_mismatches') && $q->param('alter_probe_mismatches') =~ /([\-\+]\d)/x ) {
@@ -2029,23 +2031,32 @@ sub _simulate_hybridization {
 		}
 		$probe->{'max_gaps'}          = 0                           if !$probe->{'max_gaps'};
 		$probe->{'min_alignment'}     = length $probe->{'sequence'} if !$probe->{'min_alignment'};
+		$shortest_probe_length        = $length                     if $shortest_probe_length > $length;
 		$probe_info{ $probe->{'id'} } = $probe;
 	}
 	close $fh;
 	if ( !$self->{'probe_db_created'}->{$fasta_file} ) {
-		system(
-			"$self->{'config'}->{'blast+_path'}/makeblastdb",
-			( -in => $fasta_file, -logfile => '/dev/null', -dbtype => 'nucl' )
-		);
+		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+			( -in => $fasta_file, -logfile => '/dev/null', -dbtype => 'nucl' ) );
 		$self->{'probe_db_created'}->{$fasta_file} = 1;
 	}
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+
+	my $word_size = 11;
+	if ( $shortest_probe_length >= 400 ) {
+		$word_size = 28;
+	} elsif ( $shortest_probe_length >= 100 ) {
+		$word_size = 20;
+	}
+
+	my $task = $shortest_probe_length > 100 ? 'megablast' : 'blastn';
 	system(
 		"$self->{'config'}->{'blast+_path'}/blastn",
 		(
-			-task            => 'blastn',
+			-task            => $task,
 			-num_threads     => $blast_threads,
-			-max_target_seqs => 1000,
+			-max_target_seqs => 100,
+			-word_size       => $word_size,
 			-db              => $fasta_file,
 			-out             => $results_file,
 			-query           => $probe_fasta_file,
