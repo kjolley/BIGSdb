@@ -2097,6 +2097,10 @@ sub _probe_filter_match {
 				$probe_distance = $end_distance;
 			}
 		}
+		if ( !defined $self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} } ) {
+			$logger->error("Probe locus link for locus: $locus; probe: $match->{'probe_id'} does not exist.");
+			next;
+		}
 		next
 		  if ( $probe_distance > $self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} }->{'max_distance'} )
 		  || $probe_distance == -1;
