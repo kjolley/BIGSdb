@@ -2104,6 +2104,7 @@ sub _probe_filter_match {
 
 	#TODO Requires matches to all probes. Add option to loci table to allow match to ANY.
 	use constant MATCH_ALL => 1;
+	return 0 if !@$probe_matches;
 	my $good_match = 0;
 	my %matched_probe;
 	foreach my $match (@$probe_matches) {
