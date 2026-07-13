@@ -1,4 +1,5 @@
 v1.53.4: *Sunburst visualisation in LINvis.
+         *FlavoTyper plugin for Flavobacterium psychrophilum.
 v1.53.3: *Visual refresh of the web interface.
 v1.53.2: *New LINvis functionality:
            - Support for labelling list of specific LIN prefixes.
