@@ -1,4 +1,4 @@
-/*Version: 20260708*/
+/*Version: 20260713*/
 /*@font-face {
 	font-family: 'tinosregular';
 	src: url('/webfonts/tinos-regular-webfont.woff2') format('woff2');
@@ -848,7 +848,7 @@ input#file_upload {
 div.launch_buttonset {
 	display: flex;
 	flex-wrap: wrap;
-	gap:10px;
+	gap: 10px;
 	margin: 20px 0;
 }
 
@@ -1266,7 +1266,8 @@ div.smooth_enlarge {
 	transition: width 0.5s
 }
 
-div.reset, div.restricted {
+div.reset,
+div.restricted {
 	background: #faf7f7;
 	border: 1px solid #eadede;
 }
@@ -2464,9 +2465,11 @@ div.message {
 }
 
 div.announcement {
-	background: #f0e9cc;
+	background: #f3f7fc;
+	border: 1px solid #d6e3f3;
+	color: #1d3557;
 	padding: 10px 10px 1px 10px;
-	color: #006
+	border-left: 4px solid #b9a037;
 }
 
 div#pluginbanner {
@@ -2502,7 +2505,7 @@ div.report_file_output {
 	float: left;
 	margin-right: 1em;
 	margin-bottom: 1em;
-	
+
 }
 
 div.file_output {
