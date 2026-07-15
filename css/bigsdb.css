@@ -44,7 +44,7 @@
 	--button-secondary-text: var(--brand-primary);
 	
 	/* tables */
-	--table-header-bg: var(--brand-primary);
+	--table-header-bg: #49709e;
 	--table-header-text: white;
 	--table-row: #f6f6ff;
 	--table-row-alt: transparent;
