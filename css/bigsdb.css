@@ -1176,7 +1176,7 @@ div.multi_menu_trigger:hover {
 
 div.menu_item_login {
 	background: var(--brand-secondary-light);
-	color: #8b5292;
+	color: var(--link-hover);
 }
 
 a div.menu_item_login:hover,
