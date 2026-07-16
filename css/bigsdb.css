@@ -1170,7 +1170,7 @@ div.multi_menu_trigger {
 div.menu_item:hover,
 a div.multi_menu_link:hover,
 div.multi_menu_trigger:hover {
-	background: #2779a8;
+	background: var(--link);
 	color: #fffeff;
 }
 
