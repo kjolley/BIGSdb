@@ -19,6 +19,7 @@
 	--text-secondary: #58657a;
 	--text-muted: #888888;
 	--text-heading: #435973;
+	--text-heading-secondary: #585874;
 	--text-info:#1d3557;
 
 	/* links */
@@ -47,7 +48,8 @@
 	/* tables */
 	--table-header-bg: #49709e;
 	--table-header-text: white;
-	--table-row: #f6f6ff;
+	--table-row: #f6f6ff; /* main table row */
+	--table-row-dark: #f0f0ff; /* table on results panel */
 	--table-row-alt: transparent;
 	
 }
@@ -159,14 +161,14 @@ h2 a:hover {
 
 h3 {
 	font: 500 18px ibm_plex_sans, sans-serif;
-	color: #585874;
+	color: var(--text-heading-secondary);
 }
 
 h4,
 h5,
 h6 {
 	font: 400 16px ibm_plex_sans, sans-serif;
-	color: #585858;
+	color: var(--text-heading-secondary);
 }
 
 textarea {
@@ -921,7 +923,7 @@ input.pagebar:hover {
 }
 
 .td1 {
-	background: #f0f0ff;
+	background: var(--table-row-dark);
 	vertical-align: top
 }
 
@@ -978,7 +980,7 @@ table.tablesorter tr.even td {
 }
 
 table.tablesorter tr.odd td {
-	background: #f0f0ff;
+	background: var(--table-row-dark);
 	text-align: center
 }
 
@@ -3045,11 +3047,13 @@ span.curate_icon_span {
 }
 
 span.info_icon {
-	color: #477;
+	color: var(--text-heading);
+	opacity: 0.8;
 }
 
 span.subinfo_icon {
-	color: #66a;
+	color: var(--text-heading-secondary);
+	opacity: 0.8;
 }
 
 span.nav_icon {
