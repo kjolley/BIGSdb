@@ -20,7 +20,7 @@
 	--text-muted: #888888;
 	--text-heading: #435973;
 	--text-heading-secondary: #585874;
-	--text-info:#1d3557;
+	--text-info: #1d3557;
 
 	/* links */
 	--link: #2779a8;
@@ -39,19 +39,25 @@
 	--button-bg: var(--brand-primary);
 	--button-bg-hover: var(--brand-secondary);
 	--button-text: white;
-	
+
 	--button-secondary-bg: white;
 	--button-secondary-text-hover: var(--brand-secondary);
 	--button-secondary-border: var(--brand-primary);
 	--button-secondary-text: var(--brand-primary);
-	
+
+	--button-plugin-bg: #eef3f8;
+	--button-plugin-border: #d4dde8;
+	--button-plugin_text: #48617f;
+
 	/* tables */
 	--table-header-bg: #49709e;
 	--table-header-text: white;
-	--table-row: #f6f6ff; /* main table row */
-	--table-row-dark: #f0f0ff; /* table on results panel */
+	--table-row: #f6f6ff;
+	/* main table row */
+	--table-row-dark: #f0f0ff;
+	/* table on results panel */
 	--table-row-alt: transparent;
-	
+
 }
 
 @font-face {
@@ -641,9 +647,9 @@ input.plugin_button {
 	font-weight: 500;
 	cursor: pointer;
 	padding: 1px 10px;
-	background: #eef3f8;
-	border: 1px solid #d4dde8;
-	color: #48617f;
+	background: var(--button-plugin-bg);
+	border: 1px solid var(--button-plugin-border);
+	color: var(--button-plugin_text);
 	cursor: pointer;
 }
 
@@ -755,7 +761,7 @@ button.small_submit {
 	cursor: pointer;
 	padding: 1px 10px;
 	background: var(--button-bg);
-	color:var(--button-text);
+	color: var(--button-text);
 	cursor: pointer;
 	white-space: nowrap;
 }
@@ -781,7 +787,7 @@ a.reset,
 input.reset {
 	padding: 8px 20px;
 	border: 2px solid var(--button-secondary-border);
-	background:var(--button-secondary-bg);
+	background: var(--button-secondary-bg);
 	border-radius: 4px;
 	font-family: 'pt_sansbold';
 	font-size: 20px;
@@ -2768,7 +2774,7 @@ table.ajaxtable th {
 }
 
 table.ajaxtable tr.td1 {
-	background:var(--table-row);
+	background: var(--table-row);
 }
 
 table.ajaxtable tr.td2 {
