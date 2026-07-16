@@ -1,4 +1,4 @@
-/*Version: 20260715*/
+/*Version: 20260716*/
 
 :root {
 	/* backgrounds */
@@ -7,6 +7,7 @@
 	--bg-panel-alt: #f3f7fc;
 	--bg-card: #fffeff;
 	--bg-info: #f4f6f8;
+	--bg-menu: #e7f2fe;
 
 	/* borders */
 	--border: #e7ebf0;
@@ -1129,7 +1130,7 @@ div.menu_item {
 	cursor: pointer;
 	font-size: 1.2em;
 	letter-spacing: 0.06em;
-	background: #d0e1f4;
+	background: var(--brand-primary-light);
 	color: var(--link);
 	padding: 0.8em;
 	border-radius: 10px;
@@ -1148,7 +1149,7 @@ div.multi_menu_item a {
 }
 
 div.multi_menu_link {
-	background: #d0e1f4;
+	background: var(--brand-primary-light);
 	color: var(--link);
 	padding: 0.8em;
 	margin-right: 5px;
@@ -1157,7 +1158,7 @@ div.multi_menu_link {
 }
 
 div.multi_menu_trigger {
-	background: #d0e1f4;
+	background: var(--brand-primary-light);
 	color: var(--link);
 	width: 20px;
 	padding: 0.8em;
@@ -1174,7 +1175,7 @@ div.multi_menu_trigger:hover {
 }
 
 div.menu_item_login {
-	background: #eee3ef;
+	background: var(--brand-secondary-light);
 	color: #8b5292;
 }
 
@@ -1198,7 +1199,7 @@ div.multi_menu_panel {
 	font-family: pt_sansregular, sans-serif;
 	display: none;
 	margin-top: -10px;
-	background: #e7f2fe;
+	background: var(--bg-menu);
 	color: var(--link);
 	padding: 0.8em;
 	margin-bottom: 0.8em;
@@ -1251,7 +1252,7 @@ a.link_box h3 {
 }
 
 a.link_box:hover {
-	background: #eee3ef;
+	background: var(--brand-secondary-light);
 }
 
 a.link_box:hover h3 {
@@ -1261,7 +1262,7 @@ a.link_box:hover h3 {
 div.breadcrumb_container {
 	display: flex;
 	justify-content: center;
-	background: #e7f2fe
+	background: var(--bg-menu);
 }
 
 div.breadcrumbs {
