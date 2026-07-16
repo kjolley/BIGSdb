@@ -614,11 +614,11 @@ button.pagebar {
 	padding: 0;
 	background: transparent;
 	cursor: pointer;
-	color: #2F9FDB
+	color: var(--link)
 }
 
 button.pagebar:hover {
-	color: #8D6196
+	color: var(--link-hover)
 }
 
 button.page_number {
