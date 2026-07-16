@@ -2931,7 +2931,7 @@ dl.profile {
 	margin: 0;
 	padding: 0 0.5em;
 	height: 1.2em;
-	background-color: #49709e;
+	background-color: var(--table-header-bg);
 	color: white;
 }
 
