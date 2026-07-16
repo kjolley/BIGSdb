@@ -55,9 +55,7 @@
 	--table-header-bg: #49709e;
 	--table-header-text: white;
 	--table-row: #f6f6ff;
-	/* main table row */
 	--table-row-dark: #f0f0ff;
-	/* table on results panel */
 	--table-row-alt: transparent;
 
 }

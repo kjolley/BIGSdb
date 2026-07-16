@@ -4304,7 +4304,7 @@ sub initiate {
 	$self->{'dashboard_type'} = 'primary';
 	$self->{$_} = 1
 	  foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud
-	  allowExpand);
+	  allowExpand select2);
 	$self->{'geomap'} = 1 if $self->has_country_optlist;
 	$self->{'ol'}     = 1 if $self->need_openlayers;
 	$self->choose_set;
@@ -4603,8 +4603,8 @@ sub print_modify_dashboard_fieldset {
 	say q(</fieldset>);
 	say q(<div style="clear:both"></div>);
 	say q(<fieldset><legend>Visual elements</legend>);
-	say q(<ul><li>);
-	say q(<label for="dashboard_palette">Palette:</label>);
+	say q(<ul><li><span class="query_block">);
+	say q(<label for="dashboard_palette" class="label">Palette:</label>);
 	my $palettes = $self->_get_palettes;
 	say $q->popup_menu(
 		-name         => 'dashboard_palette',
@@ -4614,11 +4614,12 @@ sub print_modify_dashboard_fieldset {
 		-class        => 'field_selector',
 		-autocomplete => 'off'                       #Shouldn't need this but Firefox will cache value otherwise.
 	);
+	say q(</span>);
 	say q(<p><span class="comment">Note changing palette will reset user-selected colours.</span></p>);
-	say q(</li><li>);
+	say q(</li><li><span class="query_block">);
 	$self->print_field_selector;
 	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
-	say q(</li></ul>);
+	say q(</span></li></ul>);
 	say q(</fieldset>);
 	$self->_print_dashboard_management_fieldset;
 	say q(</div>);
@@ -4690,8 +4691,8 @@ sub _print_dashboard_management_fieldset {
 	}
 	say q(<fieldset><legend>Versions</legend>);
 	say q(<form autocomplete="off">);    #Needed because Firefox will override the value we set for loaded_dashboard.
-	say q(<ul><li>);
-	say q(<label for="loaded_dashboard">Loaded:</label>);
+	say q(<ul><li><span class="query_block">);
+	say q(<label for="loaded_dashboard" class="label">Loaded:</label>);
 	my %attributes = (
 		-id        => 'loaded_dashboard',
 		-name      => 'loaded_dashboard',
@@ -4701,10 +4702,10 @@ sub _print_dashboard_management_fieldset {
 	);
 	$attributes{'-disabled'} = 1 if $name eq $default_name;
 	say $q->textfield(%attributes);
-	say q(</li>);
+	say q(</span></li>);
 
 	if ( @$ids > 1 ) {
-		say q(<li><label for="switch_dashboard">Switch:</label>);
+		say q(<li><span class="query_block"><label for="switch_dashboard" class="label">Switch:</label>);
 		say $q->popup_menu(
 			-id      => 'switch_dashboard',
 			-name    => 'switch_dashboard',
@@ -4712,7 +4713,7 @@ sub _print_dashboard_management_fieldset {
 			-values  => $ids,
 			-default => -1
 		);
-		say q(</li>);
+		say q(</span></li>);
 	}
 	say q(<li>);
 	my $reset_display = ( $name eq 'query default' || $name eq 'primary default' ) ? q(none) : q(inline);
@@ -4880,15 +4881,15 @@ sub print_field_selector {
 	}
 	unshift @$values, q() if $field_options->{'no_default'};
 	my $label = $field_options->{'label'} // 'Field';
-	say qq(<label for="add_field">$label:</label>);
+	say qq(<label for="add_field" class="label">$label:</label>);
 	say $q->popup_menu(
 		-name         => $field_options->{'name'} // 'add_field',
 		-id           => $field_options->{'id'}   // 'add_field',
 		-values       => $values,
 		-labels       => $labels,
 		-multiple     => 'true',
-		-style        => 'max-width:10em',
-		-class        => 'field_selector',
+		-style        => 'max-width:200px',
+		-class        => 'do_not_calc_width',
 		-autocomplete => 'off'               #Shouldn't need this but Firefox will cache value otherwise.
 	);
 	return;
