@@ -8,6 +8,7 @@
 	--bg-card: #fffeff;
 	--bg-info: #f4f6f8;
 	--bg-menu: #e7f2fe;
+	--bg-menu-secondary: #f4eef6;
 
 	/* borders */
 	--border: #e7ebf0;
@@ -25,6 +26,7 @@
 	/* links */
 	--link: #2779a8;
 	--link-hover: #8b5292;
+	--link-menu-secondary: #885595;
 
 	/* primary brand */
 	--brand-primary: #4f7db8;
@@ -1230,12 +1232,12 @@ div.multi_menu_panel a:hover {
 }
 
 div.menu_item_login_panel {
-	background: #f4eef6;
-	color: #885595;
+	background: var(--bg-menu-secondary);
+	color: var(--link-menu-secondary);
 }
 
 div.menu_item_login_panel a {
-	color: #885595;
+	color: var(--link-menu-secondary);
 }
 
 a.link_box {
