@@ -2845,7 +2845,7 @@ sub _get_annotation_metrics {
 		$prov_buffer .=
 			qq(<td>$prov_metrics->{'annotated'}</td>)
 		  . q(<td style="position:relative"><span )
-		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$score</span>)
+		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em;color:#000">$score</span>)
 		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$score%"></div></td><td>$quality</td></tr>);
 		$prov_buffer .= qq(</table></div>\n);
@@ -2886,7 +2886,7 @@ sub _get_annotation_metrics {
 		my $colour = BIGSdb::Utils::get_percent_colour( $percent, { min => $min, max => $max, middle => $middle } );
 		$scheme_buffer .=
 			q(<td style="position:relative"><span )
-		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
+		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em;color:#000">$percent</span>)
 		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
 		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
 		my $quality;

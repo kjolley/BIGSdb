@@ -800,8 +800,9 @@ sub _start_html {
 	my ( $self, $args ) = @_;
 	my ( $title, $meta, $style, $script, $shortcut_icon ) = @{$args}{qw(title meta style script shortcut_icon)};
 	my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
+	my $mode = $self->{'prefs'}->{'darkMode'} ? 'dark' : 'light';
 	say q(<!DOCTYPE html>);
-	say q(<html>);
+	say qq(<html data-theme="$mode">);
 	say q(<head>);
 	say qq(<title>$title</title>) if $title;
 	say q(<meta name="viewport" content="width=device-width" />);
@@ -903,11 +904,13 @@ sub _get_stylesheets {
 		push @paths, @css;
 	}
 	if ( $self->{'jQuery.jstree'} ) {
+		foreach my $theme ('default','default-dark'){
 		if ( $self->{'config'}->{'relative_js_dir'} ) {
 			push @paths,
-			  "$self->{'config'}->{'relative_js_dir'}/jquery.jsTree/dist/themes/default/style.min.css?v=$version";
+			  "$self->{'config'}->{'relative_js_dir'}/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
 		} else {
-			push @paths, "/javascript/jquery.jsTree/dist/themes/default/style.min.css?v=$version";
+			push @paths, "/javascript/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
+		}
 		}
 	}
 	return \@paths;
@@ -1219,6 +1222,7 @@ sub _print_button_panel {
 	$self->_print_help_button;
 	$self->_print_tooltip_toggle;
 	$self->_print_expand_trigger;
+	$self->_print_dark_mode_trigger;
 	say q(</div>);
 	return;
 }
@@ -1280,6 +1284,28 @@ sub _print_expand_trigger {
 	  . qq(<span id="contract" class="fas fa-lg fa-compress" style="display:$page_contract" title="Contract width">)
 	  . qq(</span><span class="icon_label"><span id="expand_label_expand" style="display:$page_expand">Expand</span>)
 	  . qq(<span id="expand_label_contract" style="display:$page_contract">Contract</span></span></a></span>);
+	return;
+}
+
+sub _dark_mode_enabled {
+	my ($self) = @_;
+	return if ($self->{'system'}->{'disable_dark_mode'} // q()) eq 'yes';
+	return if $self->{'config'}->{'disable_dark_mode'};
+	return 1;
+}
+
+sub _print_dark_mode_trigger {
+	my ($self) = @_;
+	return if !$self->_dark_mode_enabled;
+	my $show_dark   = $self->{'prefs'}->{'darkMode'} ? 'none'   : 'inline';
+	my $show_light = $self->{'prefs'}->{'darkMode'} ? 'inline' : 'none';
+	say q(<span class="icon_button"><a id="dark_trigger" class="trigger_button secondary_trigger" )
+	  . q(style="display:inline" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
+	  . qq(<span id="dark_mode" class="fas fa-lg fa-moon" style="display:$show_dark" title="Dark mode"></span>)
+	  . qq(<span id="light_mode" class="far fa-lg fa-sun" style="display:$show_light" title="Light mode">)
+	  . qq(</span><span class="icon_label"><span id="mode_label_dark" style="display:$show_dark">Dark mode</span>)
+	  . qq(<span id="mode_label_light" style="display:$show_light">Light mode</span></span></a></span>);
 	return;
 }
 
@@ -2994,7 +3020,7 @@ sub _initiate_general_prefs {
 	}
 
 	#default off
-	foreach (qw (hyperlink_loci expandPage)) {
+	foreach (qw (hyperlink_loci expandPage darkMode)) {
 		$general_prefs->{$_} //= 'off';
 		$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
 	}

@@ -5,15 +5,21 @@
 	--bg-page: #fffeff;
 	--bg-panel: #f7f8fa;
 	--bg-panel-alt: #f3f7fc;
+	--bg-panel-modal: #fbfcfd;
 	--bg-card: #fffeff;
 	--bg-info: #f4f6f8;
 	--bg-menu: #e7f2fe;
 	--bg-menu-secondary: #f4eef6;
+	--bg-card-hover: #fcfbfc;
+	--bg-login: #1aB7De;
+	--bg-reset: #faf7f7;
 
 	/* borders */
 	--border: #e7ebf0;
+	--border-card: #c0c0c0;
 	--border-light: #d6e3f3;
-	--border-dark: #888888;
+	--border-dark: #a0a0a0;
+	--border-reset: #eadede;
 
 	/* text */
 	--text: #000000;
@@ -21,11 +27,13 @@
 	--text-muted: #888888;
 	--text-heading: #435973;
 	--text-heading-secondary: #585874;
+	--text-data-title: #404080;
 	--text-info: #1d3557;
 
 	/* links */
-	--link: #2779a8;
-	--link-hover: #8b5292;
+	--link: #0000bb;
+	--link-menu: #2779a8;
+	--link-menu-hover: #8b5292;
 	--link-menu-secondary: #885595;
 
 	/* primary brand */
@@ -42,10 +50,20 @@
 	--button-bg-hover: var(--brand-secondary);
 	--button-text: white;
 
-	--button-secondary-bg: white;
+	--button-secondary-bg: var(--bg-page);
 	--button-secondary-text-hover: var(--brand-secondary);
 	--button-secondary-border: var(--brand-primary);
 	--button-secondary-text: var(--brand-primary);
+	
+	--button-secondary-trigger-bg: #f4f6f9;
+	--button-secondary-trigger-bg-hover: #e8eef5;
+	--button-secondary-trigger-text: #607089;
+	
+	--button-small-bg: #f0f0f0;
+	--button-small-bg-hover: white;
+	--button-small-border: #d6dde7;
+	--button-small-border-hover: #666666;
+	--button-small-text: #333333;
 
 	--button-plugin-bg: #eef3f8;
 	--button-plugin-border: #d4dde8;
@@ -53,11 +71,103 @@
 
 	/* tables */
 	--table-header-bg: #49709e;
+	--table-header-ajax-bg: #eeeeee;
 	--table-header-text: white;
 	--table-row: #f6f6ff;
 	--table-row-dark: #f0f0ff;
 	--table-row-alt: transparent;
+	
+	/* selects */
+	--selects-selected-bg: #dddddd;
+	--selects-selected-text: #000000;
+	
+	/* charts */
+	--chart-bg: white;
+}
 
+html[data-theme="dark"] {
+/*	color-scheme: dark; */
+	/* backgrounds */
+	--bg-page: #121417;	
+	--bg-panel: #1a1f26;
+	--bg-panel-alt: #20262f;
+	--bg-panel-modal: #3d4248;
+	--bg-card: #2a313a;
+/*	--bg-info: #f4f6f8;*/
+	--bg-menu: #223347;
+	--bg-menu-secondary: #33253a;
+	--bg-card-hover: #2d353c;
+	--bg-login: #193139;
+	--bg-reset: #2d1c1c;
+
+/*	 borders */
+	--border: #39424d;
+	--border-card: #434343;
+	--border-light: #4b5563;
+	--border-dark: #6b7280;
+
+	/* text */
+	--text: #e7eaee;
+	--text-secondary: #c4ccd6;
+	--text-muted: #9ca5b1;
+	--text-heading: #d7e3f1;
+	--text-heading-secondary: #c7d0df;
+	--text-data-title: #808080;
+	--text-info: #d6e4f3;
+
+	/* links */
+	--link: #7db8e6;
+	--link-menu: #7db8e6;
+	--link-menu-hover: #d0a3d8;
+/*	--link-menu-secondary: #885595;*/
+
+	/* primary brand */
+	--brand-primary: #6d9dd7;
+	--brand-primary-dark: #4f7db8;
+	--brand-primary-light:  #2c4f74;
+
+	/* secondary accent */
+/*	--brand-secondary: #8d5196;*/
+	--brand-secondary-light: #503656;
+
+	/* buttons */
+/*	--button-bg: var(--brand-primary);*/
+/*	--button-bg-hover: var(--brand-secondary);*/
+/*	--button-text: white;*/
+
+/*	--button-secondary-bg: white;*/
+/*	--button-secondary-text-hover: var(--brand-secondary);*/
+/*	--button-secondary-border: var(--brand-primary);*/
+/*	--button-secondary-text: var(--brand-primary);*/
+	--button-secondary-trigger-bg: #607089;
+	--button-secondary-trigger-bg-hover: #4e5b6f;
+	--button-secondary-trigger-text: #f4f6f9;
+	
+	--button-small-bg: #404040;
+	--button-small-bg-hover: var(--button-secondary-trigger-bg-hover);
+	--button-small-border: var(--border-dark);
+/*	--button-small-border-hover: #666666;*/
+	--button-small-text: #a0a0a0;
+
+	--button-plugin-bg: #2b3642;
+	--button-plugin-border: #4a5a6c;
+	--button-plugin_text: #c9d6e6;
+
+	/* tables */
+	--table-header-bg: #38597f;
+	--table-header-ajax-bg: #273950;
+/*	--table-header-text: white;*/
+	--table-row: #242b34;
+	--table-row-dark: #1d232b;
+	--table-row-alt: #353b44; 
+
+	/* selects */
+	--selects-selected-bg: var(--brand-primary-light);
+	--selects-selected-text: white;
+
+	/* charts */
+	--chart-bg: var(--bg-card);
+	
 }
 
 @font-face {
@@ -203,7 +313,7 @@ table {
 }
 
 a {
-	color: #00b;
+	color: var(--link);
 	text-decoration: none
 }
 
@@ -413,7 +523,6 @@ a.action,
 span.action {
 	padding: 0.2em;
 	border: 1px solid transparent;
-	text-shadow: 1px 1px 1px #999
 }
 
 span.attribute {
@@ -584,9 +693,9 @@ p.progress {
 .button,
 .smallbutton,
 .fieldvaluebutton {
-	background: #f0f0f0;
-	color: #333;
-	border: 1px solid #d6dde7;
+	background: var(--button-small-bg);
+	color: var(--button-small-text);
+	border: 1px solid var(--button-small-border);
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 	border-radius: 3px;
 	white-space: nowrap
@@ -602,10 +711,10 @@ p.progress {
 .button:hover,
 .smallbutton:hover,
 .fieldvaluebutton:hover {
-	background: #fff;
-	color: black;
+	background: var(--button-small-bg-hover);
+	color: var(--text);
 	text-decoration: none;
-	border: 1px solid #666;
+	border: 1px solid var(--button-small-border-hover);
 }
 
 .button {
@@ -620,11 +729,11 @@ button.pagebar {
 	padding: 0;
 	background: transparent;
 	cursor: pointer;
-	color: var(--link)
+	color: var(--link-menu)
 }
 
 button.pagebar:hover {
-	color: var(--link-hover)
+	color: var(--link-menu-hover)
 }
 
 button.page_number {
@@ -675,13 +784,13 @@ div.plugin_category_menu {
 
 div.plugin_category_menu span.plugin_heading {
 	font: 600 18px ibm_plex_sans, sans-serif;
-	color: #585874;
+	color: var(--text-heading-secondary)
 
 }
 
 span.plugin_icon {
-	color: #6c758b;
-	opacity: 0.8;
+	color: var(--text-heading-secondary);
+	opacity: 0.7;
 	margin-right: 0.2em
 }
 
@@ -709,24 +818,23 @@ div.project {
 	padding: 10px;
 	max-width: 400px;
 	background: var(--bg-card);
-	border: 1px solid #aaa;
+	border: 1px solid var(--border-card);
 	border-radius: 10px;
 	cursor: pointer
 }
 
 div.project:hover {
-	background: #fcfbfc;
-	border: 1px solid #a6a6a6;
+	background: var(--bg-card-hover);	
 }
 
 div.project p.description {
-	color: black;
+	color: var(--text);
 	opacity: 0.6
 }
 
 div.project p.count {
 	font-size: 1.2em;
-	color: #6c758b;
+	color: var(--text-muted);
 	opacity: 0.8
 }
 
@@ -747,6 +855,11 @@ input.submit {
 	letter-spacing: 0.06em;
 	text-transform: capitalize;
 	color: var(--button-text);
+}
+
+input[type="text"] {
+	background: var(--bg-page);
+	color: var(--text);
 }
 
 a.small_submit,
@@ -849,16 +962,6 @@ a.add_button:hover {
 
 button.smallbutton {
 	padding: 0.2em 0.5em
-}
-
-input.updatebutton {
-	border: 1px solid #aad;
-	color: #333;
-	background: #eee
-}
-
-input.updatebutton:hover {
-	border: 1px solid #669
 }
 
 div.fasta_upload,
@@ -1036,7 +1139,7 @@ div#modal_overlay.open {
 }
 
 div.main_container_login {
-	background: #1AB7DE;
+	background: var(--bg-login);
 }
 
 div.main_content_login {
@@ -1057,7 +1160,7 @@ div.login_container {
 div.login,
 div.login_banner,
 div.password_box {
-	background: #fff;
+	background: var(--bg-page);
 	margin-bottom: 0.5em;
 	padding: 0 0.5em 1em 1em;
 }
@@ -1139,7 +1242,7 @@ div.menu_item {
 	font-size: 1.2em;
 	letter-spacing: 0.06em;
 	background: var(--brand-primary-light);
-	color: var(--link);
+	color: var(--link-menu);
 	padding: 0.8em;
 	border-radius: 10px;
 	margin-bottom: 0.8em;
@@ -1158,7 +1261,7 @@ div.multi_menu_item a {
 
 div.multi_menu_link {
 	background: var(--brand-primary-light);
-	color: var(--link);
+	color: var(--link-menu);
 	padding: 0.8em;
 	margin-right: 5px;
 	border-radius: 10px 0 0 10px;
@@ -1167,7 +1270,7 @@ div.multi_menu_link {
 
 div.multi_menu_trigger {
 	background: var(--brand-primary-light);
-	color: var(--link);
+	color: var(--link-menu-menu);
 	width: 20px;
 	padding: 0.8em;
 	float: right;
@@ -1178,18 +1281,18 @@ div.multi_menu_trigger {
 div.menu_item:hover,
 a div.multi_menu_link:hover,
 div.multi_menu_trigger:hover {
-	background: var(--link);
+	background: var(--link-menu);
 	color: #fffeff;
 }
 
 div.menu_item_login {
 	background: var(--brand-secondary-light);
-	color: var(--link-hover);
+	color: var(--link-menu-hover);
 }
 
 a div.menu_item_login:hover,
 div.menu_item_login:hover {
-	background: var(--link-hover);
+	background: var(--link-menu-hover);
 	color: #fffeff;
 }
 
@@ -1208,7 +1311,7 @@ div.multi_menu_panel {
 	display: none;
 	margin-top: -10px;
 	background: var(--bg-menu);
-	color: var(--link);
+	color: var(--link-menu);
 	padding: 0.8em;
 	margin-bottom: 0.8em;
 	max-height: 20em;
@@ -1222,7 +1325,7 @@ div.multi_menu_panel ul {
 }
 
 div.multi_menu_panel a {
-	color: var(--link);
+	color: var(--link-menu);
 }
 
 div.multi_menu_panel a:hover {
@@ -1264,7 +1367,7 @@ a.link_box:hover {
 }
 
 a.link_box:hover h3 {
-	color: var(--link-hover);
+	color: var(--link-menu-hover);
 }
 
 div.breadcrumb_container {
@@ -1283,12 +1386,12 @@ div.breadcrumbs {
 }
 
 div.breadcrumbs a {
-	color: var(--link);
+	color: var(--link-menu);
 }
 
 div.breadcrumbs a:hover {
 	text-decoration: none;
-	color: var(--link-hover);
+	color: var(--link-menu-hover);
 }
 
 span.breadcrumb_divider {
@@ -1320,12 +1423,12 @@ div.smooth_enlarge {
 
 div.reset,
 div.restricted {
-	background: #faf7f7;
-	border: 1px solid #eadede;
+	background: var(--bg-reset);
+	border: 1px solid var(--border-reset);
 }
 
 div.reset h2 {
-	color: #334356
+	color: var(--text-heading);
 }
 
 div.reset input.reset:hover {
@@ -1348,9 +1451,9 @@ div.panel {
 	width: 500px;
 	max-width: 80vw;
 	padding: 1em 3em 1em 1em;
-	border: 1px solid #dde4ec;
+	border: 1px solid var(--border-light);
 	border-radius: 12px;
-	background: #fbfcfd;
+	background: var(--bg-panel-modal);
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
 		0 2px 8px rgba(0, 0, 0, 0.05);
 	z-index: 9
@@ -1378,7 +1481,7 @@ div.bookmark_panel {
 	max-height: 400px;
 	overflow-y: auto;
 	padding-right: 2em;
-	border: 1px solid #dde4ec
+	border: 1px solid var(--border-light);
 }
 
 div.bookmark_panel ul {
@@ -1504,21 +1607,21 @@ a.primary_trigger:hover {
 }
 
 a.secondary_trigger {
-	background: #f4f6f9;
-	color: #607089;
+	background: var(--button-secondary-trigger-bg);
+	color: var(--button-secondary-trigger-text);
 }
 
 a.secondary_trigger:hover {
-	background: #e8eef5;
+	background: var(--button-secondary-trigger-bg-hover);
 }
 
 a.tooltips_enabled {
-	background: #f4f6f9;
-	color: #607089;
+	background: var(--button-secondary-trigger-bg);
+	color: --button-secondary-trigger-text
 }
 
 a.tooltips_disabled {
-	background: #f4f6f9;
+	background: var(--button-secondary-trigger-bg);
 	color: #aaa;
 }
 
@@ -1714,7 +1817,7 @@ div.navigation {
 div.curategroup {
 	text-align: center;
 	padding: 12px;
-	border: 1px solid #ccc;
+	border: 1px solid var(--border-card);
 	border-radius: 10px;
 	width: 180px;
 	height: 120px;
@@ -1903,7 +2006,7 @@ div.new_item {
 	border-radius: 5px;
 	margin: 1px;
 	max-width: 100%;
-	background: #fff;
+	background: var(--chart-bg);
 }
 
 .item.muuri-item-dragging {
@@ -1976,7 +2079,7 @@ span.setup_element {
 }
 
 span.setup_element:hover {
-	background: var(--link-hover);
+	background: var(--link-menu-hover);
 }
 
 span.dashboard_filter {
@@ -2377,14 +2480,13 @@ div.statusgood_no_resize {
 
 div#resultsheader,
 div.resultsheader {
-	background: #f5f8fc;
-	border: 1px solid #dce7f2;
+	background: var(--bg-panel-alt);
+	border: 1px solid var(--border-light);
 	border-left: 4px solid #6f96c8;
 	padding: 0.5em 1em
 }
 
 div.largetable_resultsheader {
-	background: #fffeff;
 	padding: 1em
 }
 
@@ -2402,7 +2504,7 @@ div.resultsfooter {
 }
 
 div.largetable_resultsfooter {
-	background: #fffeff;
+	background: var(--bg-page);
 	padding: 1em
 }
 
@@ -2422,7 +2524,7 @@ div#large_resultstable,
 div.large_resultstable {
 	position: relative;
 	padding: 0;
-	background: #fffeff;
+	background: var(--bg-page);
 }
 
 div#large_resultstable table,
@@ -2530,8 +2632,8 @@ div#onboarding {
 	left: 50%;
 	transform: translate(-50%, -50%);
 	padding: 20px;
-	background: #fbfcfd;
-	border: 1px solid #dde4ec;
+	background: var(--bg-panel-modal);
+	border: 1px solid var(--border-light);
 	border-radius: 12px;
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
 		0 2px 8px rgba(0, 0, 0, 0.05);
@@ -2602,7 +2704,7 @@ div.disabled {
 }
 
 div#curatetools {
-	background: #fbfcfd;
+	background: var(--bg-panel-modal);
 	float: right;
 	position: absolute;
 	top: 6em;
@@ -2610,7 +2712,7 @@ div#curatetools {
 	padding: 10px;
 	font-size: 1em;
 	margin-bottom: 0.5em;
-	border: 1px solid #dde4ec;
+	border: 1px solid var(--border-light);
 	border-radius: 12px;
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
 		0 2px 8px rgba(0, 0, 0, 0.05);
@@ -2769,8 +2871,8 @@ table.ajaxtable {
 }
 
 table.ajaxtable th {
-	background: #eee;
-	color: black
+	background: var(--table-header-ajax-bg);
+	color: var(--text);
 }
 
 table.ajaxtable tr.td1 {
@@ -2778,7 +2880,7 @@ table.ajaxtable tr.td1 {
 }
 
 table.ajaxtable tr.td2 {
-	background: white;
+	background: var(--bg-page);
 }
 
 td.field_comment {
@@ -2882,8 +2984,8 @@ div.tree {
 	width: 80%;
 	height: 300px;
 	margin: 0;
-	border: 1px solid gray;
-	background: white;
+	border: 1px solid var(--border-card);
+	background: var(--bg-page);
 	overflow: auto;
 }
 
@@ -2892,10 +2994,10 @@ div.scheme_tree {
 	max-width: 95%;
 	min-height: 3em;
 	max-height: 15em;
-	border: 1px solid #aaa;
+	border: 1px solid var(--border-card);
 	overflow: auto;
 	margin-right: 1em;
-	background: white;
+	background: var(--bg-page);
 }
 
 .data dt {
@@ -2907,7 +3009,7 @@ div.scheme_tree {
 	text-overflow: ellipsis;
 	text-align: right;
 	font-weight: bold;
-	color: #404080;
+	color: var(--text-data-title);
 }
 
 .data dt:after {
@@ -2948,7 +3050,7 @@ dl.profile {
 	min-height: 1.7em;
 	padding: 0;
 	margin: 0;
-	background: #fffeff;
+	background: var(--bg-page);
 }
 
 span.data_title {
@@ -3546,11 +3648,11 @@ a.slide_trigger {
 .ui-accordion-header.ui-accordion-header-collapsed {
 	background: var(--bg-panel);
 	border: 1px solid #e2e7ee;
-	color: #475569;
+	color: var(--text-heading);
 }
 
 .ui-accordion-header.ui-accordion-header-collapsed:hover {
-	background: #fafbfd;
+	background: var(--bg-card-hover);
 }
 
 .ui-accordion .ui-accordion-header {
@@ -3560,6 +3662,11 @@ a.slide_trigger {
 .ui-accordion h2.ui-accordion-header.ui-state-active span.fa-chevron-right {
 	transform: rotate(90deg);
 	transition: transform 0.5s;
+}
+
+.ui-accordion-content {
+	background: var(--bg-card);
+	color: var(--text);
 }
 
 div#accordion ul {
@@ -3664,9 +3771,22 @@ div.form_value .select2-selection__rendered {
 	padding: 2px 0;
 }
 
-.select2-selection__rendered {
-	color: var(--text) !important;
+.select2-dropdown, .select2-search__field {
+	background: var(--bg-page);
+	color: var(--text);
 }
+
+.select2-results__option--selected{
+	background:var(--selects-selected-bg) !important;
+	color: var(--selects-selected-text) !important;
+}
+
+.select2-selection__rendered {
+	color: var(--text) ;
+	background: var(--bg-page) ;
+}
+
+
 
 /* Responsive design */
 @media only screen and (max-width:1450px) {

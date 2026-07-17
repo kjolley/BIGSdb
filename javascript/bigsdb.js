@@ -76,6 +76,31 @@ $(function() {
 			cache: false,
 		});
 	});
+	$('a#dark_trigger').click(function(event) {
+		event.preventDefault();
+		let dark_mode = $('span#dark_mode').is(":visible") ? 'on' : 'off';
+
+		if ($('span#dark_mode').is(":visible")) {
+			$('span#dark_mode, span#mode_label_dark').hide();
+			$('span#light_mode, span#mode_label_light').show();
+			document.documentElement.dataset.theme = 'dark';
+			
+			if($.fn.jstree){
+				$("#tree").jstree('set_theme','default-dark');
+			}
+		} else {
+			$('span#dark_mode, span#mode_label_dark').show();
+			$('span#light_mode, span#mode_label_light').hide();
+			document.documentElement.dataset.theme = 'light';
+			if($.fn.jstree){
+				$("#tree").jstree('set_theme','default');
+			}
+		}
+		$.ajax({
+			url: this.href + "&update=1&attribute=darkMode&value=" + dark_mode,
+			cache: false,
+		});
+	});	
 
 
 	//Tooltips
