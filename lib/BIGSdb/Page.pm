@@ -180,9 +180,9 @@ sub _get_javascript_paths {
 			push @$js, { src => "$relative_js_path/cookieconsent.min.js", defer => 1 };
 		}
 		my $features = {
-			'jQuery.tablesort'    => { src => [qw(jquery.tablesorter.js)],  defer => 1, version => '20200308' },
-			'jQuery.jstree'       => { src => [qw(jquery.jstree.js)],       defer => 1, version => '20200308' },
-			'jQuery.coolfieldset' => { src => [qw(jquery.coolfieldset.js)], defer => 1, version => '20200308' },
+			'jQuery.tablesort' => { src => [qw(jquery.tablesorter.js)],           defer => 1, version => '20200308' },
+			'jQuery.jstree'    => { src => ['/jquery.jsTree/dist/jstree.min.js'], defer => 1, version => '3.3.17' },
+			'jQuery.coolfieldset'   => { src => [qw(jquery.coolfieldset.js)],       defer => 1, version => '20200308' },
 			'jQuery.columnizer'     => { src => [qw(jquery.columnizer.js)],         defer => 1, version => '20200308' },
 			'jQuery.fonticonpicker' => { src => [qw(jquery.fonticonpicker.min.js)], defer => 1, version => '20210719' },
 			'modal'                 => { src => [qw(jquery.modal.min.js)],          defer => 1, version => '20210624' },
@@ -904,9 +904,10 @@ sub _get_stylesheets {
 	}
 	if ( $self->{'jQuery.jstree'} ) {
 		if ( $self->{'config'}->{'relative_js_dir'} ) {
-			push @paths, "$self->{'config'}->{'relative_js_dir'}/themes/default/style.min.css?v=$version";
+			push @paths,
+			  "$self->{'config'}->{'relative_js_dir'}/jquery.jsTree/dist/themes/default/style.min.css?v=$version";
 		} else {
-			push @paths, "/javascript/themes/default/style.min.css?v=$version";
+			push @paths, "/javascript/jquery.jsTree/dist/themes/default/style.min.css?v=$version";
 		}
 	}
 	return \@paths;
