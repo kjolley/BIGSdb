@@ -1462,7 +1462,7 @@ div.panel {
 }
 
 div.panel h3 {
-	color: #525b7b;
+	color: var(--text-heading-secondary);
 	font-weight: 600;
 }
 
@@ -3826,11 +3826,9 @@ div.form_value .select2-selection__rendered {
 }
 
 .select2-selection__rendered {
-	color: var(--text);
-	background: var(--bg-page);
+	color: var(--text) !important;
+	background: var(--bg-page) !important;
 }
-
-
 
 /* Responsive design */
 @media only screen and (max-width:1450px) {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,7 +27,7 @@ use BIGSdb::Constants qw(:interface);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer noCache);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer noCache select2);
 	$self->set_level1_breadcrumbs;
 	return;
 }

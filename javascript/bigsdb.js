@@ -79,12 +79,13 @@ $(function() {
 	$('a#dark_trigger').click(function(event) {
 		event.preventDefault();
 		let dark_mode = $('span#dark_mode').is(":visible") ? 'on' : 'off';
-
+		let theme = $('span#dark_mode').is(":visible") ? 'dark' : 'light';
+		let config = $.urlParam('db');
+		document.cookie = `${config}_theme=${theme}; path=/; max-age=31536000; samesite=lax`;
 		if ($('span#dark_mode').is(":visible")) {
 			$('span#dark_mode, span#mode_label_dark').hide();
 			$('span#light_mode, span#mode_label_light').show();
 			document.documentElement.dataset.theme = 'dark';
-			
 			if($.fn.jstree){
 				$("#tree").jstree('set_theme','default-dark');
 			}
@@ -144,7 +145,12 @@ $(function() {
 			e.preventDefault();
 		}
 	});
-
+	let config = $.urlParam('db');
+	let dark_or_light = getCookie(`${config}_theme`);
+	if (dark_or_light){
+		$('span#dark_mode,span#mode_label_dark').css('display',(dark_or_light === 'dark' ? 'none': 'inline'));
+		$('span#light_mode,span#mode_label_light').css('display',(dark_or_light === 'dark' ? 'inline': 'none'));
+	}
 });
 
 $.urlParam = function(name) {

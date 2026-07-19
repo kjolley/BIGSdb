@@ -355,8 +355,8 @@ sub _print_provenance_fields_fieldset {
 	say qq(<fieldset id="provenance_fieldset" style="float:left;display:$display">)
 	  . q(<legend>Isolate provenance/primary metadata fields</legend>);
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="prov_field_heading" style="display:$display_field_heading">)
-	  . q(<label for="prov_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="prov_field_heading" style="display:$display_field_heading">)
+	  . q(<label for="prov_andor" class="label">Combine with: </label>);
 	say $q->popup_menu( -name => 'prov_andor', -id => 'prov_andor', -values => [qw (AND OR)] );
 	say q(</span><ul id="provenance">);
 	my ( $select_items, $labels ) = $self->_get_select_items;
@@ -520,8 +520,8 @@ sub _print_designations_fieldset_contents {
 		my $locus_fields = $self->_highest_entered_fields('loci') || 1;
 		$locus_fields = @$preselected if @$preselected;
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
-		  . q(<label for="designation_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="loci_field_heading" style="display:$loci_field_heading">)
+		  . q(<label for="designation_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="loci" style="white-space:normal">);
 		for my $row ( 1 .. $locus_fields ) {
@@ -562,8 +562,8 @@ sub _print_sequence_variation_fieldset_contents {
 	my $q                          = $self->{'cgi'};
 	my $sequence_variation_fields  = $self->_highest_entered_fields('sequence_variation') || 1;
 	my $sequence_variation_heading = $sequence_variation_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="sequence_variation_field_heading" style="display:$sequence_variation_heading">)
-	  . q(<label for="sequence_variation_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="sequence_variation_field_heading" style="display:$sequence_variation_heading">)
+	  . q(<label for="sequence_variation_andor" class="label">Combine with:</label>);
 	say $q->popup_menu(
 		-name   => 'sequence_variation_andor',
 		-id     => 'sequence_variation_andor',
@@ -669,8 +669,8 @@ sub _print_allele_count_fieldset_contents {
 	if (@$locus_list) {
 		my $locus_fields    = $self->_highest_entered_fields('allele_count') || 1;
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="allele_count_field_heading" style="display:$heading_display">)
-		  . q(<label for="count_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="allele_count_field_heading" style="display:$heading_display">)
+		  . q(<label for="count_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'count_andor', -id => 'count_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="allele_count">);
 		for ( 1 .. $locus_fields ) {
@@ -708,8 +708,8 @@ sub _print_allele_status_fieldset_contents {
 	if (@$locus_list) {
 		my $locus_fields    = $self->_highest_entered_fields('allele_status') || 1;
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="allele_status_field_heading" style="display:$heading_display">)
-		  . q(<label for="status_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="allele_status_field_heading" style="display:$heading_display">)
+		  . q(<label for="status_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'status_andor', -id => 'status_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="allele_status">);
 		for ( 1 .. $locus_fields ) {
@@ -746,8 +746,8 @@ sub _print_tag_count_fieldset_contents {
 	if (@$locus_list) {
 		my $tag_count_fields  = $self->_highest_entered_fields('tag_count') || 1;
 		my $tag_count_heading = $tag_count_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="tag_count_heading" style="display:$tag_count_heading">)
-		  . q(<label for="tag_count_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="tag_count_heading" style="display:$tag_count_heading">)
+		  . q(<label for="tag_count_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'tag_count_andor', -id => 'tag_count_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="tag_count">);
 		for ( 1 .. $tag_count_fields ) {
@@ -784,8 +784,8 @@ sub _print_annotation_status_fieldset_contents {
 	my $q                         = $self->{'cgi'};
 	my $annotation_status_fields  = $self->_highest_entered_fields('annotation_status') || 1;
 	my $annotation_status_heading = $annotation_status_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="annotation_status_field_heading" style="display:$annotation_status_heading">)
-	  . q(<label for="annotation_status_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="annotation_status_field_heading" style="display:$annotation_status_heading">)
+	  . q(<label for="annotation_status_andor" class="label">Combine with:</label>);
 	say $q->popup_menu(
 		-name   => 'annotation_status_andor',
 		-id     => 'annotation_status_andor',
@@ -819,8 +819,8 @@ sub _print_seqbin_fieldset_contents {
 	my $q              = $self->{'cgi'};
 	my $seqbin_fields  = $self->_highest_entered_fields('seqbin') || 1;
 	my $seqbin_heading = $seqbin_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="seqbin_field_heading" style="display:$seqbin_heading">)
-	  . q(<label for="seqbin_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="seqbin_field_heading" style="display:$seqbin_heading">)
+	  . q(<label for="seqbin_andor" class="label">Combine with:</label>);
 	say $q->popup_menu( -name => 'seqbin_andor', -id => 'seqbin_andor', -values => [qw (AND OR)] );
 	say q(</span><ul id="seqbin">);
 	for ( 1 .. $seqbin_fields ) {
@@ -891,8 +891,8 @@ sub _print_tags_fieldset_contents {
 	if (@$locus_list) {
 		my $locus_tag_fields   = $self->_highest_entered_fields('tags') || 1;
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="locus_tags_heading" style="display:$locus_tags_heading">)
-		  . q(<label for="tag_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="locus_tags_heading" style="display:$locus_tags_heading">)
+		  . q(<label for="tag_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'tag_andor', -id => 'tag_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="tags">);
 		for ( 1 .. $locus_tag_fields ) {
@@ -924,8 +924,8 @@ sub _print_analysis_fieldset_contents {
 	my $q                = $self->{'cgi'};
 	my $analysis_fields  = $self->_highest_entered_fields('analysis') || 1;
 	my $analysis_heading = $analysis_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="analysis_heading" style="display:$analysis_heading">)
-	  . q(<label for="analysis_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="analysis_heading" style="display:$analysis_heading">)
+	  . q(<label for="analysis_andor" class="label">Combine with:</label>);
 	say $q->popup_menu( -name => 'analysis_andor', -id => 'analysis_andor', -values => [qw (AND OR)] );
 	say q(</span><ul id="analysis">);
 	for ( 1 .. $analysis_fields ) {
@@ -1682,8 +1682,8 @@ sub _print_phenotypic_fieldset_contents {
 		my $phenotypic_fields = $self->_highest_entered_fields('phenotypic') || 1;
 		$phenotypic_fields = @$preselected if @$preselected;
 		my $phenotypic_heading = $phenotypic_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="phenotypic_field_heading" style="display:$phenotypic_heading">)
-		  . q(<label for="phenotypic_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="phenotypic_field_heading" style="display:$phenotypic_heading">)
+		  . q(<label for="phenotypic_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'phenotypic_andor', -id => 'phenotypic_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="phenotypic">);
 		for my $row ( 1 .. $phenotypic_fields ) {

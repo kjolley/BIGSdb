@@ -688,6 +688,18 @@ sub print_page_content {
 			  );
 			$self->{'setOptions'} = 1;
 		}
+		my $page = $q->param('page');
+		if ($self->_dark_mode_enabled && $page ne 'ajaxPrefs' && defined $self->{'prefs'}->{'darkMode'} && $self->{'prefstore'}){
+			my $guid = $self->get_guid;
+			push @{ $self->{'cookies'} },
+			  $q->cookie(
+				-name     => "$self->{'instance'}_theme",
+				-value    => $self->{'prefs'}->{'darkMode'} ? 'dark' : 'light',
+				-expires  => '+1y',
+				-httponly => 0,
+				-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
+			  );
+		}
 		if ( defined $self->{'instance'} && $self->{"$self->{'instance'}_no_cache_loci_schemes"}
 			|| ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) )
 		{
@@ -799,14 +811,29 @@ sub print_page_content {
 	return;
 }
 
+sub _get_theme_script {
+	my ($self) = @_;
+	my $cookie = "$self->{'instance'}_theme";
+	return << "END";
+<script>
+const m = document.cookie.match(/(?:^|;\\s*)pubmlst_neisseria_isolates_theme=(dark|light)/);
+const dark_or_light = m ? m[1] : null;
+if (dark_or_light){
+	document.documentElement.dataset.theme = dark_or_light;
+}
+</script>
+END
+}
+
 sub _start_html {
 	my ( $self, $args ) = @_;
 	my ( $title, $meta, $style, $script, $shortcut_icon ) = @{$args}{qw(title meta style script shortcut_icon)};
 	my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
-	my $mode = $self->{'prefs'}->{'darkMode'} ? 'dark' : 'light';
+	my $mode = ($self->_dark_mode_enabled && $self->{'prefs'}->{'darkMode'}) ? 'dark' : 'light';
 	say q(<!DOCTYPE html>);
 	say qq(<html data-theme="$mode">);
 	say q(<head>);
+	say $self->_get_theme_script if $self->_dark_mode_enabled;
 	say qq(<title>$title</title>) if $title;
 	say q(<meta name="viewport" content="width=device-width" />);
 	say q(<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />);
