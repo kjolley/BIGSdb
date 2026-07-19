@@ -1708,8 +1708,8 @@ sub _get_rounded_width {
 sub _get_colour_swatch {
 	my ( $self, $element ) = @_;
 	if ( $element->{'background_colour'} ) {
-		return qq[<div style="background-image:linear-gradient(#fff,#fff 10%,$element->{'background_colour'} 40%,]
-		  . qq[$element->{'background_colour'} 60%,#fff 90%,#fff);height:calc(100% - 10px);margin-top:5px;]
+		return qq[<div style="background-image:linear-gradient(var(--chart-bg),var(--chart-bg) 10%,$element->{'background_colour'} 40%,]
+		  . qq[$element->{'background_colour'} 60%,var(--chart-bg) 90%,var(--chart-bg));height:calc(100% - 10px);margin-top:5px;]
 		  . q[width:100%;position:absolute;z-index:-1"></div>];
 	}
 	return q();
