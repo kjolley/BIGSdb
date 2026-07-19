@@ -4553,18 +4553,7 @@ $panel_js
           					render_locuslists("#attribute",false);
          				}
          			} else if (fieldset === 'filters'){
-         				\$('.multiselect').multiselect({
-					 		classes: 'filter',
-					 		menuHeight: 250,
-					 		menuWidth: 400,
-					 		selectedList: 1
-					 	}).multiselectfilter();
-					 	\$("select.filter:not(.multiselect)").select2({
-							width: '240px',
-							dropdownAutoWidth: true,
-							placeholder: '',
-							allowClear: false
-						});
+         				renderFilters();
 					 	setFilterTriggers();
          			} else {
          				if (\$("#" + element_names[fieldset] + row).hasClass('widelist')){
@@ -4600,6 +4589,7 @@ $panel_js
         }
 	});
 	setFilterTriggers();
+	renderFilters();
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
 		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast",function(){
 			if (\$("#bookmark_panel").is(":visible")){
@@ -4612,6 +4602,23 @@ $panel_js
 	});
 	\$("#bookmark_trigger").show();
  });
+ 
+function renderFilters(){
+	\$('.multiselect').filter(function () {
+  		return \$(this).next('.ui-multiselect').length === 0;
+	}).multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 1
+ 	}).multiselectfilter();
+ 	\$("select.filter:not(.multiselect)").not('.select2-hidden-accessible').select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
+		allowClear: false
+	});
+}
 
 function setFilterTriggers(){
 	\$("#add_filter").on('click',function(){
