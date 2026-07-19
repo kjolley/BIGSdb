@@ -656,6 +656,9 @@ sub print_page_content {
 					$self->{'prefs'}->{'tooltips'} =
 					  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'tooltips' ) // '' )
 					  eq 'off' ? 0 : 1;
+					$self->{'prefs'}->{'darkMode'} =
+					  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'darkMode' ) // '' )
+					  eq 'on' ? 1 : 0;
 					$self->{'prefs'}->{'set_id'} =
 					  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' );
 				} catch {

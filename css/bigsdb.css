@@ -98,7 +98,7 @@ html[data-theme="dark"] {
 	/*	--bg-info: #f4f6f8;*/
 	--bg-menu: #223347;
 	--bg-menu-secondary: #33253a;
-	--bg-card-hover: #2d353c;
+	--bg-card-hover: #3b414a;
 	--bg-login: #193139;
 	--bg-reset: #2d1c1c;
 
@@ -3606,6 +3606,10 @@ a.slide_trigger {
 
 .bb-axis path.domain{
 	stroke: var(--chart-axis) !important;
+}
+
+.bb-gauge-value {
+	fill: var(--text) !important;
 }
 
 .bb-tooltip td  {
