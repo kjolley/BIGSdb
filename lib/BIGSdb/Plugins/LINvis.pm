@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'LINvis',
 		menutext            => 'LINvis',
 		module              => 'LINvis',
-		version             => '1.2.0',
+		version             => '1.2.1',
 		dbtype              => 'isolates',
 		section             => 'analysis,postquery',
 		input               => 'query',
@@ -63,6 +63,10 @@ sub get_attributes {
 		image               => '/images/plugins/LINvis/screenshot.png'
 	};
 	return $att;
+}
+
+sub get_initiation_values {
+	return { select2 => 1 };
 }
 
 sub _get_max_records {
@@ -85,8 +89,8 @@ sub _print_info_panel {
 	  . q(may have inconsistent sizes even when their leaf totals are the same. This is an inherent artefact of )
 	  . q(the circle-packing algorithm.</p>);
 	say q(<p>In the sunburst diagram, rings represent the different thresholds making up the LIN code and each )
-	. q(segment within a ring, representing a specific LIN code prefix, is sized proportionally with its frequency.)
-	. q(</p>);
+	  . q(segment within a ring, representing a specific LIN code prefix, is sized proportionally with its frequency.)
+	  . q(</p>);
 	say q(</div>);
 	return;
 }
@@ -141,6 +145,7 @@ sub _print_lincode_scheme_fieldset {
 		say $q->hidden( scheme_id => $scheme_list->{'scheme_ids'}->[0] );
 	} else {
 		unshift @{ $scheme_list->{'scheme_ids'} }, q();
+		say q(<span class="query_block">);
 		$scheme_list->{'labels'}->{''} = 'Select scheme...';
 		say $self->popup_menu(
 			-id       => 'scheme_id',
@@ -149,6 +154,7 @@ sub _print_lincode_scheme_fieldset {
 			-labels   => $scheme_list->{'labels'},
 			-required => 1
 		);
+		say q(</span>);
 	}
 	say q(</fieldset>);
 	return;
@@ -297,7 +303,7 @@ sub run_job {
 				  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=circle_packing&amp;job=$job_id" target="_blank" )
 				  . q(class="launchbutton">Launch Circle Packing</a>)
-				 . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
+				  . qq(<a href="$params->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=pluginViewer&amp;plugin=LINvis&amp;function=sunburst&amp;job=$job_id" target="_blank" )
 				  . q(class="launchbutton">Launch Sunburst</a> </div>)
 			}

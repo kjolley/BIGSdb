@@ -4616,7 +4616,7 @@ function renderFilters(){
 		width: '240px',
 		dropdownAutoWidth: true,
 		placeholder: '',
-		allowClear: false
+		allowClear: true
 	});
 }
 

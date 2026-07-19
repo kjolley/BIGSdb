@@ -239,6 +239,10 @@ sub _print_interface {
 	return;
 }
 
+sub get_initiation_values {
+	return { select2 => 1 };
+}
+
 sub _print_lincode_scheme_fieldset {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};

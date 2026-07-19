@@ -3255,65 +3255,65 @@ span.export {
 
 span.export_button {
 	color: #448;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_excel {
 	color: #484;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_text {
 	color: #666;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_misc {
 	color: #844;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_fasta {
 	color: #848;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_gff {
 	color: #d60;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_archive {
 	color: #f94;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_image,
 span.export_html {
 	color: #47f;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_align {
 	color: #64e;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export_code,
 span.export_pdf {
 	color: #e64b73;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.export:hover .fa-square,
 
 span.upload:hover .fa-square {
-	text-shadow: 3px 3px 3px #444
+	text-shadow: 1px 1px 1px #444
 }
 
 span.upload_button {
 	color: #47f;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #999
 }
 
 span.annotation_link {
@@ -3327,7 +3327,7 @@ span.annotation_link a {
 	color: white;
 	font-weight: 600;
 	background: #848;
-	box-shadow: 3px 3px 3px #999
+	box-shadow: 1px 1px 1px #999
 }
 
 span.annotation_link a:hover {
@@ -3356,7 +3356,7 @@ a.chart_icon {
 }
 
 span.chart_icon {
-	text-shadow: 2px 2px 2px #aaa;
+	text-shadow: 1px 1px 1px #aaa;
 	cursor: pointer
 }
 
@@ -3671,6 +3671,10 @@ g.legend text{
 
 #progressbar {
 	border-image: linear-gradient(to right, #eee 0em, #909cd0 18em) 1;
+}
+
+.ui-slider {
+	background: var(--bg-page);
 }
 
 .ui-progressbar-value {
