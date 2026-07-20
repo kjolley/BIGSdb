@@ -1347,7 +1347,7 @@ a.link_box {
 	display: block;
 	padding: 0.5em;
 	background: var(--bg-card);
-	color: #455870;
+	color: var(--text-heading);
 	min-width: 220px;
 	width: 220px;
 	height: 150px;
@@ -1359,7 +1359,7 @@ a.link_box {
 
 a.link_box h3 {
 	font: 400 1.15em pt_sansbold, sans-serif;
-	color: #455870;
+	color: var(--text-heading);
 	text-decoration: underline;
 	text-underline-offset: 0.1em;
 }
