@@ -816,10 +816,10 @@ sub _get_theme_script {
 	my $cookie = "$self->{'instance'}_theme";
 	return << "END";
 <script>
-const m = document.cookie.match(/(?:^|;\\s*)pubmlst_neisseria_isolates_theme=(dark|light)/);
-const dark_or_light = m ? m[1] : null;
-if (dark_or_light){
-	document.documentElement.dataset.theme = dark_or_light;
+const m = document.cookie.match(/(?:^|;\\s*)$cookie=(dark|light)/);
+const colour_scheme = m ? m[1] : null;
+if (colour_scheme){
+	document.documentElement.dataset.theme = colour_scheme;
 }
 </script>
 END
@@ -3050,9 +3050,12 @@ sub _initiate_general_prefs {
 	}
 
 	#default off
-	foreach (qw (hyperlink_loci expandPage darkMode)) {
+	foreach (qw (hyperlink_loci expandPage)) {
 		$general_prefs->{$_} //= 'off';
 		$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
+	}
+	if (defined $general_prefs->{'darkMode'}){
+		$self->{'prefs'}->{'darkMode'} = $general_prefs->{'darkMode'} eq 'on' ? 1 : 0;
 	}
 
 	#default on
