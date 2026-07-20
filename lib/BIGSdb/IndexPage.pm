@@ -36,7 +36,7 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{$_} = 1 foreach qw(jQuery cookieconsent noCache);
+	$self->{$_} = 1 foreach qw(jQuery cookieconsent noCache select2);
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {

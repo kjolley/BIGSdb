@@ -972,7 +972,7 @@ sub print_set_section {
 		: 'You can choose to display a single set or the whole database.</p>'
 	);
 	say $q->start_form;
-	say q(<label for="sets_list">Please select: </label>);
+	say q(<span class="query_block"><label for="sets_list" class="label">Please select:</label>);
 	my @set_ids;
 
 	if ( ( $self->{'system'}->{'only_sets'} // '' ) ne 'yes' ) {
@@ -991,6 +991,7 @@ sub print_set_section {
 		-default => $set_id
 	);
 	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'small_submit' );
+	say q(</span>);
 	say $q->hidden($_) foreach qw (db page name set_id select_sets);
 	say $q->end_form;
 	say q(</div></div></div>);

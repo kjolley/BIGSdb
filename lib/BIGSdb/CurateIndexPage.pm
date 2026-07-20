@@ -40,7 +40,7 @@ sub set_pref_requirements {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache packery allowExpand tooltips bigsdb.curateindex);
+	$self->{$_} = 1 foreach qw (jQuery noCache packery allowExpand tooltips select2 bigsdb.curateindex);
 	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
 	my $guid = $self->get_guid;
