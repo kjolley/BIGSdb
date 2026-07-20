@@ -3832,6 +3832,9 @@ div.form_value .select2-selection__rendered {
 .select2-selection__rendered {
 	color: var(--text) !important;
 	background: var(--bg-page) !important;
+	height: auto !important;
+	line-height: 1.2em !important;
+	padding: 2px 0;
 }
 
 /* Responsive design */
