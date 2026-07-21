@@ -887,7 +887,7 @@ sub _print_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 			-labels   => { '' => ' ' },
 			-default  => $newdata->{ lc $field } // $thisfield->{'default'},
 			-multiple => $multiple ? 'true'                   : 'false',
-			-style    => $multiple ? q(border:1px solid #008) : q()
+			-style    => $multiple ? q(border:1px solid var(--selects-border)) : q()
 		);
 		say q(<div style="display:inline-block;white-space:normal">);
 		if ($multiple) {
@@ -897,7 +897,7 @@ sub _print_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 			say $q->popup_menu( %args, %$html5_args, -class => $class );
 		}
 		if ($multiple) {
-			say q(<span class="comment" style="color:#008">Supports multiple values</span>);
+			say q(<span class="comment" style="color:var(--text-muted)">Supports multiple values</span>);
 		}
 		say q(</div>);
 		return 1;
@@ -1035,11 +1035,11 @@ sub _print_long_text_field {    ## no critic (ProhibitUnusedPrivateSubroutines) 
 		-cols        => $thisfield->{'length'} < 60 ? $thisfield->{'length'} : 60,
 		-default     => ( $newdata->{ lc($field) } // $thisfield->{'default'} ),
 		-placeholder => $multiple ? q(Enter one per line...) : q(),
-		-style       => $multiple ? q(border:1px solid #008) : q(),
+		-style       => $multiple ? q(border:1px solid var(--selects-border)) : q(),
 		%$html5_args
 	);
 	if ($multiple) {
-		say q(<br /><span class="comment" style="color:#008">)
+		say q(<br /><span class="comment" style="color:var(--text-muted)">)
 		  . q(Supports multiple values - enter each one on separate line</span>);
 	}
 	say q(</div>);

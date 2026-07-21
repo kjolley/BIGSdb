@@ -140,7 +140,7 @@ sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 	my $elements = $self->_get_elements;
 	my $element  = $elements->{$id};
 	my $q        = $self->{'cgi'};
-	say q(<div class="modal">);
+	say q(<div class="modal" style="background: var(--bg-panel)">);
 	say q(<h2>Modify visual element</h2>);
 	say qq(<p><strong>Field: $element->{'name'}</strong></p>);
 	$self->_print_size_controls( $id, $element );
@@ -541,7 +541,7 @@ sub _print_change_duration_control {
 	say qq(<fieldset id="change_duration_control" style="float:left;display:$display">)
 	  . q(<legend>Rate of change</legend><ul>);
 	say q(<li>);
-	say q(<label for="change_duration">Show change</label>);
+	say q(<span class="query_block"><label for="change_duration" class="label">Show change:</label>);
 	say $q->popup_menu(
 		-name   => "${id}_change_duration",
 		-id     => "${id}_change_duration",
@@ -555,7 +555,7 @@ sub _print_change_duration_control {
 		},
 		-default => $element->{'change_duration'}
 	);
-	say q(</li>);
+	say q(</span></li>);
 	say q(</ul></fieldset>);
 	return;
 }

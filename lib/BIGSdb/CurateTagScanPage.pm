@@ -63,8 +63,18 @@ sub get_javascript {
 	\$("div.scrollable").on('scroll', function() {
 		render_multiselect();
 	});
+	render_filters();
 	render_multiselect();
 });	
+
+function render_filters(){
+	\$("select.filter:not(.multiselect)").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
+		allowClear: true
+	});
+}
 
 function render_multiselect(){
 	\$('.multiselect:inViewport').multiselect({
