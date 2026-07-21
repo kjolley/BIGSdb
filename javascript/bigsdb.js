@@ -80,8 +80,7 @@ $(function() {
 		event.preventDefault();
 		let dark_mode = $('span#dark_mode').is(":visible") ? 'on' : 'off';
 		let theme = $('span#dark_mode').is(":visible") ? 'dark' : 'light';
-		let config = $.urlParam('db');
-		document.cookie = `${config}_theme=${theme}; path=/; max-age=31536000; samesite=lax`;
+		document.cookie = `theme=${theme}; path=/; max-age=31536000; samesite=lax`;
 		if ($('span#dark_mode').is(":visible")) {
 			$('span#dark_mode, span#mode_label_dark').hide();
 			$('span#light_mode, span#mode_label_light').show();
@@ -97,12 +96,7 @@ $(function() {
 				$("#tree").jstree('set_theme','default');
 			}
 		}
-		$.ajax({
-			url: this.href + "&update=1&attribute=darkMode&value=" + dark_mode,
-			cache: false,
-		});
 	});	
-
 
 	//Tooltips
 	reloadTooltips();

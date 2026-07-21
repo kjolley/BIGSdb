@@ -656,9 +656,6 @@ sub print_page_content {
 					$self->{'prefs'}->{'tooltips'} =
 					  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'tooltips' ) // '' )
 					  eq 'off' ? 0 : 1;
-					$self->{'prefs'}->{'darkMode'} =
-					  ( $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'darkMode' ) // '' )
-					  eq 'on' ? 1 : 0;
 					$self->{'prefs'}->{'set_id'} =
 					  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' );
 				} catch {
@@ -689,17 +686,6 @@ sub print_page_content {
 			$self->{'setOptions'} = 1;
 		}
 		my $page = $q->param('page');
-		if ($self->_dark_mode_enabled && $page ne 'ajaxPrefs' && defined $self->{'prefs'}->{'darkMode'} && $self->{'prefstore'}){
-			my $guid = $self->get_guid;
-			push @{ $self->{'cookies'} },
-			  $q->cookie(
-				-name     => "$self->{'instance'}_theme",
-				-value    => $self->{'prefs'}->{'darkMode'} ? 'dark' : 'light',
-				-expires  => '+1y',
-				-httponly => 0,
-				-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
-			  );
-		}
 		if ( defined $self->{'instance'} && $self->{"$self->{'instance'}_no_cache_loci_schemes"}
 			|| ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) )
 		{
@@ -811,12 +797,12 @@ sub print_page_content {
 	return;
 }
 
+#Need to set theme if a cached page is loading.
 sub _get_theme_script {
 	my ($self) = @_;
-	my $cookie = "$self->{'instance'}_theme";
 	return << "END";
 <script>
-const m = document.cookie.match(/(?:^|;\\s*)$cookie=(dark|light)/);
+const m = document.cookie.match(/(?:^|;\\s*)theme=(dark|light)/);
 const colour_scheme = m ? m[1] : null;
 if (colour_scheme){
 	document.documentElement.dataset.theme = colour_scheme;
@@ -829,7 +815,8 @@ sub _start_html {
 	my ( $self, $args ) = @_;
 	my ( $title, $meta, $style, $script, $shortcut_icon ) = @{$args}{qw(title meta style script shortcut_icon)};
 	my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
-	my $mode = ($self->_dark_mode_enabled && $self->{'prefs'}->{'darkMode'}) ? 'dark' : 'light';
+	my $q = $self->{'cgi'};
+	my $mode = ($self->_dark_mode_enabled && ($q->cookie('theme') // q()) eq 'dark') ? 'dark' : 'light';
 	say q(<!DOCTYPE html>);
 	say qq(<html data-theme="$mode">);
 	say q(<head>);
@@ -1328,8 +1315,10 @@ sub _dark_mode_enabled {
 sub _print_dark_mode_trigger {
 	my ($self) = @_;
 	return if !$self->_dark_mode_enabled;
-	my $show_dark   = $self->{'prefs'}->{'darkMode'} ? 'none'   : 'inline';
-	my $show_light = $self->{'prefs'}->{'darkMode'} ? 'inline' : 'none';
+	my $q = $self->{'cgi'};
+	my $theme = ($q->cookie('theme') // q()) eq 'dark' ? 'dark' : 'light';
+	my $show_dark   = $theme eq 'dark' ? 'none'   : 'inline';
+	my $show_light = $theme eq 'dark' ? 'inline' : 'none';
 	say q(<span class="icon_button"><a id="dark_trigger" class="trigger_button secondary_trigger" )
 	  . q(style="display:inline" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
@@ -3054,9 +3043,6 @@ sub _initiate_general_prefs {
 	foreach (qw (hyperlink_loci expandPage)) {
 		$general_prefs->{$_} //= 'off';
 		$self->{'prefs'}->{$_} = $general_prefs->{$_} eq 'on' ? 1 : 0;
-	}
-	if (defined $general_prefs->{'darkMode'}){
-		$self->{'prefs'}->{'darkMode'} = $general_prefs->{'darkMode'} eq 'on' ? 1 : 0;
 	}
 
 	#default on

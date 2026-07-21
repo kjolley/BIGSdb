@@ -54,7 +54,7 @@ sub get_tree_javascript {
 	  ? q($("div#tree").resizable({minHeight:160,minWidth:230,autoHide:true});)
 	  : q();
 	my $theme = 'default';
-	$theme = 'default-dark' if $self->_dark_mode_enabled && $self->{'prefs'}->{'darkMode'};
+	$theme = 'default-dark' if $self->_dark_mode_enabled && ($q->cookie('theme') // q()) eq 'dark';
 	my $buffer = << "END";
 \$(function () {
 
