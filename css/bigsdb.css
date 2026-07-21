@@ -98,6 +98,12 @@
 	/* charts */
 	--chart-bg: white;
 	--chart-axis: #777777;
+	
+	/* icons */
+	--icon-query: #4444aa;
+	--icon-delete: #aa4444;
+	--icon-add: #008800;
+	--icon-action-hover: #cccccc;
 }
 
 html[data-theme="dark"] {
@@ -197,6 +203,13 @@ html[data-theme="dark"] {
 	/* charts */
 	--chart-bg: var(--bg-card);
 	--chart-axis: var(--text-muted);
+	
+	/* icons */
+	--icon-query: var(--link);
+	--icon-delete: #d08a8a;
+	--icon-add: #9EC991;
+	--icon-action-hover: #666666;
+	
 }
 
 @font-face {
@@ -562,7 +575,7 @@ span.attribute {
 a.action:hover,
 span.action:hover {
 	border: 1px solid red;
-	background: #ccc
+	background: var(--icon-action-hover);
 }
 
 a.delete {
@@ -3487,8 +3500,16 @@ button.plugin:hover {
 	text-shadow: 1px 1px 1px #080, 0px 0px 10px #fff
 }
 
-.curate_icon_query {
-	color: #44a;
+.icon_query {
+	color: var(--icon-query);
+}
+
+.icon_delete {
+	color: var(--icon-delete);
+}
+
+.icon_add {
+	color: var(--icon-add);
 }
 
 .curate_icon_edit {
