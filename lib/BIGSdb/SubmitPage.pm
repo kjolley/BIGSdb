@@ -2825,7 +2825,8 @@ sub _print_rmlst_analysis {
 				my $colour = BIGSdb::Utils::get_percent_colour( $result->{'support'} );
 				say q(<tr>);
 				say q(<td class="rmlst_cell" style="position:relative;text-align:left">)
-				  . q(<span class="rmlst_result" style="position:absolute;margin-left:1em;font-size:0.8em;white-space:nowrap">)
+				  . q(<span class="rmlst_result" style="position:absolute;margin-left:1em;)
+				  . q(font-size:0.8em;color:#000;white-space:nowrap">)
 				  . qq(<em>$result->{'taxon'}</em></span>)
 				  . qq(<div style="margin-top:0.2em;background-color:#$colour;border:1px solid #ccc;)
 				  . qq(height:0.9em;width:$result->{'support'}%"></div></td></tr>);

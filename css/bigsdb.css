@@ -673,7 +673,7 @@ div.private_record {
 
 div.private_record span.fa-lock {
 	color: #b96a6a;
-	text-shadow: 1px 1px 1px #aaa
+	text-shadow: 1px 1px 1px #444
 }
 
 div.private_record p {
@@ -3205,7 +3205,7 @@ span.config_icon {
 
 span.warning_icon {
 	color: #a66;
-	text-shadow: 3px 3px 3px #999
+	text-shadow: 1px 1px 1px #444
 }
 
 span.submission_indicator {
