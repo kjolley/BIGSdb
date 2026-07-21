@@ -140,7 +140,7 @@ sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 	my $elements = $self->_get_elements;
 	my $element  = $elements->{$id};
 	my $q        = $self->{'cgi'};
-	say q(<div class="modal" style="background: var(--bg-panel)">);
+	say q(<div class="modal" style="background: var(--bg-panel-modal)">);
 	say q(<h2>Modify visual element</h2>);
 	say qq(<p><strong>Field: $element->{'name'}</strong></p>);
 	$self->_print_size_controls( $id, $element );
