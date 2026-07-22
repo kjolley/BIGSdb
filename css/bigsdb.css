@@ -120,7 +120,7 @@
 	--nuc-A: green;
 	--nuc-T: red;
 	--nuc-C: blue;
-	
+
 	/* sequences */
 	--seq-coding: #ccccff;
 	--seq-start-codon: #ccffcc;
@@ -239,13 +239,13 @@ html[data-theme="dark"] {
 	--status-good: #9CC590;
 	--status-bad: #d08a8a;
 	--status-meh: #8A8aff;
-	
+
 	/* nucleotides */
 	--nuc-G: #b2b2b2;
 	--nuc-A: #74ae66;
 	--nuc-T: #d08a8a;
 	--nuc-C: #8a8aff;
-	
+
 	/* sequences */
 	--seq-coding: #9090b2;
 	--seq-start-codon: #00a300;
@@ -3768,6 +3768,34 @@ g.legend text {
 .ui-progressbar-value {
 	background: #ccc;
 	background-image: linear-gradient(to right, #f0f2f0 0em, #000c40 18em);
+}
+
+div.support_bar {
+	width: 100%;
+	height: 0.8em;
+}
+
+.support {
+	position: relative;
+	display: flex;
+	align-items: center;
+	min-height: 1.2em;
+}
+
+.support_label {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	height: 0.8em;
+	line-height: 0.8em;
+	font-size: 0.8em;
+	font-weight: 400;
+	color: #000;
+	background: rgba(255, 255, 255, 0.75);
+	padding: 0 2px;
+	border-radius: 2px;
+	box-sizing: border-box;
 }
 
 .ui-accordion-header.ui-state-active {

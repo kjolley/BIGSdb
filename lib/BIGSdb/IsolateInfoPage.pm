@@ -2844,10 +2844,9 @@ sub _get_annotation_metrics {
 		  . qq(<ul id="metric_fields" style="display:none;text-align:left"><li>@field_list</li></ul></td>);
 		$prov_buffer .=
 			qq(<td>$prov_metrics->{'annotated'}</td>)
-		  . q(<td style="position:relative"><span )
-		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em;color:#000">$score</span>)
-		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
-		  . qq(border:1px solid #ccc;height:0.8em;width:$score%"></div></td><td>$quality</td></tr>);
+		  . qq(<td class="support"><span class="support_label">$score</span>)
+		  . qq(<div class="support_bar" style="background-color:\#$colour;width:$score%"></div>)
+		  . qq(</td><td>$quality</td></tr>);
 		$prov_buffer .= qq(</table></div>\n);
 		if (@missing) {
 			local $" = q(, );
@@ -2885,10 +2884,8 @@ sub _get_annotation_metrics {
 		my $middle = ( $min + $max ) / 2;
 		my $colour = BIGSdb::Utils::get_percent_colour( $percent, { min => $min, max => $max, middle => $middle } );
 		$scheme_buffer .=
-			q(<td style="position:relative"><span )
-		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em;color:#000">$percent</span>)
-		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
-		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
+			qq(<td class="support"><span class="support_label">$percent</span>)
+		  . qq(<div class="support_bar" style="background-color:\#$colour;width:$percent%"></div></td>);
 		my $quality;
 		$min_threshold = $scheme->{'min_threshold'} // $max_threshold;
 
