@@ -3729,6 +3729,10 @@ g.legend text {
 	color: var(--text);
 }
 
+:root[data-theme="dark"] .ui-multiselect-menu .ui-icon {
+    filter: invert(1) contrast(1.2);
+}
+
 .ui-multiselect {
 	max-width: 240px
 }
