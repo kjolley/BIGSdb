@@ -31,6 +31,7 @@
 	--text-heading-secondary: #585874;
 	--text-data-title: #404080;
 	--text-info: #1d3557;
+	--text-note: #880000;
 
 	/* links */
 	--link: #0000bb;
@@ -119,6 +120,11 @@
 	--nuc-A: green;
 	--nuc-T: red;
 	--nuc-C: blue;
+	
+	/* sequences */
+	--seq-coding: #ccccff;
+	--seq-start-codon: #ccffcc;
+	--seq-stop-codon: #ffcccc;
 
 }
 
@@ -152,6 +158,7 @@ html[data-theme="dark"] {
 	--text-heading-secondary: #c7d0df;
 	--text-data-title: #808080;
 	--text-info: #d6e4f3;
+	--text-note: #bd6a56;
 
 	/* links */
 	--link: #7db8e6;
@@ -238,7 +245,11 @@ html[data-theme="dark"] {
 	--nuc-A: #74ae66;
 	--nuc-T: #d08a8a;
 	--nuc-C: #8a8aff;
-
+	
+	/* sequences */
+	--seq-coding: #9090b2;
+	--seq-start-codon: #00a300;
+	--seq-stop-codon: #a30000;
 }
 
 @font-face {
@@ -657,15 +668,15 @@ pre {
 }
 
 .coding {
-	background: #ccf
+	background: var(--seq-coding);
 }
 
 .startcodon {
-	background: #cfc
+	background: var(--seq-start-codon);
 }
 
 .stopcodon {
-	background: #fcc
+	background: var(--seq-stop-codon);
 }
 
 .code {
@@ -673,7 +684,7 @@ pre {
 }
 
 .highlight {
-	color: #f00
+	color: var(--status-bad);
 }
 
 .non-default {
@@ -733,7 +744,7 @@ p.note {
 
 span.note {
 	font-weight: 600;
-	color: #880000
+	color: var(--text-note);
 }
 
 p.key {
