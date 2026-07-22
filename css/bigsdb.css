@@ -70,9 +70,9 @@
 	--button-plugin-bg: #eef3f8;
 	--button-plugin-border: #d4dde8;
 	--button-plugin_text: #48617f;
-	
-	--button-curate-add-bg:#ecf6ee;
-	--button-curate-add-bg-hover:  #cdd6cf;
+
+	--button-curate-add-bg: #ecf6ee;
+	--button-curate-add-bg-hover: #cdd6cf;
 	--button-curate-add-text: #2d6b3f;
 	--button-curate-edit-bg: #eceff6;
 	--button-curate-edit-bg-hover: #cdd0d6;
@@ -101,18 +101,25 @@
 	/* charts */
 	--chart-bg: white;
 	--chart-axis: #777777;
-	
+
 	/* icons */
 	--icon-query: #4444aa;
 	--icon-delete: #aa4444;
 	--icon-add: #008800;
 	--icon-nav: #607089;
 	--icon-action-hover: #cccccc;
-	
+
 	/* status */
 	--status-good: green;
 	--status-bad: red;
 	--status-meh: blue;
+
+	/* nucleotides */
+	--nuc-G: black;
+	--nuc-A: green;
+	--nuc-T: red;
+	--nuc-C: blue;
+
 }
 
 html[data-theme="dark"] {
@@ -183,9 +190,9 @@ html[data-theme="dark"] {
 	--button-plugin-bg: #2b3642;
 	--button-plugin-border: #4a5a6c;
 	--button-plugin_text: #c9d6e6;
-	
-	--button-curate-add-bg:#17311c;
-	--button-curate-add-bg-hover:  #585c59;
+
+	--button-curate-add-bg: #17311c;
+	--button-curate-add-bg-hover: #585c59;
 	--button-curate-add-text: #acdcba;
 	--button-curate-edit-bg: #171f31;
 	--button-curate-edit-bg-hover: #58595c;
@@ -213,19 +220,25 @@ html[data-theme="dark"] {
 	/* charts */
 	--chart-bg: var(--bg-card);
 	--chart-axis: var(--text-muted);
-	
+
 	/* icons */
 	--icon-query: var(--link);
 	--icon-delete: #d08a8a;
 	--icon-add: #9ec991;
 	--icon-nav: #7b889e;
 	--icon-action-hover: #666666;
-	
+
 	/* status */
 	--status-good: #9CC590;
 	--status-bad: #d08a8a;
-	--status-meh: #8A8AFF;
+	--status-meh: #8A8aff;
 	
+	/* nucleotides */
+	--nuc-G: #b2b2b2;
+	--nuc-A: #74ae66;
+	--nuc-T: #d08a8a;
+	--nuc-C: #8a8aff;
+
 }
 
 @font-face {
@@ -292,7 +305,7 @@ select {
 	margin: 0;
 	font-size: 1em;
 	border: 1px solid var(--border);
-	background:var(--bg-page);
+	background: var(--bg-page);
 }
 
 p {
@@ -913,7 +926,10 @@ input.submit {
 	color: var(--button-text);
 }
 
-input[type="text"],input[type="number"],input[type="date"],textarea {
+input[type="text"],
+input[type="number"],
+input[type="date"],
+textarea {
 	background: var(--bg-page);
 	color: var(--text);
 	border: 1px solid var(--selects-border);
@@ -1764,19 +1780,19 @@ span.highlightvalue {
 }
 
 .A {
-	color: green
+	color: var(--nuc-A);
 }
 
 .G {
-	color: black
+	color: var(--nuc-G);
 }
 
 .T {
-	color: red
+	color: var(--nuc-T);
 }
 
 .C {
-	color: blue
+	color: var(--nuc-C);
 }
 
 /*Using Courier here because IBM Mono doesn't size &nbsp; correctly!*/
@@ -3653,11 +3669,15 @@ a.slide_trigger {
 	stroke-width: 2px
 }
 
-.bb-chart-arcs-gauge-min,.bb-chart-arcs-gauge-max,.bb-axis-x-label,.bb-axis-y-label,.bb-axis .tick text {
-	 fill: var(--chart-axis) !important;
+.bb-chart-arcs-gauge-min,
+.bb-chart-arcs-gauge-max,
+.bb-axis-x-label,
+.bb-axis-y-label,
+.bb-axis .tick text {
+	fill: var(--chart-axis) !important;
 }
 
-.bb-axis path.domain{
+.bb-axis path.domain {
 	stroke: var(--chart-axis) !important;
 }
 
@@ -3669,17 +3689,17 @@ a.slide_trigger {
 	fill: var(--text-heading);
 }
 
-.bb-tooltip td  {
-	background:var(--chart-bg) !important;
-	color:var(--text) !important;
+.bb-tooltip td {
+	background: var(--chart-bg) !important;
+	color: var(--text) !important;
 }
 
-g .legend-bg{
+g .legend-bg {
 	fill: var(--chart-bg) !important;
 }
 
-g.legend text{
-	fill:var(--text) !important;
+g.legend text {
+	fill: var(--text) !important;
 }
 
 .ui-multiselect-header {
