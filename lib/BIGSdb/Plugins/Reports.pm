@@ -232,10 +232,63 @@ sub _generate_report {
 	}
 
 	#Convert to PDF.
-	open( my $make_pdf, '|-', $self->{'config'}->{'weasyprint_path'}, '-', '-' )
-	  || $logger->error("Cannot convert PDF. $!");
-	say $make_pdf $template_output;
-	close $make_pdf;
+    my $tmpdir = tempdir(DIR => $ENV{'TMPDIR'});
+	# Create temp files
+	my ($html_fh, $html_file) = tempfile(
+		DIR    =>  $tmpdir,
+		SUFFIX => '.html',
+		UNLINK => 0,
+	);
+	my ($pdf_fh, $pdf_file) = tempfile(
+		DIR    => $tmpdir,
+		SUFFIX => '.pdf',
+		UNLINK => 0,
+	);
+
+	# Write HTML to temp file
+	binmode $html_fh, ':encoding(utf8)';
+	print $html_fh $template_output;
+	close $html_fh;
+	close $pdf_fh;    # weasyprint writes here
+
+	my $cmd =
+		"$self->{'config'}->{'weasyprint_path'} $html_file $pdf_file";
+
+	my $err_fh = gensym;
+
+	eval {
+		my $pid = open3( my $in_fh, my $out_fh, $err_fh, $cmd );
+		close $in_fh;
+
+		local $/ = undef;
+		my $out = <$out_fh>;
+		my $err = <$err_fh>;
+
+		waitpid( $pid, 0 );
+		my $exit_code = $? >> 8;
+
+		if ($exit_code) {
+			if ($err) {
+				$err =~ s/\s+$//x;
+				$logger->error($err);
+			}
+			$logger->error($out) if $out;
+		}
+	};
+	# Read back generated PDF
+	my $pdf;
+	open my $pdf_in, '<:raw', $pdf_file ;
+
+	local $/;
+	$pdf = <$pdf_in>;
+	close $pdf_in;
+	binmode STDOUT;
+	say $pdf;
+
+	# Clean up temp files
+	unlink $html_file if -e $html_file;
+	unlink $pdf_file  if -e $pdf_file;
+
 	return;
 }
 
