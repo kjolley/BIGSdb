@@ -221,7 +221,7 @@ sub _get_javascript_paths {
 				version => '20200308'
 			},
 			'igv'                 => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
-			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20260522' },
+			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20260723' },
 			'bigsdb.dataexplorer' =>
 			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20230310' },
 			'bigsdb.curateindex' => {

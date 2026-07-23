@@ -146,7 +146,7 @@ html[data-theme="dark"] {
 
 	/*	 borders */
 	--border: #39424d;
-	--border-card: #434343;
+	--border-card: #6a6a6a;
 	--border-light: #4b5563;
 	--border-dark: #6b7280;
 
@@ -2081,7 +2081,7 @@ div.new_item {
 	display: block;
 	position: absolute;
 	z-index: 1;
-	border: 1px solid #ccc;
+	border: 1px solid var(--border-card);
 	border-radius: 5px;
 	margin: 1px;
 	max-width: 100%;
