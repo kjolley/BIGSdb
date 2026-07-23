@@ -29,6 +29,9 @@ use Template;
 use Template::Stash;
 use MIME::Base64 qw(encode_base64);
 use JSON;
+use File::Temp qw(tempdir tempfile);
+use IPC::Open3;
+use Symbol        qw(gensym);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -232,14 +235,15 @@ sub _generate_report {
 	}
 
 	#Convert to PDF.
-    my $tmpdir = tempdir(DIR => $ENV{'TMPDIR'});
+	my $tmpdir = tempdir( DIR => $self->{'config'}->{'secure_tmp_dir'} );
+
 	# Create temp files
-	my ($html_fh, $html_file) = tempfile(
-		DIR    =>  $tmpdir,
+	my ( $html_fh, $html_file ) = tempfile(
+		DIR    => $tmpdir,
 		SUFFIX => '.html',
 		UNLINK => 0,
 	);
-	my ($pdf_fh, $pdf_file) = tempfile(
+	my ( $pdf_fh, $pdf_file ) = tempfile(
 		DIR    => $tmpdir,
 		SUFFIX => '.pdf',
 		UNLINK => 0,
@@ -251,8 +255,7 @@ sub _generate_report {
 	close $html_fh;
 	close $pdf_fh;    # weasyprint writes here
 
-	my $cmd =
-		"$self->{'config'}->{'weasyprint_path'} $html_file $pdf_file";
+	my $cmd = "$self->{'config'}->{'weasyprint_path'} $html_file $pdf_file";
 
 	my $err_fh = gensym;
 
@@ -275,15 +278,11 @@ sub _generate_report {
 			$logger->error($out) if $out;
 		}
 	};
-	# Read back generated PDF
-	my $pdf;
-	open my $pdf_in, '<:raw', $pdf_file ;
 
-	local $/;
-	$pdf = <$pdf_in>;
-	close $pdf_in;
+	# Read back generated PDF
+	my $pdf_ref = BIGSdb::Utils::slurp($pdf_file);
 	binmode STDOUT;
-	say $pdf;
+	say $$pdf_ref;
 
 	# Clean up temp files
 	unlink $html_file if -e $html_file;
