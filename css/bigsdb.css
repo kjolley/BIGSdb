@@ -15,7 +15,6 @@
 	--bg-login: #1aB7De;
 	--bg-reset: #faf7f7;
 
-
 	/* borders */
 	--border: #e7ebf0;
 	--border-card: #c0c0c0;
@@ -3863,6 +3862,11 @@ div.support_bar {
 
 .ui-accordion-content {
 	background: var(--bg-card);
+	color: var(--text);
+}
+
+.ui-tooltip {
+	background: var(--bg-info);
 	color: var(--text);
 }
 
