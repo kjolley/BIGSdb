@@ -2737,9 +2737,8 @@ div.file_output {
 	align-items: center;
 	gap: 10px;
 	padding: 10px;
-	border: 1px solid #ccc;
+	border: 1px solid var(--border-card);
 	border-radius: 10px;
-	box-shadow: 1px 1px 1px #dfdfdf;
 	width: 300px;
 	height: 80px;
 	float: left;
@@ -2753,9 +2752,8 @@ div.image_file_output {
 	flex-direction: column;
 	gap: 2px;
 	padding: 10px;
-	border: 1px solid #ccc;
+	border: 1px solid var(--border-card);
 	border-radius: 10px;
-	box-shadow: 1px 1px 1px #dfdfdf;
 	width: 300px;
 	height: 304px;
 	float: left;
@@ -2765,9 +2763,8 @@ div.image_file_output {
 
 div.file_output_with_heading {
 	padding: 10px;
-	border: 1px solid #ccc;
+	border: 1px solid var(--border-card);
 	border-radius: 10px;
-	box-shadow: 1px 1px 1px #dfdfdf;
 	width: 300px;
 	height: 80px;
 	float: left;
@@ -3788,7 +3785,8 @@ g.legend text {
 }
 
 #progressbar {
-	border-image: linear-gradient(to right, #eee 0em, #909cd0 18em) 1;
+	border-image: linear-gradient(to right, var(--bg-page) 0em, var(--brand-primary-dark) 18em);
+	background: var(--bg-panel);
 }
 
 .ui-slider {
@@ -3796,8 +3794,12 @@ g.legend text {
 }
 
 .ui-progressbar-value {
-	background: #ccc;
-	background-image: linear-gradient(to right, #f0f2f0 0em, #000c40 18em);
+	background: var(--bg-panel);
+	background-image: linear-gradient(to right, var(--bg-panel) 0em, var(--brand-primary-dark) 18em);
+}
+
+.progressLabel {
+	color: var(--text);
 }
 
 div.support_bar {
