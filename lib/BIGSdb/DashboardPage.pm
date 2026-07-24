@@ -4889,7 +4889,7 @@ sub print_field_selector {
 		-labels       => $labels,
 		-multiple     => 'true',
 		-style        => 'max-width:200px',
-		-class        => 'do_not_calc_width',
+		-class        => $field_options->{'class'} // 'do_not_calc_width',
 		-autocomplete => 'off'               #Shouldn't need this but Firefox will cache value otherwise.
 	);
 	return;

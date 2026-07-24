@@ -710,7 +710,7 @@ sub _print_field_controls {
 	say q(<p>Select one or more field values in table,<br />then select one or more fields below to drill-down.</p>);
 	say q(<ul>);
 	for my $i ( 1 .. 3 ) {
-		say q(<li>);
+		say q(<li><span class="query_block">);
 		$self->print_field_selector(
 			{
 				ignore_prefs        => 1,
@@ -726,10 +726,11 @@ sub _print_field_controls {
 				id            => "field$i",
 				name          => "field$i",
 				label         => "Field#$i",
-				exclude_field => scalar $q->param('field')
+				exclude_field => scalar $q->param('field'),
+				class         => 'do_not_calc_width, field_selector'
 			}
 		);
-		say q(</li>);
+		say q(</span></li>);
 	}
 	say q(</ul>);
 	say $q->submit(
@@ -967,8 +968,7 @@ sub _get_analysis_field_values {
 	my $qry =
 		q(SELECT COALESCE(t.value, 'No value') AS label, COUNT(*) AS count FROM analysis_results_cache t )
 	  . q(JOIN analysis_fields af ON (af.analysis_name,af.json_path) = (t.analysis_name,t.json_path) )
-	  . qq(RIGHT JOIN $self->{'system'}->{'view'} v ON t.isolate_id = v.id AND (t.analysis_name,af.field_name) = (?,?))
-	  ;
+	  . qq(RIGHT JOIN $self->{'system'}->{'view'} v ON t.isolate_id = v.id AND (t.analysis_name,af.field_name) = (?,?));
 	my $filters = $self->_get_filters($params);
 	local $" = ' AND ';
 	$qry .= " WHERE @$filters" if @$filters;
@@ -1027,7 +1027,7 @@ sub get_title {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache bigsdb.dataexplorer jQuery.tablesort);
+	$self->{$_} = 1 foreach qw (jQuery noCache bigsdb.dataexplorer jQuery.tablesort select2);
 	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
 	foreach my $ajax_param (qw(updateTable analyse)) {
