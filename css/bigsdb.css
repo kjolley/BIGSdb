@@ -2914,11 +2914,37 @@ div.expand_link span {
 }
 
 div#igv {
-	border: 1px solid #ddd
+	border: 1px solid var(--border);
 }
 
-div.igv-navbar {
-	overflow-x: hidden
+:root[data-theme="dark"] div#igv canvas {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+:root[data-theme="dark"] .igv-track-label, 
+:root[data-theme="dark"] .igv-right-hand-gutter, 
+:root[data-theme="dark"] .igv-navbar
+ {
+    color: var(--text);
+	background: var(--bg-panel-alt);
+}
+
+:root[data-theme="dark"] .igv-ideogram-shim {
+	color: var(--text);
+	background: var(--bg-page);
+}
+
+:root[data-theme="dark"] .igv-nav-bar-button {
+	background: var(--button-small-bg);
+	color: var(--button-small-text);
+}
+
+:root[data-theme="dark"] .igv-nav-bar-button:hover {
+	background: var(--button-small-bg-hover);
+}
+
+:root[data-theme="dark"] div#igv input {
+	background: var(--bg-page)
 }
 
 div.flags {
