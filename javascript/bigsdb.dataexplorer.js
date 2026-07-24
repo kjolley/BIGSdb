@@ -112,7 +112,7 @@ function runAnalysis() {
 		values: values,
 		include_old_versions: $("#include_old_versions").is(":checked") ? 1 : 0,
 		record_age: recordAge,
-		project_id: typeof projectId !== 'undefined' ? projectId: null
+		project_id: typeof projectId !== 'undefined' ? projectId : null
 	};
 	$.ajax({
 		url: url + "&page=explorer",
@@ -138,7 +138,7 @@ function reloadTable() {
 	$("div#waiting").css("display", "block");
 	let includeOld = $("#include_old_versions").is(":checked") ? 1 : 0;
 	let new_url = url + "&page=explorer&updateTable=1&field=" + field + "&record_age=" + recordAge + "&include_old_versions=" + includeOld;
-	if (typeof projectId !== 'undefined'){
+	if (typeof projectId !== 'undefined') {
 		new_url += "&project_id=" + projectId;
 	}
 	$.ajax({
@@ -266,7 +266,7 @@ function loadTree(data) {
 			})
 			.on("mouseout", function() { tooltip.style("visibility", "hidden"); })
 
-		nodeEnter.append("text")
+		const label = nodeEnter.append("text")
 			.attr("dy", "0.31em")
 			.attr("x", d => d._children ? -12 : 12)
 			.attr("text-anchor", d => d._children ? "end" : "start")
@@ -286,11 +286,11 @@ function loadTree(data) {
 					.style("visibility", "visible");
 			})
 			.on("mouseout", function() { tooltip.style("visibility", "hidden"); })
-			.clone(true).lower()
-			.attr("stroke-linejoin", "round")
-			.attr("stroke-width", 3)
-			.attr("stroke", "white");
+			.attr("class", "d3-label");
 
+		label.clone(true)
+			.lower()
+			.attr("class", "d3-label-outline");
 		nodeEnter.filter(function(d) { return d.parent })
 			.append("rect")
 			.attr("width", d => d.parent ? (100 * d.data.count / d.parent.data.count) : 0)

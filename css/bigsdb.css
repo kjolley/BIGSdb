@@ -125,6 +125,9 @@
 	--seq-coding: #ccccff;
 	--seq-start-codon: #ccffcc;
 	--seq-stop-codon: #ffcccc;
+	
+	/* D3 visualisations */
+	--label-outline: #ffffff;
 
 }
 
@@ -250,6 +253,9 @@ html[data-theme="dark"] {
 	--seq-coding: #9090b2;
 	--seq-start-codon: #00a300;
 	--seq-stop-codon: #a30000;
+	
+	/* D3 visualisations */
+	--label-outline: #000000;
 }
 
 @font-face {
@@ -1463,7 +1469,7 @@ div.breadcrumb_container {
 div.breadcrumbs {
 	justify-content: flex-start;
 	padding: 0.5em 0.2em;
-	color: #1f3856;
+	color: var(--text-info);
 	white-space: nowrap;
 	overflow-x: hidden;
 	text-overflow: ellipsis;
@@ -3987,6 +3993,20 @@ div.form_value .select2-selection__rendered {
 
 .icons-selector .selector-popup {
 	background: var(--bg-page) !important;
+}
+
+.d3-label {
+    fill: var(--text);
+    stroke: none;
+}
+
+.d3-label-outline {
+    fill: none;
+    stroke: var(--label-outline);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    paint-order: stroke fill;
+    pointer-events: none;
 }
 
 /* Responsive design */
