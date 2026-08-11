@@ -815,12 +815,12 @@ sub _start_html {
 	my ( $self, $args ) = @_;
 	my ( $title, $meta, $style, $script, $shortcut_icon ) = @{$args}{qw(title meta style script shortcut_icon)};
 	my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
-	my $q = $self->{'cgi'};
-	my $mode = ($self->_dark_mode_enabled && ($q->cookie('theme') // q()) eq 'dark') ? 'dark' : 'light';
+	my $q               = $self->{'cgi'};
+	my $mode            = ( $self->_dark_mode_enabled && ( $q->cookie('theme') // q() ) eq 'dark' ) ? 'dark' : 'light';
 	say q(<!DOCTYPE html>);
 	say qq(<html data-theme="$mode">);
 	say q(<head>);
-	say $self->_get_theme_script if $self->_dark_mode_enabled;
+	say $self->_get_theme_script  if $self->_dark_mode_enabled;
 	say qq(<title>$title</title>) if $title;
 	say q(<meta name="viewport" content="width=device-width" />);
 	say q(<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />);
@@ -874,7 +874,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20260716';
+	my $version = '20260811';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -921,13 +921,13 @@ sub _get_stylesheets {
 		push @paths, @css;
 	}
 	if ( $self->{'jQuery.jstree'} ) {
-		foreach my $theme ('default','default-dark'){
-		if ( $self->{'config'}->{'relative_js_dir'} ) {
-			push @paths,
-			  "$self->{'config'}->{'relative_js_dir'}/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
-		} else {
-			push @paths, "/javascript/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
-		}
+		foreach my $theme ( 'default', 'default-dark' ) {
+			if ( $self->{'config'}->{'relative_js_dir'} ) {
+				push @paths,
+				  "$self->{'config'}->{'relative_js_dir'}/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
+			} else {
+				push @paths, "/javascript/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
+			}
 		}
 	}
 	return \@paths;
@@ -1307,7 +1307,7 @@ sub _print_expand_trigger {
 
 sub _dark_mode_enabled {
 	my ($self) = @_;
-	return if ($self->{'system'}->{'disable_dark_mode'} // q()) eq 'yes';
+	return if ( $self->{'system'}->{'disable_dark_mode'} // q() ) eq 'yes';
 	return if $self->{'config'}->{'disable_dark_mode'};
 	return 1;
 }
@@ -1315,10 +1315,10 @@ sub _dark_mode_enabled {
 sub _print_dark_mode_trigger {
 	my ($self) = @_;
 	return if !$self->_dark_mode_enabled;
-	my $q = $self->{'cgi'};
-	my $theme = ($q->cookie('theme') // q()) eq 'dark' ? 'dark' : 'light';
-	my $show_dark   = $theme eq 'dark' ? 'none'   : 'inline';
-	my $show_light = $theme eq 'dark' ? 'inline' : 'none';
+	my $q          = $self->{'cgi'};
+	my $theme      = ( $q->cookie('theme') // q() ) eq 'dark' ? 'dark'   : 'light';
+	my $show_dark  = $theme eq 'dark'                         ? 'none'   : 'inline';
+	my $show_light = $theme eq 'dark'                         ? 'inline' : 'none';
 	say q(<span class="icon_button"><a id="dark_trigger" class="trigger_button secondary_trigger" )
 	  . q(style="display:inline" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
@@ -2257,7 +2257,8 @@ sub get_scheme_flags {
 		}
 		foreach my $flag (@$flags) {
 			$buffer .=
-			  qq(<span class="flag" style="color:$colours->{$flag};background:$colours->{$flag}15">$flag</span>\n);
+				qq(<span class="flag" style="color:$colours->{$flag};)
+			  . qq(background:color-mix(in srgb, $colours->{$flag} 6%, transparent)">$flag</span>\n);
 		}
 		if ( $options->{'link'} ) {
 			$buffer .= q(</a>);
