@@ -3449,7 +3449,7 @@ span.pk {
 }
 
 span.browse {
-	color: #080
+	color: var(--status-good);
 }
 
 span.locus_common_name {
