@@ -70,9 +70,9 @@ $EXPORT_TAGS{'embargo'} = [@values];
 
 #Interface
 use constant FACE_STYLE => (
-	good  => q(class="far fa-lg fa-smile" style="color:green"),
-	mixed => q(class="far fa-lg fa-meh" style="color:blue"),
-	bad   => q(class="far fa-lg fa-frown" style="color:red")
+	good  => q(class="far fa-lg fa-smile statusgood"),
+	mixed => q(class="far fa-lg fa-meh statusmeh"),
+	bad   => q(class="far fa-lg fa-frown statusbad")
 );
 use constant SHOW                 => q(<span class="fas fa-plus-circle" style="color:green"></span>);
 use constant HIDE                 => q(<span class="fas fa-minus-circle" style="color:red"></span>);
