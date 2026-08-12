@@ -49,7 +49,7 @@ sub get_attributes {
 		buttontext          => 'LINvis',
 		menutext            => 'LINvis',
 		module              => 'LINvis',
-		version             => '1.2.1',
+		version             => '1.2.2',
 		dbtype              => 'isolates',
 		section             => 'analysis,postquery',
 		input               => 'query',
