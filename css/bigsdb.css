@@ -3008,20 +3008,21 @@ td.field_comment {
 	text-align: left;
 }
 
+/*Reuse status colours for composite fields rather than define new ones.*/
 span.field {
-	color: blue
+	color: var(--status-meh)
 }
 
 span.text {
-	color: black
+	color: var(--text)
 }
 
 span.locus {
-	color: green
+	color: var(--status-good)
 }
 
 span.scheme {
-	color: red
+	color: var(--status-bad)
 }
 
 span.aliases {

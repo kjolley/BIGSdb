@@ -79,10 +79,10 @@ use constant HIDE                 => q(<span class="fas fa-minus-circle" style="
 use constant ON                   => q(<span class="fas fa-toggle-on fa-xl"></span>);
 use constant OFF                  => q(<span class="fas fa-toggle-off fa-xl"></span>);
 use constant SAVE                 => q(<span class="fas fa-save"></span>);
-use constant UP                   => q(<span class="fas fa-arrow-up" style="color:blue"></span>);
-use constant DOWN                 => q(<span class="fas fa-arrow-down" style="color:blue"></span>);
-use constant LEFT                 => q(<span class="fas fa-lg fa-arrow-left" style="color:blue"></span>);
-use constant RIGHT                => q(<span class="fas fa-lg fa-arrow-right" style="color:blue"></span>);
+use constant UP                   => q(<span class="fas fa-arrow-up"></span>);
+use constant DOWN                 => q(<span class="fas fa-arrow-down"></span>);
+use constant LEFT                 => q(<span class="fas fa-lg fa-arrow-left"></span>);
+use constant RIGHT                => q(<span class="fas fa-lg fa-arrow-right"></span>);
 use constant EDIT                 => q(<span class="fas fa-pencil-alt icon_query"></span>);
 use constant DELETE               => q(<span class="fas fa-times icon_delete"></span>);
 use constant ADD                  => q(<span class="fas fa-plus icon_add" ></span>);
