@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.17.0',
+		version            => '1.17.1',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -582,6 +582,24 @@ sub run {
 			$self->_print_interface;
 			return;
 		}
+		my $limit =
+		  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
+		  ? $self->{'system'}->{'export_limit'}
+		  : MAX_DEFAULT_DATA_POINTS;
+		my $data_points = @$ids * @$selected_fields;
+		if ( $data_points > $limit ) {
+			my $nice_data_points = BIGSdb::Utils::commify($data_points);
+			my $nice_limit       = BIGSdb::Utils::commify($limit);
+			$self->print_bad_status(
+				{
+					message =>
+					  qq(The submitted job is too big - you requested output containing $nice_data_points data points )
+					  . qq((isolates x fields). Jobs are limited to $nice_limit data points.)
+				}
+			);
+			$self->_print_interface;
+			return;
+		}
 		$q->delete('isolate_paste_list');
 		$q->delete('isolate_id');
 		my $set_id = $self->get_set_id;
@@ -718,8 +736,7 @@ sub _print_interface {
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset(
-		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ] }
-	);
+		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ] } );
 	$self->print_eav_fields_fieldset( { no_all_none => 1, hide => $self->{'plugin_prefs'}->{'eav_fieldset'} ? 0 : 1 } );
 	$self->print_composite_fields_fieldset( { hide => $self->{'plugin_prefs'}->{'composite_fieldset'} ? 0 : 1 } );
 	$self->_print_ref_fields;
@@ -752,20 +769,6 @@ sub run_job {
 	my @fields   = split /\|\|/x, $params->{'selected_fields'};
 	$params->{'job_id'} = $job_id;
 	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $limit =
-	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
-	  ? $self->{'system'}->{'export_limit'}
-	  : MAX_DEFAULT_DATA_POINTS;
-	my $data_points = @$ids * @fields;
-
-	if ( $data_points > $limit ) {
-		my $nice_data_points = BIGSdb::Utils::commify($data_points);
-		my $nice_limit       = BIGSdb::Utils::commify($limit);
-		my $msg = qq(<p>The submitted job is too big - you requested output containing $nice_data_points data points )
-		  . qq((isolates x fields). Jobs are limited to $nice_limit data points.</p>);
-		$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', message_html => $msg } );
-		return;
-	}
 	$self->_write_tab_text(
 		{
 			ids      => $ids,
@@ -777,6 +780,7 @@ sub run_job {
 		}
 	);
 	return if $self->{'exit'};
+
 	if ( -e $filename ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
