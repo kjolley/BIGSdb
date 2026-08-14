@@ -158,6 +158,7 @@ if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
 	$script->delete_temp_files("$script->{'config'}->{'secure_tmp_dir'}/*$opts{'prefix'}*");
 	$script->{'logger'}->info("$opts{'d'}:All Autodefiner threads finished");
 	$script->stop_job( $job_id, { temp_init => 1 } );
+	remove_lock_file();
 	exit;
 }
 
@@ -176,6 +177,7 @@ BIGSdb::Offline::ScanNew->new(
 		instance         => $opts{'d'},
 	}
 );
+remove_lock_file();
 
 sub print_header {
 	if ( !$opts{'a'} ) {
@@ -192,7 +194,7 @@ sub check_if_script_already_running {
 		}
 	);
 
-	my $lock_file = get_lock_file($script);
+	my $lock_file = get_lock_file();
 	if ( -e $lock_file ) {
 		open( my $fh, '<', $lock_file )
 		  || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
@@ -216,7 +218,12 @@ sub check_if_script_already_running {
 }
 
 sub get_lock_file {
-	my ($script) = @_;
+	my $script = BIGSdb::Offline::Script->new(
+		{
+			config_dir => CONFIG_DIR,
+			lib_dir    => LIB_DIR,
+		}
+	);
 	my $arg_fingerprint;
 	foreach my $key ( sort keys %opts ) {
 		$arg_fingerprint .= qq($key:) . ( $opts{$key} // q(_) );
@@ -225,6 +232,12 @@ sub get_lock_file {
 	my $lock_dir  = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
 	my $lock_file = "$lock_dir/BIGSdb_scannew_$hash";
 	return $lock_file;
+}
+
+sub remove_lock_file {
+	my $lock_file = get_lock_file();
+	unlink $lock_file;
+	return;
 }
 
 sub show_help {

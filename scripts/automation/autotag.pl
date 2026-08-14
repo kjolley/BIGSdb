@@ -158,6 +158,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	$pm->wait_all_children;
 	$script->{'logger'}->info("$opts{'d'}:All Autotagger threads finished");
 	$script->stop_job( $job_id, { temp_init => 1 } );
+	remove_lock_file();
 	exit;
 }
 
@@ -175,6 +176,7 @@ BIGSdb::Offline::AutoTag->new(
 		instance         => $opts{'d'},
 	}
 );
+remove_lock_file();
 
 sub check_if_script_already_running {
 	my $script = BIGSdb::Offline::Script->new(
@@ -184,7 +186,7 @@ sub check_if_script_already_running {
 		}
 	);
 
-	my $lock_file = get_lock_file($script);
+	my $lock_file = get_lock_file();
 	if ( -e $lock_file ) {
 		open( my $fh, '<', $lock_file )
 		  || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
@@ -208,7 +210,12 @@ sub check_if_script_already_running {
 }
 
 sub get_lock_file {
-	my ($script) = @_;
+	my $script = BIGSdb::Offline::Script->new(
+		{
+			config_dir => CONFIG_DIR,
+			lib_dir    => LIB_DIR,
+		}
+	);
 	my $arg_fingerprint;
 	foreach my $key ( sort keys %opts ) {
 		$arg_fingerprint .= qq($key:) . ( $opts{$key} // q(_) );
@@ -217,6 +224,12 @@ sub get_lock_file {
 	my $lock_dir  = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
 	my $lock_file = "$lock_dir/BIGSdb_autotag_$hash";
 	return $lock_file;
+}
+
+sub remove_lock_file {
+	my $lock_file = get_lock_file();
+	unlink $lock_file;
+	return;
 }
 
 sub show_help {
