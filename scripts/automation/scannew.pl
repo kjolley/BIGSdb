@@ -93,9 +93,10 @@ if ( !$opts{'d'} ) {
 	say 'Help: scannew.pl -h';
 	exit;
 }
+my $job_fingerprint = get_job_fingerprint();    #Do this now as we delete args later.
 check_if_script_already_running();
 if ( BIGSdb::Utils::is_int( $opts{'threads'} ) && $opts{'threads'} > 1 ) {
-	my $script = BIGSdb::Offline::ScanNew->new(  #Create script object to use methods to determine isolate list
+	my $script = BIGSdb::Offline::ScanNew->new(    #Create script object to use methods to determine isolate list
 		{
 			config_dir       => CONFIG_DIR,
 			lib_dir          => LIB_DIR,
@@ -186,6 +187,15 @@ sub print_header {
 	return;
 }
 
+sub get_job_fingerprint {
+	my $arg_fingerprint;
+	foreach my $key ( sort keys %opts ) {
+		$arg_fingerprint .= qq($key:) . ( $opts{$key} // q(_) );
+	}
+	my $hash = Digest::MD5::md5_hex("$0$arg_fingerprint");
+	return $hash;
+}
+
 sub check_if_script_already_running {
 	my $script = BIGSdb::Offline::Script->new(
 		{
@@ -224,13 +234,9 @@ sub get_lock_file {
 			lib_dir    => LIB_DIR,
 		}
 	);
-	my $arg_fingerprint;
-	foreach my $key ( sort keys %opts ) {
-		$arg_fingerprint .= qq($key:) . ( $opts{$key} // q(_) );
-	}
-	my $hash      = Digest::MD5::md5_hex("$0$arg_fingerprint");
+
 	my $lock_dir  = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
-	my $lock_file = "$lock_dir/BIGSdb_scannew_$hash";
+	my $lock_file = "$lock_dir/BIGSdb_scannew_$job_fingerprint";
 	return $lock_file;
 }
 
