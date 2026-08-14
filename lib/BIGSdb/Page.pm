@@ -2882,6 +2882,29 @@ sub get_curator_id {
 
 sub isolate_exists {
 	my ( $self, $id, $options ) = @_;
+	$self->{'isolate_check_count'} //= 0;
+	$self->{'isolate_check_count'}++;
+	if ( $self->{'isolate_check_count'} > 100 ) {
+		if ( $options->{'has_seqbin'} ) {
+			if ( !defined $self->{'cache'}->{'seqbin_id_exists'} ) {
+				my $valid_seqbins =
+				  $self->{'datastore'}
+				  ->run_query( "SELECT id FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s ON v.id=s.isolate_id",
+					undef, { fetch => 'col_arrayref' } );
+				$self->{'cache'}->{'seqbin_id_exists'}->{$_} = 1 foreach @$valid_seqbins;
+			}
+			return $self->{'cache'}->{'seqbin_id_exists'}->{$id};
+		} else {
+			if ( !defined $self->{'cache'}->{'isolate_id_exists'} ) {
+				my $valid_ids =
+				  $self->{'datastore'}
+				  ->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
+				$self->{'cache'}->{'isolate_id_exists'}->{$_} = 1 foreach @$valid_ids;
+			}
+			return $self->{'cache'}->{'isolate_id_exists'}->{$id};
+		}
+
+	}
 	if ( $options->{'has_seqbin'} ) {
 		return $self->{'datastore'}->run_query(
 			"SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} v JOIN "
@@ -3474,7 +3497,6 @@ sub print_seqbin_isolate_fieldset {
 
 sub get_ids_from_pasted_list {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my ( @cleaned_ids, @invalid_ids );
 	if ( $q->param('isolate_paste_list') ) {
@@ -3483,6 +3505,7 @@ sub get_ids_from_pasted_list {
 			next if $id =~ /^\s*$/x;
 			$id         =~ s/^\s*//x;
 			$id         =~ s/\s*$//x;
+
 			if ( BIGSdb::Utils::is_int($id) && $self->isolate_exists( $id, $options ) ) {
 				push @cleaned_ids, $id;
 			} else {
