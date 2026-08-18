@@ -213,11 +213,11 @@ sub check_if_script_already_running {
 		my $pid_exists = kill( 0, $pid );
 		if ( !$pid_exists ) {
 			say 'Lock file exists but process is no longer running - deleting lock.'
-			  if !$opts{'quiet'};
+			  if !$opts{'q'};
 			unlink $lock_file;
 		} else {
 			undef $script;
-			say 'Script already running with these parameters - terminating.' if !$opts{'quiet'};
+			say 'Script already running with these parameters - terminating.' if !$opts{'q'};
 			exit(1);
 		}
 	}
