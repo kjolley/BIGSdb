@@ -1,4 +1,4 @@
-/*Version: 20260811*/
+/*Version: 20260823*/
 
 :root {
 	/* backgrounds */
@@ -114,6 +114,7 @@
 	--status-good: green;
 	--status-bad: red;
 	--status-meh: blue;
+	--status-provisional: #efdcdc;
 
 	/* nucleotides */
 	--nuc-G: black;
@@ -249,6 +250,7 @@ html[data-theme="dark"] {
 	--status-good: #9CC590;
 	--status-bad: #d08a8a;
 	--status-meh: #8A8aff;
+	--status-provisional: #703333;
 
 	/* nucleotides */
 	--nuc-G: #b2b2b2;
@@ -660,9 +662,9 @@ a.update:hover {
 }
 
 .provisional {
-	border: 1px solid #c0c0c0;
-	background: #efdcdc;
-	color: black
+	border: 1px solid var(--border-card);
+	background: var(--status-provisional);
+	color: var(--text)
 }
 
 pre {
