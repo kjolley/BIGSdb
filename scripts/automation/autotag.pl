@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20260818
+#Version: 20260823
 use strict;
 use warnings;
 use 5.010;
@@ -88,7 +88,7 @@ if ( !$opts{'d'} ) {
 	say 'Help: autotag.pl -h';
 	exit;
 }
-my $job_fingerprint = get_job_fingerprint(); #Do this now as we delete args later.
+my $job_fingerprint = get_job_fingerprint();    #Do this now as we delete args later.
 check_if_script_already_running();
 
 if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
@@ -184,7 +184,7 @@ sub get_job_fingerprint {
 	foreach my $key ( sort keys %opts ) {
 		$arg_fingerprint .= qq($key:) . ( $opts{$key} // q(_) );
 	}
-	my $hash      = Digest::MD5::md5_hex("$0$arg_fingerprint");
+	my $hash = Digest::MD5::md5_hex("$0$arg_fingerprint");
 	return $hash;
 }
 
@@ -208,6 +208,7 @@ sub check_if_script_already_running {
 			  if !$opts{'q'};
 			unlink $lock_file;
 		} else {
+			$script->{'logger'}->error("$opts{'d'} - Script already running with these parameters - terminating.");
 			undef $script;
 			say 'Script already running with these parameters - terminating.' if !$opts{'q'};
 			exit(1);
@@ -226,7 +227,7 @@ sub get_lock_file {
 			lib_dir    => LIB_DIR,
 		}
 	);
-	
+
 	my $lock_dir  = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
 	my $lock_file = "$lock_dir/BIGSdb_autotag_$job_fingerprint";
 	return $lock_file;
