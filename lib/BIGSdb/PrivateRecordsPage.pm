@@ -20,8 +20,8 @@ package BIGSdb::PrivateRecordsPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
-use Log::Log4perl qw(get_logger);
+use parent            qw(BIGSdb::Page);
+use Log::Log4perl     qw(get_logger);
 use BIGSdb::Constants qw(:interface);
 my $logger = get_logger('BIGSdb.Page');
 

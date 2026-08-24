@@ -47,7 +47,6 @@ sub get_curator_name {
 
 sub create_record_table {
 	my ( $self, $table, $newdata, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	if ( ref $newdata ne 'HASH' ) {
 		$self->print_bad_status( { message => q(Record doesn't exist.) } );
 		return q();
@@ -132,13 +131,11 @@ sub _get_form_fields {
 			my $name   = $options->{'prepend_table_name'} ? "${table}_$att->{'name'}" : $att->{'name'};
 			my $length = $att->{'length'} || ( $att->{'type'} eq 'int' ? 15 : 50 );
 			my $args   = {
-				table   => $table,
-				newdata => $newdata_ref,
-				name    => $name,
-				att     => $att,
-				options => $options,
-
-				#				width       => $width,
+				table       => $table,
+				newdata     => $newdata_ref,
+				name        => $name,
+				att         => $att,
+				options     => $options,
 				length      => $length,
 				html5_args  => $html5_args,
 				placeholder => $att->{'placeholder'},
@@ -193,7 +190,7 @@ sub _show_field {
 
 sub _get_label {
 	my ( $self, $args ) = @_;
-	my ( $newdata, $name, $att, $options, $width ) = @$args{qw(newdata name att options width)};
+	my ( $newdata, $name, $att, $options ) = @$args{qw(newdata name att options)};
 	( my $cleaned_name = $att->{name} ) =~ tr/_/ /;
 	my %auto_field = map { $_ => 1 } qw (curator date_entered datestamp);
 	my $for =
@@ -640,7 +637,7 @@ sub _get_boolean_field {
 }
 
 sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $newdata, $width ) = @_;
+	my ( $self, $newdata ) = @_;
 	my $q = $self->{'cgi'};
 	my $buffer;
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
@@ -827,7 +824,7 @@ sub _get_extra_seq_field_text {
 }
 
 sub _create_extra_fields_for_locus_descriptions {
-	my ( $self, $locus, $width ) = @_;
+	my ( $self, $locus ) = @_;
 	my $q = $self->{'cgi'};
 	my $buffer;
 	my @default_aliases;
@@ -875,7 +872,7 @@ sub _create_extra_fields_for_locus_descriptions {
 }
 
 sub _create_extra_fields_for_seqbin {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $newdata_ref, $width ) = @_;
+	my ( $self, $newdata_ref ) = @_;
 	my $q      = $self->{'cgi'};
 	my $buffer = '';
 	if ( $q->param('page') eq 'update' ) {
@@ -944,7 +941,7 @@ sub _create_extra_fields_for_loci {    ## no critic (ProhibitUnusedPrivateSubrou
 }
 
 sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $newdata_ref, $width ) = @_;
+	my ( $self, $newdata_ref ) = @_;
 	my $q = $self->{'cgi'};
 	my $current_flags;
 	my ( $current_refs, $current_links ) = ( [], [] );
@@ -985,15 +982,15 @@ sub _create_extra_fields_for_schemes {    ## no critic (ProhibitUnusedPrivateSub
 }
 
 sub _create_extra_fields_for_users {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
-	my ( $self, $newdata, $width, $options ) = @_;
+	my ( $self, $newdata, $options ) = @_;
 	my $q      = $self->{'cgi'};
-	my $buffer = $self->_get_user_site_db_field( $newdata, $width, $options );
-	$buffer .= $self->_get_user_quota_field( $newdata, $width, $options );
+	my $buffer = $self->_get_user_site_db_field( $newdata, $options );
+	$buffer .= $self->_get_user_quota_field( $newdata, $options );
 	return $buffer;
 }
 
 sub _get_user_site_db_field {
-	my ( $self, $newdata, $width, $options ) = @_;
+	my ( $self, $newdata, $options ) = @_;
 	my $user_dbs = $self->{'datastore'}->run_query( 'SELECT id,name FROM user_dbases ORDER BY list_order,name',
 		undef, { fetch => 'all_arrayref', slice => {} } );
 	return q() if !@$user_dbs;
@@ -1031,7 +1028,7 @@ sub _get_user_site_db_field {
 }
 
 sub _get_user_quota_field {
-	my ( $self, $newdata, $width, $options ) = @_;
+	my ( $self, $newdata, $options ) = @_;
 	return q() if $self->{'system'}->{'dbtype'} ne 'isolates';
 	my $q = $self->{'cgi'};
 	if ( $options->{'update'} ) {
@@ -1046,8 +1043,8 @@ sub _get_user_quota_field {
 	} else {
 		$newdata->{'quota'} = $q->param('quota') // $self->{'system'}->{'default_private_records'} // 0;
 	}
-	my $buffer = qq(<div class="form_label"><label for="quota">private quota:</label></div>\n)
-	. q(<div class="form_value">);
+	my $buffer =
+	  qq(<div class="form_label"><label for="quota">private quota:</label></div>\n) . q(<div class="form_value">);
 	$buffer .= $self->textfield(
 		-name  => 'quota',
 		-id    => 'quota',
@@ -1058,7 +1055,7 @@ sub _get_user_quota_field {
 	);
 	$buffer .= q( <span class="comment">User must be either a submitter, curator, )
 	  . q(or admin to upload private records</span>);
-	$buffer.=q(</div>);
+	$buffer .= q(</div>);
 	return $buffer;
 }
 
