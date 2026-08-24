@@ -2823,13 +2823,10 @@ sub _print_rmlst_analysis {
 			say q(<td><table style="width:100%;height:100%">);
 			foreach my $result (@$values) {
 				my $colour = BIGSdb::Utils::get_percent_colour( $result->{'support'} );
-				say q(<tr>);
-				say q(<td class="rmlst_cell" style="position:relative;text-align:left">)
-				  . q(<span class="rmlst_result" style="position:absolute;margin-left:1em;)
-				  . q(font-size:0.8em;color:#000;white-space:nowrap">)
-				  . qq(<em>$result->{'taxon'}</em></span>)
-				  . qq(<div style="margin-top:0.2em;background-color:#$colour;border:1px solid #ccc;)
-				  . qq(height:0.9em;width:$result->{'support'}%"></div></td></tr>);
+				say q(<tr><td class="rmlst_cell support">)
+				  . qq(<span class="support_label rmlst_result"><em>$result->{'taxon'}</em></span>)
+				  . qq(<div class="support_bar" style="background-color:#$colour;width:$result->{'support'}%"></div>)
+				  . q(</td></tr>);
 			}
 			say q(</table></td>);
 		} elsif ( ref $values eq 'HASH' && defined $values->{'failed'} ) {

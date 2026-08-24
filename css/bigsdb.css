@@ -3851,6 +3851,7 @@ div.support_bar {
 	padding: 0 2px;
 	border-radius: 2px;
 	box-sizing: border-box;
+	white-space: nowrap;
 }
 
 .ui-accordion-header.ui-state-active {
