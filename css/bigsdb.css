@@ -1,4 +1,4 @@
-/*Version: 20260823*/
+/*Version: 20260824*/
 
 :root {
 	/* backgrounds */
@@ -115,6 +115,7 @@
 	--status-bad: red;
 	--status-meh: blue;
 	--status-provisional: #efdcdc;
+	--status-incomplete: #ffbb66;
 
 	/* nucleotides */
 	--nuc-G: black;
@@ -126,13 +127,13 @@
 	--seq-coding: #ccccff;
 	--seq-start-codon: #ccffcc;
 	--seq-stop-codon: #ffcccc;
-	
+
 	/* flags */
 	--flag1: #990000;
 	--flag2: #4c9900;
 	--flag3: #4c0099;
 	--flag4: #009999;
-	
+
 	/* D3 visualisations */
 	--label-outline: #ffffff;
 
@@ -247,10 +248,11 @@ html[data-theme="dark"] {
 	--icon-action-hover: #666666;
 
 	/* status */
-	--status-good: #9CC590;
+	--status-good: #9cc590;
 	--status-bad: #d08a8a;
-	--status-meh: #8A8aff;
+	--status-meh: #8a8aff;
 	--status-provisional: #703333;
+	--status-incomplete: #a35a00;
 
 	/* nucleotides */
 	--nuc-G: #b2b2b2;
@@ -262,13 +264,13 @@ html[data-theme="dark"] {
 	--seq-coding: #9090b2;
 	--seq-start-codon: #00a300;
 	--seq-stop-codon: #a30000;
-	
+
 	/* flags */
 	--flag1: #edc0b3;
 	--flag2: #d0e3bf;
 	--flag3: #d1bbe4;
 	--flag4: #c8e3e2;
-	
+
 	/* D3 visualisations */
 	--label-outline: #000000;
 }
@@ -727,7 +729,7 @@ pre {
 }
 
 .incomplete {
-	background: #fb6
+	background: var(--status-incomplete);
 }
 
 div.field_warning {
@@ -2936,14 +2938,13 @@ div#igv {
 }
 
 :root[data-theme="dark"] div#igv canvas {
-    filter: invert(1) hue-rotate(180deg);
+	filter: invert(1) hue-rotate(180deg);
 }
 
-:root[data-theme="dark"] .igv-track-label, 
-:root[data-theme="dark"] .igv-right-hand-gutter, 
-:root[data-theme="dark"] .igv-navbar
- {
-    color: var(--text);
+:root[data-theme="dark"] .igv-track-label,
+:root[data-theme="dark"] .igv-right-hand-gutter,
+:root[data-theme="dark"] .igv-navbar {
+	color: var(--text);
 	background: var(--bg-panel-alt);
 }
 
@@ -3775,7 +3776,7 @@ g.legend text {
 }
 
 :root[data-theme="dark"] .ui-multiselect-menu .ui-icon {
-    filter: invert(1) contrast(1.2);
+	filter: invert(1) contrast(1.2);
 }
 
 .ui-multiselect {
@@ -4017,17 +4018,17 @@ div.form_value .select2-selection__rendered {
 }
 
 .d3-label {
-    fill: var(--text);
-    stroke: none;
+	fill: var(--text);
+	stroke: none;
 }
 
 .d3-label-outline {
-    fill: none;
-    stroke: var(--label-outline);
-    stroke-width: 3px;
-    stroke-linejoin: round;
-    paint-order: stroke fill;
-    pointer-events: none;
+	fill: none;
+	stroke: var(--label-outline);
+	stroke-width: 3px;
+	stroke-linejoin: round;
+	paint-order: stroke fill;
+	pointer-events: none;
 }
 
 /* Responsive design */
