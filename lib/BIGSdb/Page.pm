@@ -175,7 +175,7 @@ sub _get_javascript_paths {
 	if ( $self->{'jQuery'} ) {
 		push @$js, { src => "$relative_js_path/jquery.min.js",    version => '3.6.0' };
 		push @$js, { src => "$relative_js_path/jquery-ui.min.js", defer   => 1, version => '1.12.1' };
-		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20260615' };
+		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20260721' };
 		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 			push @$js, { src => "$relative_js_path/cookieconsent.min.js", defer => 1 };
 		}
@@ -221,7 +221,7 @@ sub _get_javascript_paths {
 				version => '20200308'
 			},
 			'igv'                 => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
-			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20260522' },
+			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20260723' },
 			'bigsdb.dataexplorer' =>
 			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20230310' },
 			'bigsdb.curateindex' => {
@@ -685,6 +685,7 @@ sub print_page_content {
 			  );
 			$self->{'setOptions'} = 1;
 		}
+		my $page = $q->param('page');
 		if ( defined $self->{'instance'} && $self->{"$self->{'instance'}_no_cache_loci_schemes"}
 			|| ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) )
 		{
@@ -796,13 +797,30 @@ sub print_page_content {
 	return;
 }
 
+#Need to set theme if a cached page is loading.
+sub _get_theme_script {
+	my ($self) = @_;
+	return << "END";
+<script>
+const m = document.cookie.match(/(?:^|;\\s*)theme=(dark|light)/);
+const colour_scheme = m ? m[1] : null;
+if (colour_scheme){
+	document.documentElement.dataset.theme = colour_scheme;
+}
+</script>
+END
+}
+
 sub _start_html {
 	my ( $self, $args ) = @_;
 	my ( $title, $meta, $style, $script, $shortcut_icon ) = @{$args}{qw(title meta style script shortcut_icon)};
 	my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
+	my $q               = $self->{'cgi'};
+	my $mode            = ( $self->_dark_mode_enabled && ( $q->cookie('theme') // q() ) eq 'dark' ) ? 'dark' : 'light';
 	say q(<!DOCTYPE html>);
-	say q(<html>);
+	say qq(<html data-theme="$mode">);
 	say q(<head>);
+	say $self->_get_theme_script  if $self->_dark_mode_enabled;
 	say qq(<title>$title</title>) if $title;
 	say q(<meta name="viewport" content="width=device-width" />);
 	say q(<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />);
@@ -856,7 +874,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20260716';
+	my $version = '20260823';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -903,11 +921,13 @@ sub _get_stylesheets {
 		push @paths, @css;
 	}
 	if ( $self->{'jQuery.jstree'} ) {
-		if ( $self->{'config'}->{'relative_js_dir'} ) {
-			push @paths,
-			  "$self->{'config'}->{'relative_js_dir'}/jquery.jsTree/dist/themes/default/style.min.css?v=$version";
-		} else {
-			push @paths, "/javascript/jquery.jsTree/dist/themes/default/style.min.css?v=$version";
+		foreach my $theme ( 'default', 'default-dark' ) {
+			if ( $self->{'config'}->{'relative_js_dir'} ) {
+				push @paths,
+				  "$self->{'config'}->{'relative_js_dir'}/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
+			} else {
+				push @paths, "/javascript/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
+			}
 		}
 	}
 	return \@paths;
@@ -939,7 +959,7 @@ sub print_set_section {
 		: 'You can choose to display a single set or the whole database.</p>'
 	);
 	say $q->start_form;
-	say q(<label for="sets_list">Please select: </label>);
+	say q(<span class="query_block"><label for="sets_list" class="label">Please select:</label>);
 	my @set_ids;
 
 	if ( ( $self->{'system'}->{'only_sets'} // '' ) ne 'yes' ) {
@@ -958,6 +978,7 @@ sub print_set_section {
 		-default => $set_id
 	);
 	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'small_submit' );
+	say q(</span>);
 	say $q->hidden($_) foreach qw (db page name set_id select_sets);
 	say $q->end_form;
 	say q(</div></div></div>);
@@ -1219,6 +1240,7 @@ sub _print_button_panel {
 	$self->_print_help_button;
 	$self->_print_tooltip_toggle;
 	$self->_print_expand_trigger;
+	$self->_print_dark_mode_trigger;
 	say q(</div>);
 	return;
 }
@@ -1280,6 +1302,30 @@ sub _print_expand_trigger {
 	  . qq(<span id="contract" class="fas fa-lg fa-compress" style="display:$page_contract" title="Contract width">)
 	  . qq(</span><span class="icon_label"><span id="expand_label_expand" style="display:$page_expand">Expand</span>)
 	  . qq(<span id="expand_label_contract" style="display:$page_contract">Contract</span></span></a></span>);
+	return;
+}
+
+sub _dark_mode_enabled {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'disable_dark_mode'} // q() ) eq 'yes';
+	return if $self->{'config'}->{'disable_dark_mode'};
+	return 1;
+}
+
+sub _print_dark_mode_trigger {
+	my ($self) = @_;
+	return if !$self->_dark_mode_enabled;
+	my $q          = $self->{'cgi'};
+	my $theme      = ( $q->cookie('theme') // q() ) eq 'dark' ? 'dark'   : 'light';
+	my $show_dark  = $theme eq 'dark'                         ? 'none'   : 'inline';
+	my $show_light = $theme eq 'dark'                         ? 'inline' : 'none';
+	say q(<span class="icon_button"><a id="dark_trigger" class="trigger_button secondary_trigger" )
+	  . q(style="display:inline" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
+	  . qq(<span id="dark_mode" class="fas fa-lg fa-moon" style="display:$show_dark" title="Dark mode"></span>)
+	  . qq(<span id="light_mode" class="far fa-lg fa-sun" style="display:$show_light" title="Light mode">)
+	  . qq(</span><span class="icon_label"><span id="mode_label_dark" style="display:$show_dark">Dark mode</span>)
+	  . qq(<span id="mode_label_light" style="display:$show_light">Light mode</span></span></a></span>);
 	return;
 }
 
@@ -2211,7 +2257,8 @@ sub get_scheme_flags {
 		}
 		foreach my $flag (@$flags) {
 			$buffer .=
-			  qq(<span class="flag" style="color:$colours->{$flag};background:$colours->{$flag}15">$flag</span>\n);
+				qq(<span class="flag" style="color:$colours->{$flag};)
+			  . qq(background:color-mix(in srgb, $colours->{$flag} 6%, transparent)">$flag</span>\n);
 		}
 		if ( $options->{'link'} ) {
 			$buffer .= q(</a>);

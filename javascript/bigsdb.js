@@ -1,6 +1,6 @@
 /**
  * Written by Keith Jolley 
- * Copyright (c) 2010-2023, University of Oxford 
+ * Copyright (c) 2010-2026, University of Oxford 
  * E-mail: keith.jolley@biology.ox.ac.uk
  * 
  * This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -76,7 +76,27 @@ $(function() {
 			cache: false,
 		});
 	});
-
+	$('a#dark_trigger').click(function(event) {
+		event.preventDefault();
+		let dark_mode = $('span#dark_mode').is(":visible") ? 'on' : 'off';
+		let theme = $('span#dark_mode').is(":visible") ? 'dark' : 'light';
+		document.cookie = `theme=${theme}; path=/; max-age=31536000; samesite=lax`;
+		if ($('span#dark_mode').is(":visible")) {
+			$('span#dark_mode, span#mode_label_dark').hide();
+			$('span#light_mode, span#mode_label_light').show();
+			document.documentElement.dataset.theme = 'dark';
+			if($.fn.jstree){
+				$("#tree").jstree('set_theme','default-dark');
+			}
+		} else {
+			$('span#dark_mode, span#mode_label_dark').show();
+			$('span#light_mode, span#mode_label_light').hide();
+			document.documentElement.dataset.theme = 'light';
+			if($.fn.jstree){
+				$("#tree").jstree('set_theme','default');
+			}
+		}
+	});	
 
 	//Tooltips
 	reloadTooltips();
@@ -119,7 +139,11 @@ $(function() {
 			e.preventDefault();
 		}
 	});
-
+	let dark_or_light = getCookie(`theme`);
+	if (dark_or_light){
+		$('span#dark_mode,span#mode_label_dark').css('display',(dark_or_light === 'dark' ? 'none': 'inline'));
+		$('span#light_mode,span#mode_label_light').css('display',(dark_or_light === 'dark' ? 'inline': 'none'));
+	}
 });
 
 $.urlParam = function(name) {

@@ -319,7 +319,7 @@ sub _update_output_files {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2 => 1 };
 }
 
 sub _print_interface {

@@ -437,7 +437,7 @@ sub _print_map_controls {
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<div class="form_container">);
 	$self->_print_chart_types;
-	say q(<style>.theme.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
+	say q(<style>.theme.fa-square {text-shadow: 1px 1px 1px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
 	  . q(</style>);
 	say q(<div class="form_label"><label class="label">Theme:</label></div>)
 	  . q(<div class="form_value"><div style="display:inline-block">)

@@ -139,6 +139,12 @@ sub get_plugin_javascript {
  		menuWidth: 400,
  		selectedList: 8
   	}).multiselectfilter();
+  	\$("select.filter:not(.multiselect)").not('.select2-hidden-accessible').select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
+		allowClear: false
+	});
 }); 
 function listbox_selectall(listID, isSelect) {
 	var listbox = document.getElementById(listID);
@@ -153,7 +159,7 @@ END
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2=>1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2 => 1 };
 }
 
 sub _get_max_records {
@@ -754,9 +760,9 @@ sub _print_interface {
 	say q(</li></ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Restrict included sequences by</legend>);
 	say q(<div class="form_container">);
-	my $buffer = $self->get_sequence_method_filter({grid=>1} );
+	my $buffer = $self->get_sequence_method_filter( { grid => 1 } );
 	say $buffer if $buffer;
-	$buffer = $self->get_project_filter( { grid=>1 } );
+	$buffer = $self->get_project_filter( { grid => 1 } );
 	say $buffer if $buffer;
 	say q(</div></fieldset>);
 	$self->print_action_fieldset( { name => 'BLAST' } );

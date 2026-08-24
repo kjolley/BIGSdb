@@ -70,26 +70,26 @@ $EXPORT_TAGS{'embargo'} = [@values];
 
 #Interface
 use constant FACE_STYLE => (
-	good  => q(class="far fa-lg fa-smile" style="color:green"),
-	mixed => q(class="far fa-lg fa-meh" style="color:blue"),
-	bad   => q(class="far fa-lg fa-frown" style="color:red")
+	good  => q(class="far fa-lg fa-smile statusgood"),
+	mixed => q(class="far fa-lg fa-meh statusmeh"),
+	bad   => q(class="far fa-lg fa-frown statusbad")
 );
 use constant SHOW                 => q(<span class="fas fa-plus-circle" style="color:green"></span>);
 use constant HIDE                 => q(<span class="fas fa-minus-circle" style="color:red"></span>);
 use constant ON                   => q(<span class="fas fa-toggle-on fa-xl"></span>);
 use constant OFF                  => q(<span class="fas fa-toggle-off fa-xl"></span>);
 use constant SAVE                 => q(<span class="fas fa-save"></span>);
-use constant UP                   => q(<span class="fas fa-arrow-up" style="color:blue"></span>);
-use constant DOWN                 => q(<span class="fas fa-arrow-down" style="color:blue"></span>);
-use constant LEFT                 => q(<span class="fas fa-lg fa-arrow-left" style="color:blue"></span>);
-use constant RIGHT                => q(<span class="fas fa-lg fa-arrow-right" style="color:blue"></span>);
-use constant EDIT                 => q(<span class="fas fa-pencil-alt" style="color:#44a"></span>);
-use constant DELETE               => q(<span class="fas fa-times" style="color:#a44"></span>);
-use constant ADD                  => q(<span class="fas fa-plus" style="color:#080"></span>);
+use constant UP                   => q(<span class="fas fa-arrow-up"></span>);
+use constant DOWN                 => q(<span class="fas fa-arrow-down"></span>);
+use constant LEFT                 => q(<span class="fas fa-lg fa-arrow-left"></span>);
+use constant RIGHT                => q(<span class="fas fa-lg fa-arrow-right"></span>);
+use constant EDIT                 => q(<span class="fas fa-pencil-alt icon_query"></span>);
+use constant DELETE               => q(<span class="fas fa-times icon_delete"></span>);
+use constant ADD                  => q(<span class="fas fa-plus icon_add" ></span>);
 use constant COMPARE              => q(<span class="fas fa-balance-scale" style="color:#44a"></span>);
-use constant UPLOAD               => q(<span class="fas fa-upload" style="color:#080"></span>);
+use constant UPLOAD               => q(<span class="fas fa-upload icon_add"></span>);
 use constant UPLOAD_CHANGE_CONFIG => q(<span class="fas fa-upload" style="color:#800"></span>);
-use constant QUERY                => q(<span class="fas fa-search" style="color:#44a"></span>);
+use constant QUERY                => q(<span class="fas fa-search icon_query"></span>);
 use constant USERS                => q(<span class="fas fa-users" style="color:#a4a"></span>);
 use constant PENDING              => q(<span class="fa fa-hourglass-half" style="color:#888"></span>);
 use constant GOOD                 => q(<span class="statusgood fas fa-check"></span>);
@@ -97,7 +97,7 @@ use constant BAD                  => q(<span class="statusbad fas fa-times"></sp
 use constant MEH                  => q(<span class="statusmeh fas fa-minus"></span>);
 use constant TRUE                 => q(<span class="far fa-lg fa-check-square" style="font-size:0.95em"></span>);
 use constant FALSE                => q(<span class="far fa-lg fa-square" style="font-size:0.95em"></span>);
-use constant BAN                  => q(<span class="fas fa-ban" style="color:#a44"></span>);
+use constant BAN                  => q(<span class="fas fa-ban icon_delete"></span>);
 use constant DOWNLOAD             => q(<span class="fas fa-download" style="color:#44a;opacity:0.8"></span>);
 use constant LOCK                 => q(<span class="fas fa-lock" style="color:#8c2f2f;opacity:0.8"></span>);
 use constant UNLOCK               => q(<span class="fas fa-lock-open" style="color:#2d6b3f"></span>);
@@ -338,10 +338,10 @@ $EXPORT_TAGS{'submissions'} = [@values];
 #Schemes
 use constant SCHEME_FLAGS => ( 'experimental', 'in development', 'please cite', 'unpublished' );
 use constant SCHEME_FLAG_COLOURS => {
-	'please cite'    => '#990000',
-	'experimental'   => '#4c9900',
-	'in development' => '#4c0099',
-	'unpublished'    => '#009999'
+	'please cite'    => 'var(--flag1)',
+	'experimental'   => 'var(--flag2)',
+	'in development' => 'var(--flag3)',
+	'unpublished'    => 'var(--flag4)'
 };
 push @EXPORT_OK, qw (SCHEME_FLAGS SCHEME_FLAG_COLOURS);
 $EXPORT_TAGS{'scheme_flags'} = [qw(SCHEME_FLAGS SCHEME_FLAG_COLOURS)];

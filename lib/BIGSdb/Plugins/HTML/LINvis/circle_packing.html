@@ -1,8 +1,24 @@
-<style>
+<style>	
+	:root {
+		--bg-gradient1: #ffffff;
+		--bg-gradient2: #f6f8fc;
+		--bg-gradient3: #eef3f8;
+		--circle-outer: #c0c5cd;
+	}
+	
+	html[data-theme="dark"] {
+		color-scheme: dark;
+		--bg-gradient1: #000000;
+		--bg-gradient2: #060B13;
+		--bg-gradient3: #070D12;
+	}
+	
 	body {
 		margin: 0;
 		font-family: Arial, sans-serif;
 	}
+	
+	
 
 	#linvis_chart {
 		position: relative;
@@ -17,7 +33,7 @@
 		/* keep canvas/svg inside container */
 		border: 1px solid rgba(130, 145, 165, 0.28);
 		border-radius: 12px;
-		background: radial-gradient(circle at top left, #ffffff 0%, #f6f8fc 55%, #eef3f8 100%) !important;
+		background: radial-gradient(circle at top left, var(--bg-gradient1) 0%, var(--bg-gradient2) 55%, var(--bg-gradient3) 100%) !important;
 		box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.75);
 	}
 
@@ -39,8 +55,8 @@
 		position: relative;
 		float: left;
 		top: 10px;
-		background: rgba(255, 255, 255, 0.95);
-		border: 1px solid #ccc;
+		background:color-mix(in srgb, var(--bg-page) 95%, transparent);
+		border: 1px solid var(--border-card);
 		padding: 6px 8px;
 		border-radius: 6px;
 		font-size: 13px;

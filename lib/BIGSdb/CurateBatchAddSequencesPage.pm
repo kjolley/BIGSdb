@@ -667,9 +667,9 @@ sub get_javascript {
 });
 function enable_options(){
 	\$("#reject_dissimilar").prop("disabled",\$("#ignore_similarity").prop("checked") ? true : false); 
-	\$("li#reject_dissimilar_label label").css("color",\$("#ignore_similarity").prop("checked") ? '#888' : '#000');
+	\$("li#reject_dissimilar_label label").css("color",\$("#ignore_similarity").prop("checked") ? '#888' : 'var(--text)');
 	\$("#reject_invalid_length").prop("disabled",\$("#ignore_length").prop("checked") ? true : false); 
-	\$("li#reject_invalid_length_label label").css("color",\$("#ignore_length").prop("checked") ? '#888' : '#000');
+	\$("li#reject_invalid_length_label label").css("color",\$("#ignore_length").prop("checked") ? '#888' : 'var(--text)');
 }
 
 END

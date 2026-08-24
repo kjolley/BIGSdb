@@ -19,7 +19,7 @@ Influenced heavily by the sunburst.js code developed by Vasco Asturiano,
 https://github.com/vasturiano/sunburst-chart.
 Copyright (c) 2017 Vasco Asturiano - MIT license.
 
-Version 1.2.0.
+Version 1.2.2.
 */
 
 (async function() {
@@ -202,7 +202,7 @@ Version 1.2.0.
 	const bgRect = svg.append("rect")
 		.attr("width", width)
 		.attr("height", height)
-		.attr("fill", "#fff");
+		.attr("fill", "var(--bg-chart)");
 
 	// Clicking anywhere in the chart container background resets the view.
 	container.on("click", function(event) {
