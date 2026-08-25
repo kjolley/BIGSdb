@@ -156,7 +156,7 @@ sub _print_interface {
 		-required => 'required'
 	);
 	say q(</div>);
-	
+
 	say q(<div class="form_label"><label for="status" class="required">status:</label></div>);
 	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'status', -id => 'status', -values => [ '', SEQ_STATUS ], -required => 'required' );
@@ -423,7 +423,8 @@ sub _upload {
 			detail        => $detail,
 			navbar        => 1,
 			submission_id => $submission_id,
-			more_url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta"
+			more_url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta",
+			more_text     => 'Add more'
 		}
 	);
 	$self->{'db'}->commit;
