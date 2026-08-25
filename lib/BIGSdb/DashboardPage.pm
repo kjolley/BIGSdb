@@ -1342,6 +1342,8 @@ sub _should_display_map_element {
 	my ( $self, $field ) = @_;
 	return 1 if $field eq 'f_country' && $self->_field_has_optlist('f_country');
 	return 1 if $field eq 'e_country||continent';
+	return 1 if $self->_is_country_field($field);
+	return 1 if $self->_is_continent_field($field);
 	return;
 }
 
@@ -1708,7 +1710,8 @@ sub _get_rounded_width {
 sub _get_colour_swatch {
 	my ( $self, $element ) = @_;
 	if ( $element->{'background_colour'} ) {
-		return qq[<div style="background-image:linear-gradient(var(--chart-bg),var(--chart-bg) 10%,$element->{'background_colour'} 40%,]
+		return
+qq[<div style="background-image:linear-gradient(var(--chart-bg),var(--chart-bg) 10%,$element->{'background_colour'} 40%,]
 		  . qq[$element->{'background_colour'} 60%,var(--chart-bg) 90%,var(--chart-bg));height:calc(100% - 10px);margin-top:5px;]
 		  . q[width:100%;position:absolute;z-index:-1"></div>];
 	}
@@ -4890,7 +4893,7 @@ sub print_field_selector {
 		-multiple     => 'true',
 		-style        => 'max-width:200px',
 		-class        => $field_options->{'class'} // 'do_not_calc_width',
-		-autocomplete => 'off'               #Shouldn't need this but Firefox will cache value otherwise.
+		-autocomplete => 'off'    #Shouldn't need this but Firefox will cache value otherwise.
 	);
 	return;
 }
