@@ -116,6 +116,7 @@
 	--status-meh: blue;
 	--status-provisional: #efdcdc;
 	--status-incomplete: #ffbb66;
+	--status-progress: #404080;
 
 	/* nucleotides */
 	--nuc-G: black;
@@ -253,6 +254,7 @@ html[data-theme="dark"] {
 	--status-meh: #8a8aff;
 	--status-provisional: #703333;
 	--status-incomplete: #a35a00;
+	--status-progress: #b1b1d8;
 
 	/* nucleotides */
 	--nuc-G: #b2b2b2;
@@ -791,7 +793,7 @@ p.key.banned {
 
 p.progress {
 	font-size: 1.5em;
-	color: #404080;
+	color: var(--status-progress);
 	line-height: 130%;
 }
 
