@@ -493,7 +493,6 @@ sub _get_optlist_field {
 
 	my ( $name, $newdata, $att, $options, $html5_args, $disabled ) =
 	  @$args{qw(name newdata att options html5_args disabled)};
-
 	return q() if !$att->{'optlist'};
 	my @optlist;
 	if ( $att->{'optlist'} eq 'isolate_fields' ) {
@@ -515,6 +514,7 @@ sub _get_optlist_field {
 	my $q        = $self->{'cgi'};
 	my $default =
 	  defined $att->{'default'} && $att->{'default'} ne q() ? $att->{'default'} : $single_value;
+	undef $default if !$att->{'required'};
 	my %class  = $att->{'allow_other'} ? ( class => 'dynamic' ) : ();
 	my $buffer = $q->popup_menu(
 		-name    => $name,
