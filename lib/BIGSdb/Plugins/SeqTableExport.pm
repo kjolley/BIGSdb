@@ -21,9 +21,9 @@ package BIGSdb::Plugins::SeqTableExport;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface DATABANKS);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
@@ -41,7 +41,7 @@ sub get_attributes {
 		menutext    => 'Export table',
 		buttontext  => 'Table',
 		module      => 'SeqTableExport',
-		version     => '1.2.2',
+		version     => '1.2.3',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -124,9 +124,10 @@ sub _create_table {
 		my $pubmed_values = $self->_get_allele_pubmed_values( $header_exists, $locus, $allele_id );
 		push @results, $pubmed_values if $header_exists->{'PubMed'};
 		my $flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
-		push @results, "@$flags";
-		local $" = "\t";
-		say $fh "@results";
+		local $" = q(; );
+		push @results, qq(@$flags);
+		local $" = qq(\t);
+		say $fh qq(@results);
 	}
 	close $fh;
 	return $filename;
