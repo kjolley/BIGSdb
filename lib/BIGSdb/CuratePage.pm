@@ -714,9 +714,8 @@ sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateS
 		);
 		foreach my $att (@$ext_att) {
 			my ( $field, $desc, $format, $required, $length, $optlist ) = @$att;
-			$buffer .=
-				qq(<div class="form_label"><label for="$field">$field:)
-			  . ( $required ? '!' : '' )
+			my $class = $required ? q( class="required") : q();
+			$buffer .= qq(<div class="form_label"><label for="$field"$class>$field:)
 			  . qq(</label></div><div class="form_value">\n);
 			$length = 12 if !$length;
 			my %html5_args;
