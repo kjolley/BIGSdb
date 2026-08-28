@@ -1,3 +1,6 @@
+v1.53.5: *CSS reorganisation to make branding easier.
+         *New dark mode.
+         *Checks if autotag or scannew are already running with same arguments.
 v1.53.4: *Sunburst visualisation in LINvis.
          *FlavoTyper plugin for Flavobacterium psychrophilum.
 v1.53.3: *Visual refresh of the web interface.
