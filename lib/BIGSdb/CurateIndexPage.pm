@@ -2293,8 +2293,6 @@ sub _print_curator_toggle {
 
 sub _print_admin_toggles {
 	my ( $self, $counts ) = @_;
-	say q(<div class="toggle_group"><div style="margin-right: 5px">Show:</div>);
-	say q(<div class="curate_toggle">);
 
 	my %label = (
 		locus  => 'Loci',
@@ -2327,8 +2325,9 @@ sub _print_admin_toggles {
 		$all_on = 0 if !$self->{'prefs'}->{"${category}_admin_methods"};
 	}
 	if ($count) {
+		say q(<div class="toggle_group"><div style="margin-right: 5px">Show:</div>);
+		say q(<div class="curate_toggle">);
 		say $toggle_buffer;
-
 		my $off   = $all_on ? 'none'       : 'inline';
 		my $on    = $all_on ? 'inline'     : 'none';
 		my $class = $all_on ? ' toggle_on' : '';
@@ -2339,8 +2338,9 @@ sub _print_admin_toggles {
 		  . q(<span id="all_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 		  . qq(style="display:$on" title="Showing all admin and configuration functions"></span> )
 		  . q(<span class="label">Show all</span></a>);
+		say q(</div></div>);
 	}
-	say q(</div></div>);
+
 	return;
 }
 
@@ -2351,7 +2351,7 @@ sub _get_curator_toggle_status {
 		$hidden  = 1 if $field->{'default'} eq 'hide';
 		$default = 1 if $field->{'default'} eq 'show';
 	}
-	my $show_toggle = ( $hidden && $default ) ? 1 : 0;
+	my $show_toggle        = ( $hidden && $default ) ? 1 : 0;
 	my $always_show_hidden = 0;
 	if ( $hidden && !$default ) {
 		$always_show_hidden = 1;
