@@ -2897,6 +2897,22 @@ sub can_modify_table {
 				[ $scheme_id, $self->get_curator_id ] );
 		}
 
+		#LINcode prefixes
+		if ( $table eq 'lincode_prefixes' ) {
+			if ($scheme_id) {
+				return $self->{'datastore'}->run_query(
+					'SELECT EXISTS(SELECT * FROM scheme_curators s JOIN lincode_fields l ON '
+					  . 's.scheme_id=l.scheme_id WHERE s.scheme_id=? AND curator_id=?)',
+					[ $scheme_id, $self->get_curator_id ]
+				);
+			}
+			return $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM scheme_curators s JOIN lincode_fields l ON '
+				  . 's.scheme_id=l.scheme_id WHERE curator_id=?)',
+				$self->get_curator_id
+			);
+		}
+
 		#Sequence refs
 		my %seq_ref_tables = map { $_ => 1 } qw(sequence_refs accession);
 		return $self->{'datastore'}

@@ -822,12 +822,30 @@ sub _check_classification_field_values {
 sub _check_lincode_prefix_values {
 	my ( $self, $args, $problems, $pk_combination ) = @_;
 	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	my $type = $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
-		[ $data->[ $file_header_pos->{'scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ] );
-	if ( $type eq 'integer'
-		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
+	my $scheme_id = $data->[ $file_header_pos->{'scheme_id'} ];
+	my $type      = $self->{'datastore'}->run_query(
+		'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+		[ $scheme_id, $data->[ $file_header_pos->{'field'} ] ]
+	);
+	if ( !defined $type ) {
+		$problems->{$pk_combination} .=
+		  "Field $data->[$file_header_pos->{'field'}] is not a valid field for this scheme.";
+	} elsif (
+		$type eq 'integer'
+		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] )
+	  )
 	{
 		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
+	} elsif ( !$self->is_admin ) {
+		if (
+			!$self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM scheme_curators WHERE (scheme_id,curator_id)=(?,?))',
+				[ $scheme_id, $self->get_curator_id ]
+			)
+		  )
+		{
+			$problems->{$pk_combination} .= 'You are not a curator for this scheme.';
+		}
 	}
 	return;
 }
@@ -1024,7 +1042,7 @@ sub _rewrite_geography_point_data {
 sub _rewrite_sequence_data {
 	my ( $self,  $args )  = @_;
 	my ( $field, $value ) = @{$args}{qw(field value)};
-	if ($field eq 'sequence'){
+	if ( $field eq 'sequence' ) {
 		$$value =~ s/\s//gx;
 		$$value = uc($$value);
 	}
@@ -1034,7 +1052,7 @@ sub _rewrite_sequence_data {
 sub _rewrite_primer_data {
 	my ( $self,  $args )  = @_;
 	my ( $field, $value ) = @{$args}{qw(field value)};
-	if ($field =~ /^primer\d$/x){
+	if ( $field =~ /^primer\d$/x ) {
 		$$value =~ s/\s//gx;
 		$$value = uc($$value);
 	}

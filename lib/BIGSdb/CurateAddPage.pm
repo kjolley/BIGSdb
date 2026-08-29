@@ -82,8 +82,9 @@ sub print_content {
 	return if !$self->_table_exists($table);
 	say qq(<h1>Add new $record_name</h1>);
 	if ( !$self->can_modify_table($table) ) {
-		my %seq_table   = map { $_ => 1 } qw(sequences retired_allele_ids);
-		my %locus_table = map { $_ => 1 } qw(locus_descriptions locus_links);
+		my %seq_table    = map { $_ => 1 } qw(sequences retired_allele_ids);
+		my %locus_table  = map { $_ => 1 } qw(locus_descriptions locus_links);
+		my %scheme_table = map { $_ => 1 } qw(lincode_prefixes);
 		if ( ( $seq_table{$table} && $q->param('locus') ) || $locus_table{$table} ) {
 			my $record_type = $self->get_record_name($table);
 			my $locus       = $q->param('locus');
@@ -92,6 +93,14 @@ sub print_content {
 					message => qq(Your user account is not allowed to add $locus ${record_type}s to the database.)
 				}
 			);
+		} elsif ( $scheme_table{$table} && $q->param('scheme_id') ) {
+			my $record_type = $self->get_record_name($table);
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to add ${record_type}s for this scheme.)
+				}
+			);
+
 		} else {
 			$self->print_bad_status(
 				{
@@ -222,7 +231,7 @@ sub _insert {
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
 	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes lincode_prefixes
-	  projects peptide_mutations dna_mutations );
+	  projects peptide_mutations dna_mutations);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -711,7 +720,9 @@ sub _check_lincode_prefixes {    ## no critic (ProhibitUnusedPrivateSubroutines)
 	my ( $self, $newdata, $problems ) = @_;
 	my $type = $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
 		[ $newdata->{'scheme_id'}, $newdata->{'field'} ] );
-	if ( $type eq 'integer' && !BIGSdb::Utils::is_int( $newdata->{'value'} ) ) {
+	if ( !defined $type ) {
+		push @$problems, q(Field does not exist for this LIN code scheme.);
+	} elsif ( $type eq 'integer' && !BIGSdb::Utils::is_int( $newdata->{'value'} ) ) {
 		push @$problems, q(Field value must be an integer.);
 	}
 	return;
@@ -1045,7 +1056,7 @@ sub get_javascript {
 	my $table = $q->param('table');
 	return if !defined $table || !$allowed_tables{$table};
 	my $reload_locus = q();
-	if ($table eq 'sequences'){
+	if ( $table eq 'sequences' ) {
 		$reload_locus = <<"END";
   \$("#locus").change(function(){
  	var locus_name = \$("#locus").val();

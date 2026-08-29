@@ -1723,7 +1723,17 @@ sub _get_lincode_prefix_values {
 	my $cards = [];
 	return $cards if !$self->{'system'}->{'dbtype'} eq 'sequences';
 	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_fields)');
-	return $cards if !$self->can_modify_table('profiles');
+	if (
+		!$self->is_admin && !$self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM scheme_curators s JOIN lincode_fields l ON '
+			  . 's.scheme_id=l.scheme_id WHERE curator_id=?)',
+			$self->get_curator_id
+		)
+	  )
+	{
+		return $cards;
+	}
+
 	push @$cards,
 	  {
 		title   => 'LINcode prefix nomenclature',
