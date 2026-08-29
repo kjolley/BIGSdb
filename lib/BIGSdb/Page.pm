@@ -778,6 +778,7 @@ sub print_page_content {
 			say qq(<div id="main_container" class="main_container$main_container_class">);
 			say qq(<div id="main_content" class="main_content $main_content_class" )
 			  . qq(style="max-width:${main_max_width}px">);
+			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
 			say q(</div></div>);
@@ -874,7 +875,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20260824a';
+	my $version = '20260829';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};

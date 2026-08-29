@@ -1,4 +1,4 @@
-/*Version: 20260824*/
+/*Version: 20260829*/
 
 :root {
 	/* backgrounds */
@@ -15,6 +15,7 @@
 	--bg-card-hover: #fcfbfc;
 	--bg-login: #1aB7De;
 	--bg-reset: #faf7f7;
+	--bg-status-good: #d5e0d5;
 
 	/* borders */
 	--border: #e7ebf0;
@@ -156,6 +157,7 @@ html[data-theme="dark"] {
 	--bg-card-hover: #3b414a;
 	--bg-login: #193139;
 	--bg-reset: #2d1c1c;
+	--bg-status-good: #455E45;
 
 	/*	 borders */
 	--border: #39424d;
@@ -1276,12 +1278,12 @@ div.password_box {
 
 div.registration_box {
 	margin-bottom: 1em;
-	background: #E8F3FF;
+	background: var(--bg-menu);
 	padding: 0 0.5em 1em 1em;
 }
 
 div.registered_configs {
-	background: #f6f6f6;
+	background: var(--bg-info);
 	display: inline-block;
 	max-height: 17em;
 	overflow-y: auto;
@@ -2578,8 +2580,8 @@ div.statusbad_no_resize {
 }
 
 div.statusgood_no_resize {
-	background: #d5e0d5;
-	color: #008000
+	background: var(--bg-status-good);
+	color: var(--status-good);
 }
 
 div#resultsheader,
@@ -3884,6 +3886,10 @@ div.support_bar {
 .ui-accordion-content {
 	background: var(--bg-card);
 	color: var(--text);
+}
+
+.ui-accordion-content p a {
+	color: var(--link) !important;
 }
 
 .ui-tooltip {
