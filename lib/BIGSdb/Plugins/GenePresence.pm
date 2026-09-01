@@ -54,7 +54,7 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.3.2',
+		version    => '2.3.3',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
@@ -64,6 +64,14 @@ sub get_attributes {
 		image      => '/images/plugins/GenePresence/screenshot.png'
 	);
 	return \%att;
+}
+
+sub _get_max_records {
+	my ($self) = @_;
+	my $max_records = $self->{'system'}->{'genepresence_record_limit'}
+	  // $self->{'config'}->{'genepresence_record_limit'} // MAX_RECORDS;
+	$max_records = MAX_RECORDS if !BIGSdb::Utils::is_int($max_records);
+	return $max_records;
 }
 
 sub _print_interface {
@@ -84,10 +92,8 @@ sub _print_interface {
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison. )
 	  . q(In addition to selecting individual loci, you can choose to include all loci defined in schemes by )
 	  . q(selecting the appropriate scheme description.</p>);
-	my $max_records = $self->{'system'}->{'genepresence_record_limit'}
-	  // $self->{'config'}->{'genepresence_record_limit'} // MAX_RECORDS;
-	$max_records = MAX_RECORDS if !BIGSdb::Utils::is_int($max_records);
-	my $max = BIGSdb::Utils::commify($max_records);
+	my $max_records = $self->_get_max_records;
+	my $max         = BIGSdb::Utils::commify($max_records);
 	say qq(<p>Analysis is limited to $max data points (isolates x loci). );
 	say $q->start_form;
 	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
@@ -329,8 +335,9 @@ sub run {
 			push @errors, q(You must either select one or more loci or schemes.);
 			$continue = 0;
 		}
-		if ( @$loci_selected * @$ids > MAX_RECORDS ) {
-			my $limit    = BIGSdb::Utils::commify(MAX_RECORDS);
+		my $max_records = $self->_get_max_records;
+		if ( @$loci_selected * @$ids > $max_records ) {
+			my $limit    = BIGSdb::Utils::commify($max_records);
 			my $selected = BIGSdb::Utils::commify( @$loci_selected * @$ids );
 			$self->print_bad_status(
 				{
