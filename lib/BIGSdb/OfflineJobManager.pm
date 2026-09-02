@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2025, University of Oxford
+#Copyright (c) 2011-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -442,7 +442,8 @@ sub get_job_status {
 	my ( $self, $job_id ) = @_;
 	my $status =
 	  $self->_run_query( 'SELECT status,cancel,pid FROM jobs WHERE id=?', $job_id, { fetch => 'row_hashref' } );
-	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
+	eval { $self->{'db'}->commit };    #Prevent idle in transaction table lock.
+
 	return $status;
 }
 
