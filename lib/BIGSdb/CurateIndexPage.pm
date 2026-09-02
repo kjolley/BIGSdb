@@ -1724,7 +1724,8 @@ sub _get_lincode_prefix_values {
 	return $cards if !$self->{'system'}->{'dbtype'} eq 'sequences';
 	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_fields)');
 	if (
-		!$self->is_admin && !$self->{'datastore'}->run_query(
+		!$self->is_admin
+		&& !$self->{'datastore'}->run_query(
 			'SELECT EXISTS(SELECT * FROM scheme_curators s JOIN lincode_fields l ON '
 			  . 's.scheme_id=l.scheme_id WHERE curator_id=?)',
 			$self->get_curator_id
@@ -2578,12 +2579,19 @@ sub _get_publication_requests {
 	return $buffer;
 }
 
+sub _hide_account_requests {
+	my ($self) = @_;
+	return 1 if ( $self->{'system'}->{'hide_account_requests'} // q() ) eq 'yes';
+	return;
+}
+
 sub _print_account_requests_section {
 	my ($self) = @_;
 	my $curator = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return
 	  if !( $curator->{'account_request_emails'}
 		&& ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) );
+	return if $self->_hide_account_requests;
 	my $q = $self->{'cgi'};
 	$self->_reject_user if $q->param('reject');
 	$self->_import_user if $q->param('import');
