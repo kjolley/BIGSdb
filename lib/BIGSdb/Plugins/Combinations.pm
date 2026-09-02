@@ -59,13 +59,13 @@ sub get_attributes {
 		menutext           => 'Unique combinations',
 		module             => 'Combinations',
 		url                => "$self->{'config'}->{'doclink'}/data_analysis/unique_combinations.html",
-		version            => '1.6.1',
+		version            => '1.6.2',
 		dbtype             => 'isolates',
 		section            => 'breakdown,postquery',
 		input              => 'query',
 		help               => 'tooltips',
 		requires           => 'js_tree,offline_jobs',
-		order              => 15,
+		order              => 50,
 		system_flag        => 'Combinations',
 		enabled_by_default => 1,
 		image              => '/images/plugins/Combinations/screenshot.png'
@@ -368,7 +368,7 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
-	$self->print_isolate_fields_fieldset( { extended_attributes => 1, no_all_none => 1 } );
+	$self->print_isolate_fields_fieldset( { extended_attributes => 1 } );
 	$self->print_eav_fields_fieldset( { no_all_none => 1 } );
 	$self->print_analysis_fields_fieldset( { no_all_none => 1 } );
 	$self->print_composite_fields_fieldset;
@@ -405,8 +405,8 @@ sub get_plugin_javascript {
  		menuHeight: 250,
  		menuWidth: 400,
  		selectedList: 8
-  	});
- 	\$('#locus').multiselectfilter();
+  	}).multiselectfilter(
+ 	);
 }); 
 END
 	return $js;

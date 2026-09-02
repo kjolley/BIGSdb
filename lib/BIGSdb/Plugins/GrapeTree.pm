@@ -49,18 +49,18 @@ sub get_attributes {
 		  . 'that is better able to handle missing data than alternative algorithms and is able to produce publication '
 		  . 'quality outputs. Datasets can include metadata which allows nodes in the resultant tree to be coloured '
 		  . 'interactively.',
-		category            => 'Third party',
+		category            => 'Analysis',
 		buttontext          => 'GrapeTree',
 		menutext            => 'GrapeTree',
 		module              => 'GrapeTree',
-		version             => '1.9.1',
+		version             => '1.9.2',
 		dbtype              => 'isolates',
-		section             => 'third_party,postquery',
+		section             => 'analysis,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'offline_jobs,js_tree,GrapeTree',
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/grapetree.html",
-		order               => 20,
+		order               => 50,
 		min                 => 2,
 		max                 => $self->_get_limit,
 		always_show_in_menu => 1,
@@ -127,8 +127,8 @@ sub _print_interface {
 	my $list       = $self->get_id_list( 'id', $query_file );
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all          => 1, selected_ids => $list, isolate_paste_list => 1 } );
-	$self->print_isolates_locus_fieldset( { locus_paste_list => 1 } );
-	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
+	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_includes_fieldset(
 		{

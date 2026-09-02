@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021-2025, University of Oxford
+#Copyright (c) 2021-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -140,7 +140,7 @@ sub _ajax_controls {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called 
 	my $elements = $self->_get_elements;
 	my $element  = $elements->{$id};
 	my $q        = $self->{'cgi'};
-	say q(<div class="modal">);
+	say q(<div class="modal" style="background: var(--bg-panel-modal)">);
 	say q(<h2>Modify visual element</h2>);
 	say qq(<p><strong>Field: $element->{'name'}</strong></p>);
 	$self->_print_size_controls( $id, $element );
@@ -320,6 +320,25 @@ sub _field_has_optlist {
 	return;
 }
 
+sub _is_country_field {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^f_(.*)/x ) {
+		my $attributes = $self->{'xmlHandler'}->get_field_attributes($1);
+		return 1 if ( $attributes->{'country_field'} // q() ) eq 'yes';
+	}
+	return;
+}
+
+sub _is_continent_field {
+	my ( $self, $field ) = @_;
+	if ( $field =~ /^e_(.*)\|\|.*continent.*$/x ) {
+		my $linked_field  = $1;
+		my $country_field = $self->{'system'}->{'country_field'} // 'country';
+		return 1 if $linked_field eq $country_field || $self->_is_country_field("f_$linked_field");
+	}
+	return;
+}
+
 sub _field_linked_to_gps {
 	my ( $self, $field ) = @_;
 	if ( $field =~ /^f_(.*)/x ) {
@@ -396,8 +415,15 @@ sub _print_chart_type_controls {
 	if ( $self->_field_linked_to_gps( $element->{'field'} ) ) {
 		push @$breakdown_charts, 'gps_map';
 	}
-	if ( ( $element->{'field'} eq 'f_country' || $element->{'field'} eq 'e_country||continent' )
-		&& $self->has_country_optlist )
+	if (
+		(
+			   $element->{'field'} eq 'f_country'
+			|| $element->{'field'} eq 'e_country||continent'
+			|| $self->_is_country_field( $element->{'field'} )
+			|| $self->_is_continent_field( $element->{'field'} )
+		)
+		&& $self->has_country_optlist
+	  )
 	{
 		push @$breakdown_charts, 'map';
 	}
@@ -427,9 +453,16 @@ sub _print_chart_type_controls {
 
 sub has_country_optlist {
 	my ($self) = @_;
-	return if !$self->{'xmlHandler'}->is_field('country');
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
-	return $thisfield->{'optlist'} ? 1 : 0;
+	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	if ( $self->{'xmlHandler'}->is_field($country_field) ) {
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($country_field);
+		return 1 if ( $thisfield->{'optlist'} // q() ) eq 'yes';
+	}
+	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$atts ) {
+		return 1 if ( $atts->{$field}->{'country_field'} // q() ) eq 'yes';
+	}
+	return;
 }
 
 sub _get_field_values {
@@ -508,7 +541,7 @@ sub _print_change_duration_control {
 	say qq(<fieldset id="change_duration_control" style="float:left;display:$display">)
 	  . q(<legend>Rate of change</legend><ul>);
 	say q(<li>);
-	say q(<label for="change_duration">Show change</label>);
+	say q(<span class="query_block"><label for="change_duration" class="label">Show change:</label>);
 	say $q->popup_menu(
 		-name   => "${id}_change_duration",
 		-id     => "${id}_change_duration",
@@ -522,7 +555,7 @@ sub _print_change_duration_control {
 		},
 		-default => $element->{'change_duration'}
 	);
-	say q(</li>);
+	say q(</span></li>);
 	say q(</ul></fieldset>);
 	return;
 }
@@ -1309,6 +1342,8 @@ sub _should_display_map_element {
 	my ( $self, $field ) = @_;
 	return 1 if $field eq 'f_country' && $self->_field_has_optlist('f_country');
 	return 1 if $field eq 'e_country||continent';
+	return 1 if $self->_is_country_field($field);
+	return 1 if $self->_is_continent_field($field);
 	return;
 }
 
@@ -1675,8 +1710,10 @@ sub _get_rounded_width {
 sub _get_colour_swatch {
 	my ( $self, $element ) = @_;
 	if ( $element->{'background_colour'} ) {
-		return qq[<div style="background-image:linear-gradient(#fff,#fff 10%,$element->{'background_colour'},]
-		  . q[#fff 90%,#fff);height:calc(100% - 10px);margin-top:5px;width:100%;position:absolute;z-index:-1"></div>];
+		return
+qq[<div style="background-image:linear-gradient(var(--chart-bg),var(--chart-bg) 10%,$element->{'background_colour'} 40%,]
+		  . qq[$element->{'background_colour'} 60%,var(--chart-bg) 90%,var(--chart-bg));height:calc(100% - 10px);margin-top:5px;]
+		  . q[width:100%;position:absolute;z-index:-1"></div>];
 	}
 	return q();
 }
@@ -1690,9 +1727,11 @@ sub _get_big_number_content {
 	  . qq(<span class="dashboard_big_number" style="color:$text_colour">$nice_count</span></p>);
 	if ( $change_duration && defined $increase ) {
 		my $nice_increase = BIGSdb::Utils::commify($increase);
-		my $class         = $increase ? 'increase' : 'no_change';
-		$buffer .= qq(<p class="dashboard_comment $class"><span class="fas fa-caret-up"></span> )
-		  . qq($nice_increase [$change_duration]</p>);
+		if ($increase) {
+			$buffer .= qq(<p class="dashboard_comment increase">+$nice_increase this $change_duration</p>);
+		} else {
+			$buffer .= qq(<p class="dashboard_comment no_change">no change this $change_duration</p>);
+		}
 	}
 	return $buffer;
 }
@@ -3817,9 +3856,10 @@ sub _get_field_breakdown_map_content {
 	if ( !@$data ) {
 		return $self->_print_no_value_content($element);
 	}
-	my $countries = dclone(COUNTRIES);
+	my $countries        = dclone(COUNTRIES);
+	my $is_country_field = $element->{'field'} eq 'f_country' || $self->_is_country_field( $element->{'field'} );
 	foreach my $value (@$data) {
-		if ( $element->{'field'} eq 'f_country' ) {
+		if ($is_country_field) {
 			$value->{'iso3'} =
 			  defined $value->{'label'}
 			  ? $countries->{ $value->{'label'} }->{'iso3'} // q(XXX)
@@ -3838,9 +3878,9 @@ sub _get_field_breakdown_map_content {
 	  . qq(<span id="chart_$element->{'id'}_percent" style="width:initial"></span></td>)
 	  . q(</tr></tbody></table></div>);
 	$buffer .= $self->_get_title($element);
-	my $unit_id   = $element->{'field'} eq 'f_country' ? 'iso3'                       : 'continent';
-	my $units     = $element->{'field'} eq 'f_country' ? 'units'                      : 'continents';
-	my $merge     = $element->{'field'} eq 'f_country' ? q(data = merge_terms(data);) : q();
+	my $unit_id   = $is_country_field ? 'iso3'                       : 'continent';
+	my $units     = $is_country_field ? 'units'                      : 'continents';
+	my $merge     = $is_country_field ? q(data = merge_terms(data);) : q();
 	my %max_width = (
 		1 => 200,
 		2 => 500,
@@ -3852,10 +3892,10 @@ sub _get_field_breakdown_map_content {
 	my $dataset    = $json->encode($data);
 	my $js_dir     = $self->{'config'}->{'relative_js_dir'} // '/javascript';
 	my $geo_file =
-	  $element->{'field'} eq 'f_country'
+	  $is_country_field
 	  ? "$js_dir/topojson/countries.json"
 	  : "$js_dir/topojson/continents.json";
-	my $freq_key          = $element->{'field'} eq 'f_country' ? 'iso3' : 'name';
+	my $freq_key          = $is_country_field ? 'iso3' : 'name';
 	my $palettes          = $self->_get_map_palettes;
 	my $dashboard_palette = $self->_get_palette_name;
 	my $map_palette_name  = $element->{'palette'} // $self->_get_default_colour( $dashboard_palette, 'map' );
@@ -4266,9 +4306,8 @@ sub initiate {
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	$self->{'dashboard_type'} = 'primary';
 	$self->{$_} = 1
-	  foreach
-	  qw (jQuery noCache muuri modal fitty bigsdb.dashboard tooltips jQuery.fonticonpicker billboard d3.layout.cloud
-	  allowExpand);
+	  foreach qw (jQuery noCache muuri modal fitty bigsdb.dashboard jQuery.fonticonpicker billboard d3.layout.cloud
+	  allowExpand select2);
 	$self->{'geomap'} = 1 if $self->has_country_optlist;
 	$self->{'ol'}     = 1 if $self->need_openlayers;
 	$self->choose_set;
@@ -4492,13 +4531,14 @@ sub print_panel_buttons {
 }
 
 sub _print_modify_dashboard_trigger {
-	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+	say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="dashboard_panel_trigger" )
+	  . q(style="display:none">)
 	  . q(<span class="fas fa-lg fa-tools"></span><span class="icon_label">Modify dashboard</span></a></span>);
 	return;
 }
 
 sub _print_dashboard_toggle {
-	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
+	say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th-list"></span><span class="icon_label">Index page</span></a></span>);
 	return;
 }
@@ -4515,7 +4555,7 @@ sub print_modify_dashboard_fieldset {
 	my $palette   = $self->{'prefs'}->{'palette'}   // $default_attributes->{'palette'}   // PALETTE;
 	my $q         = $self->{'cgi'};
 	say q(<div id="modify_dashboard_panel" class="panel">);
-	say q(<a class="trigger" id="close_dashboard_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="trigger" id="close_dashboard_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Dashboard settings</h2>);
 	say q(<fieldset><legend>Layout</legend>);
 	say q(<form autocomplete="off">);    #Needed because Firefox autocomplete can override the values we set.
@@ -4566,8 +4606,8 @@ sub print_modify_dashboard_fieldset {
 	say q(</fieldset>);
 	say q(<div style="clear:both"></div>);
 	say q(<fieldset><legend>Visual elements</legend>);
-	say q(<ul><li>);
-	say q(<label for="dashboard_palette">Palette:</label>);
+	say q(<ul><li><span class="query_block">);
+	say q(<label for="dashboard_palette" class="label">Palette:</label>);
 	my $palettes = $self->_get_palettes;
 	say $q->popup_menu(
 		-name         => 'dashboard_palette',
@@ -4577,11 +4617,12 @@ sub print_modify_dashboard_fieldset {
 		-class        => 'field_selector',
 		-autocomplete => 'off'                       #Shouldn't need this but Firefox will cache value otherwise.
 	);
+	say q(</span>);
 	say q(<p><span class="comment">Note changing palette will reset user-selected colours.</span></p>);
-	say q(</li><li>);
+	say q(</li><li><span class="query_block">);
 	$self->print_field_selector;
 	say q(<a id="add_element" class="small_submit" style="white-space:nowrap">Add element</a>);
-	say q(</li></ul>);
+	say q(</span></li></ul>);
 	say q(</fieldset>);
 	$self->_print_dashboard_management_fieldset;
 	say q(</div>);
@@ -4653,8 +4694,8 @@ sub _print_dashboard_management_fieldset {
 	}
 	say q(<fieldset><legend>Versions</legend>);
 	say q(<form autocomplete="off">);    #Needed because Firefox will override the value we set for loaded_dashboard.
-	say q(<ul><li>);
-	say q(<label for="loaded_dashboard">Loaded:</label>);
+	say q(<ul><li><span class="query_block">);
+	say q(<label for="loaded_dashboard" class="label">Loaded:</label>);
 	my %attributes = (
 		-id        => 'loaded_dashboard',
 		-name      => 'loaded_dashboard',
@@ -4664,10 +4705,10 @@ sub _print_dashboard_management_fieldset {
 	);
 	$attributes{'-disabled'} = 1 if $name eq $default_name;
 	say $q->textfield(%attributes);
-	say q(</li>);
+	say q(</span></li>);
 
 	if ( @$ids > 1 ) {
-		say q(<li><label for="switch_dashboard">Switch:</label>);
+		say q(<li><span class="query_block"><label for="switch_dashboard" class="label">Switch:</label>);
 		say $q->popup_menu(
 			-id      => 'switch_dashboard',
 			-name    => 'switch_dashboard',
@@ -4675,7 +4716,7 @@ sub _print_dashboard_management_fieldset {
 			-values  => $ids,
 			-default => -1
 		);
-		say q(</li>);
+		say q(</span></li>);
 	}
 	say q(<li>);
 	my $reset_display = ( $name eq 'query default' || $name eq 'primary default' ) ? q(none) : q(inline);
@@ -4843,16 +4884,16 @@ sub print_field_selector {
 	}
 	unshift @$values, q() if $field_options->{'no_default'};
 	my $label = $field_options->{'label'} // 'Field';
-	say qq(<label for="add_field">$label:</label>);
+	say qq(<label for="add_field" class="label">$label:</label>);
 	say $q->popup_menu(
 		-name         => $field_options->{'name'} // 'add_field',
 		-id           => $field_options->{'id'}   // 'add_field',
 		-values       => $values,
 		-labels       => $labels,
 		-multiple     => 'true',
-		-style        => 'max-width:10em',
-		-class        => 'field_selector',
-		-autocomplete => 'off'               #Shouldn't need this but Firefox will cache value otherwise.
+		-style        => 'max-width:200px',
+		-class        => $field_options->{'class'} // 'do_not_calc_width',
+		-autocomplete => 'off'    #Shouldn't need this but Firefox will cache value otherwise.
 	);
 	return;
 }

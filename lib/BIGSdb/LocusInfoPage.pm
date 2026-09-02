@@ -92,52 +92,81 @@ sub _ajax {
 sub _print_description {
 	my ( $self, $locus_info ) = @_;
 	say q(<h2>Description</h2>);
-	say q(<dl class="data">);
+	my $list = [];
 	if ( $locus_info->{'formatted_common_name'} ) {
-		say qq(<dt>Common name</dt><dd>$locus_info->{'formatted_common_name'}</dd>);
+		push @$list,
+		  {
+			title => 'Common name',
+			data  => $locus_info->{'formatted_common_name'}
+		  };
 	} elsif ( $locus_info->{'common_name'} ) {
-		say qq(<dt>Common name</dt><dd>$locus_info->{'common_name'}</dd>);
+		push @$list,
+		  {
+			title => 'Common name',
+			data  => $locus_info->{'common_name'}
+		  };
 	}
 	my $desc = {};
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		$desc = $self->{'datastore'}->run_query( 'SELECT * FROM locus_descriptions WHERE locus=?',
 			$locus_info->{'id'}, { fetch => 'row_hashref' } );
 	}
-	say qq(<dt>Full name</dt><dd>$desc->{'full_name'}</dd>) if $desc->{'full_name'};
-	say qq(<dt>Product</dt><dd>$desc->{'product'}</dd>)     if $desc->{'product'};
-	say qq(<dt>Data type</dt><dd>$locus_info->{'data_type'}</dd>);
-	say qq(<dt>Locus type</dt><dd>$locus_info->{'locus_type'}</dd>) if $locus_info->{'locus_type'};
+	push @$list,
+	  {
+		title => 'Full name',
+		data  => $desc->{'full_name'}
+	  } if $desc->{'full_name'};
+	push @$list,
+	  {
+		title => 'Product',
+		data  => $desc->{'product'}
+	  } if $desc->{'product'};
+	push @$list,
+	  {
+		title => 'Data type',
+		data  => $locus_info->{'data_type'}
+	  };
+	push @$list,
+	  {
+		title => 'Locus type',
+		data  => $locus_info->{'locus_type'}
+	  } if $locus_info->{'locus_type'};
 	if ( $locus_info->{'length_varies'} ) {
-		print q(<dt>Variable length</dt><dd>);
+		my $value;
 		if ( $locus_info->{'min_length'} || $locus_info->{'max_length'} ) {
-			print qq($locus_info->{'min_length'} min) if $locus_info->{'min_length'};
-			print q(; )                               if $locus_info->{'min_length'} && $locus_info->{'max_length'};
-			print qq($locus_info->{'max_length'} max) if $locus_info->{'max_length'};
+			$value = qq($locus_info->{'min_length'} min) if $locus_info->{'min_length'};
+			$value .= q(; )                               if $locus_info->{'min_length'} && $locus_info->{'max_length'};
+			$value .= qq($locus_info->{'max_length'} max) if $locus_info->{'max_length'};
 		} else {
-			print q(No limits set);
+			$value = q(No limits set);
 		}
-		say q(</dd>);
+		push @$list,
+		  {
+			title => 'Variable length',
+			data  => $value
+		  };
 	} else {
-		say qq(<dt>Fixed length</dt><dd>$locus_info->{'length'} )
-		  . ( $locus_info->{'data_type'} eq 'DNA' ? q(bp) : q(aa) )
-		  . q(</dd>);
+		push @$list,
+		  {
+			title => 'Fixed length',
+			data  => qq($locus_info->{'length'} ) . ( $locus_info->{'data_type'} eq 'DNA' ? q(bp) : q(aa) )
+		  };
 	}
 	if ( $locus_info->{'data_type'} eq 'DNA' ) {
 		my $cds = $locus_info->{'coding_sequence'} ? 'yes' : 'no';
-		say qq(<dt>Coding sequence</dt><dd>$cds</dd>);
+		push @$list,
+		  {
+			title => 'Coding sequence',
+			data  => $cds
+		  };
 	}
-	say q(</dl>);
+	say $self->get_list_block( $list, { width => 8 } );
 	if ( $desc->{'description'} ) {
 		$desc->{'description'} =~ s/\n/<br \/>/gx;
 		say qq(<p>$desc->{'description'}</p>);
 	}
-	return;
-}
 
-sub _get_allele_count {
-	my ( $self, $locus ) = @_;
-	return $self->{'datastore'}
-	  ->run_query( q(SELECT COUNT(*) FROM sequences WHERE locus=? AND allele_id NOT IN ('N','0','P')), $locus );
+	return;
 }
 
 sub _print_aliases {
@@ -199,12 +228,10 @@ sub _print_links {
 sub _print_curators {
 	my ( $self, $locus_info ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	my $curators = $self->{'datastore'}->run_query(
-		'SELECT curator_id FROM locus_curators WHERE locus=? AND '
-		  . 'hide_public IS NOT TRUE ORDER BY curator_id',
-		$locus_info->{'id'},
-		{ fetch => 'col_arrayref' }
-	);
+	my $curators =
+	  $self->{'datastore'}->run_query(
+		'SELECT curator_id FROM locus_curators WHERE locus=? AND ' . 'hide_public IS NOT TRUE ORDER BY curator_id',
+		$locus_info->{'id'}, { fetch => 'col_arrayref' } );
 	if (@$curators) {
 		my $plural = @$curators > 1 ? q(s) : q();
 		say qq(<h2>Curator$plural</h2>);
@@ -230,25 +257,45 @@ sub _print_curators {
 sub _print_alleles {
 	my ( $self, $locus_info ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
-	my $count = $self->_get_allele_count( $locus_info->{'id'} );
-	return if !$count;
+	my $stats =
+	  $self->{'datastore'}
+	  ->run_query( 'SELECT * FROM locus_stats WHERE locus=?', $locus_info->{'id'}, { fetch => 'row_hashref' } );
+	$stats->{'allele_count'} //= 0;
 	say q(<h2>Alleles</h2>);
+
 	my $seq_type = $locus_info->{'data_type'} eq 'DNA' ? 'Alleles' : 'Variants';
-	say $self->get_list_block(
-		[
-			{
-				title => $seq_type,
-				data  => BIGSdb::Utils::commify($count),
-				href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
-				  . "page=alleleQuery&amp;locus=$locus_info->{'id'}&amp;submit=1"
-			}
-		],
-		{ width => 5 }
-	);
-	say q(<div id="waiting"><span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
-	say q(<div id="date_entered_container" class="embed_bb_chart" style="float:none">);
-	say q(<div id="date_entered_chart"></div>);
-	say q(<div id="date_entered_control"></div>);
+	my $list     = [
+		{
+			title => $seq_type,
+			data  => BIGSdb::Utils::commify( $stats->{'allele_count'} ),
+			href  => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;"
+			  . "page=alleleQuery&amp;locus=$locus_info->{'id'}&amp;submit=1"
+		}
+	];
+	if ( $stats->{'allele_count'} ) {
+		push @$list,
+		  {
+			title => 'Min length',
+			data  => $stats->{'min_length'}
+		  };
+		push @$list,
+		  {
+			title => 'Max length',
+			data  => $stats->{'max_length'}
+		  };
+		push @$list,
+		  {
+			title => 'Last updated',
+			data  => $stats->{'datestamp'}
+		  };
+	}
+	say $self->get_list_block( $list, { width => 8 } );
+	if ( $stats->{'allele_count'} ) {
+		say q(<div id="waiting"><span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
+		say q(<div id="date_entered_container" class="embed_bb_chart" style="float:none">);
+		say q(<div id="date_entered_chart"></div>);
+		say q(<div id="date_entered_control"></div>);
+	}
 	say q(</div>);
 	return;
 }

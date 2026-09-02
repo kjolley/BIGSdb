@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::CurateProfileAddPage);
 use BIGSdb::Utils;
 use List::MoreUtils qw(none);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -96,7 +96,7 @@ sub print_content {
 		);
 	}
 	my $pk_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
-	my $args = {
+	my $args    = {
 		scheme_id    => $scheme_id,
 		primary_key  => $primary_key,
 		profile_id   => $profile_id,
@@ -176,7 +176,7 @@ sub _prepare_update {
 		[ $scheme_id, $profile_id ],
 		{ fetch => 'col_arrayref' }
 	);
-	my @new_pubmeds = split /\r?\n/x, $q->param('pubmed');
+	my @new_pubmeds  = split /\r?\n/x, $q->param('pubmed');
 	my $pubmed_error = 0;
 	my @updated_field;
 	foreach my $new (@new_pubmeds) {
@@ -366,18 +366,17 @@ sub _print_interface {
 	$width = 15 if $width > 15;
 	$width = 6  if $width < 6;
 	print $q->start_form;
-	say q(<fieldset class="form" style="float:left"><legend>Record</legend>);
+	say q(<fieldset style="float:left"><legend>Record</legend>);
 
 	if ( !$q->param('sent') ) {
-		say q(<p>Update your record as required - required fields are marked with an exclamation mark (!):</p>);
+		say q(<p>Update your record as required - required fields are marked )
+		  . q(<label class="required">in bold</label>:</p>);
 	}
 	$q->param( sent => 1 );
 	print $q->hidden($_) foreach qw (page db sent scheme_id profile_id);
-	say q(<ul>);
-	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
-	my $title_attribute = $title ? qq( title="$title") : q();
-	say qq(<li><label class="form" style="width:${width}em"$title_attribute>$label: !</label>);
-	say qq(<b>$profile_id</b></li>);
+	say q(<div class="form_container">);
+	say qq(<div class="form_label"><label class="required">$primary_key:</label></div>);
+	say qq(<div class="form_value"><label class="required">$profile_id</label></div>);
 
 	foreach my $locus (@$loci) {
 		my %html5_args = ( required => 'required' );
@@ -385,26 +384,24 @@ sub _print_interface {
 		$html5_args{'type'} = 'number'
 		  if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
 		my $mapped = $self->clean_locus( $locus, { no_common_name => 1, strip_links => 1 } );
-		( $label, $title ) = $self->get_truncated_label( $mapped, 24 );
-		$title_attribute = $title ? qq( title="$title") : q();
-		say qq(<li><label for="locus:$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
+		say qq(<div class="form_label"><label for="locus:$locus" class="required">$mapped:</label></div>);
+		say q(<div class="form_value">);
 		say $self->textfield(
-			-name => "locus:$locus",
-			-id   => "locus_$locus",
-			-size => $locus_info->{'allele_id_format'} eq 'integer' ? 10 : 20,
+			-name  => "locus:$locus",
+			-id    => "locus_$locus",
+			-size  => $locus_info->{'allele_id_format'} eq 'integer' ? 10 : 20,
 			-value => $q->param("locus:$locus") // $allele_data->{$locus},
 			%html5_args
 		);
-		say q(</li>);
+		say q(</div>);
 	}
 	foreach my $field (@$scheme_fields) {
 		next if $field eq $primary_key;
 		my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		my %html5_args;
 		$html5_args{'type'} = 'number' if $field_info->{'type'} eq 'integer';
-		( $label, $title ) = $self->get_truncated_label( $field, 24 );
-		$title_attribute = $title ? qq( title="$title") : q();
-		say qq(<li><label for="field:$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
+		say qq(<div class="form_label"><label for="field:$field">$field:</label></div>);
+		say q(<div class="form_value">);
 		if ( defined $field_info->{'option_list'} ) {
 			my @optlist = split /\|/x, $field_info->{'option_list'};
 			unshift @optlist, q();
@@ -416,16 +413,17 @@ sub _print_interface {
 			);
 		} else {
 			say $q->textfield(
-				-name => "field:$field",
-				-id   => "field_$field",
-				-size => $field_info->{'type'} eq 'integer' ? 10 : 50,
+				-name  => "field:$field",
+				-id    => "field_$field",
+				-size  => $field_info->{'type'} eq 'integer' ? 10 : 50,
 				-value => $q->param("field:$field") // $field_data->{$field},
 				%html5_args
 			);
 		}
-		say q(</li>);
+		say q(</div>);
 	}
-	say qq(<li><label for="field:sender" class="form" style="width:${width}em">sender: !</label>);
+	say q(<div class="form_label"><label for="field:sender" class="required">sender:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'field:sender',
 		-id      => 'field_sender',
@@ -433,21 +431,23 @@ sub _print_interface {
 		-labels  => $usernames,
 		-default => $q->param('field:sender') // $profile_data->{'sender'}
 	);
-	say q(</li>);
+	say q(</div>);
 	my $curator_name = $self->get_curator_name;
-	say qq(<li><label class="form" style="width:${width}em">curator: !</label>)
-	  . qq(<b>$curator_name ($self->{'username'})</b></li>);
-	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>);
-	say qq($profile_data->{'date_entered'}</b></li>);
-	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>);
+	say q(<div class="form_label"><label class="required">curator:</label></div>);
+	say qq(<div class="form_value"><label class="required">$curator_name ($self->{'username'})</label></div>);
+	say q(<div class="form_label"><label class="required">date_entered:</label></div>);
+	say qq(<div class="form_value"><label class="required">$profile_data->{'date_entered'}</label></div>);
+	say q(<div class="form_label"><label class="required">datestamp:</label></div>);
+	say q(<div class="form_value"><label class="required">);
 	say BIGSdb::Utils::get_datestamp();
-	say q(</b></li>);
+	say q(</label></div>);
 	my $pubmed_list = $self->{'datastore'}->run_query(
 		'SELECT pubmed_id FROM profile_refs WHERE (scheme_id,profile_id)=(?,?) ORDER BY pubmed_id',
 		[ $scheme_id, $profile_id ],
 		{ fetch => 'col_arrayref' }
 	);
-	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
+	say q(<div class="form_label"><label for="pubmed">PubMed ids:</label></div>);
+	say q(<div class="form_value">);
 	local $" = "\n";
 	say $q->textarea(
 		-name    => 'pubmed',
@@ -457,7 +457,7 @@ sub _print_interface {
 		-style   => 'width:10em',
 		-default => "@$pubmed_list"
 	);
-	say q(</li></ul>);
+	say q(</div></div>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id, profile_id => $profile_id } );
 	say $q->end_form;

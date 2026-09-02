@@ -3,7 +3,7 @@
 #mapping.
 #
 #Written by Keith Jolley
-#Copyright (c) 2022-2024, University of Oxford
+#Copyright (c) 2022-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20241029
+#Version: 20260706
 use strict;
 use warnings;
 use 5.010;
@@ -35,9 +35,10 @@ use constant {
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN COUNTRIES);
-use Getopt::Long qw(:config no_ignore_case);
+use Getopt::Long      qw(:config no_ignore_case);
 use Term::Cap;
 use List::MoreUtils qw(uniq);
+use File::Path      qw(make_path rmtree);
 use Archive::Zip;
 binmode( STDOUT, ':encoding(UTF-8)' );
 
@@ -109,7 +110,7 @@ sub perform_sanity_checks {
 
 sub main {
 	my $country_field = $script->{'system'}->{'country_field'} // 'country';
-	my $countries = COUNTRIES;
+	my $countries     = COUNTRIES;
 	my $countries_used =
 	  $script->{'datastore'}
 	  ->run_query( "SELECT DISTINCT($country_field) FROM isolates WHERE $opts{'field'} IS NOT NULL",
@@ -120,18 +121,21 @@ sub main {
 			$iso2_countries_used{ $countries->{$country}->{'iso2'} } = 1;
 		}
 	}
+	my $subdir = BIGSdb::Utils::get_random();
+	make_path("$opts{'tmp_dir'}/$subdir");
 	foreach my $iso2 ( sort keys %iso2_countries_used ) {
-		process_country($iso2);
+		process_country( $subdir, $iso2 );
 	}
+	rmtree("$opts{'tmp_dir'}/$subdir");
 	return;
 }
 
 sub process_country {
-	my ($iso2) = @_;
+	my ( $subdir, $iso2 ) = @_;
 	my $country_field = $script->{'system'}->{'country_field'} // 'country';
 	my @matching_countries;
 	my $countries = COUNTRIES;
-	
+
 	foreach my $country_name ( sort keys %$countries ) {
 		next if !defined $countries->{$country_name}->{'iso2'};
 		push @matching_countries, $country_name if $countries->{$country_name}->{'iso2'} eq $iso2;
@@ -150,7 +154,7 @@ sub process_country {
 		[ $iso2, $opts{'field'} ],
 		{ fetch => 'col_arrayref' }
 	);
-	my %defined = map { $_ => 1 } @$defined_towns;
+	my %defined   = map { $_ => 1 } @$defined_towns;
 	my $undefined = [];
 	foreach my $town (@towns) {
 		push @$undefined, $town if !$defined{$town};
@@ -158,7 +162,7 @@ sub process_country {
 	my $filename = "$opts{'geodataset'}/$iso2.zip";
 	if ( -e $filename ) {
 		my $zip          = Archive::Zip->new($filename);
-		my $csv_filename = "$opts{'tmp_dir'}/$iso2.txt";
+		my $csv_filename = "$opts{'tmp_dir'}/$subdir/$iso2.txt";
 		if ( !defined $zip->extractMember( "$iso2.txt", $csv_filename ) ) {
 			$logger->error("$filename does not contain $iso2.txt file ... skipping.");
 		}
@@ -184,13 +188,14 @@ sub process_country {
 				my $name              = $data[1];
 				my $ascii_name        = $data[2];
 				my @alternative_names = split /,/x,
-				  $data[3];                 #Records with more alternative names defined tend to be more accurate.
+				  $data[3];    #Records with more alternative names defined tend to be more accurate.
 				my %alternative_names = map { $_ => 1 } @alternative_names;
 				my $latitude          = $data[4];
 				my $longitude         = $data[5];
 				my $feature_code      = $data[6];
 				my $admin1_code       = $data[10];
 				my $population        = $data[14];
+
 				if ( defined $this_admin1_code && $this_admin1_code ne $admin1_code ) {
 					next;
 				}
@@ -247,7 +252,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
 	say << "HELP";
 ${bold}NAME$norm

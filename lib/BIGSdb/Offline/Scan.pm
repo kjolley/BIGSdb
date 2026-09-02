@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -1111,7 +1111,7 @@ sub _get_row {
 		my $colour =
 		  BIGSdb::Utils::get_percent_colour( $match->{'first_stop'}, { min => $min, max => $max, middle => $middle } );
 		$buffer .=
-		  qq(<td><span style="background:#${colour}40;border:1px solid #ccc">$match->{'first_stop'}</span></td>);
+		  qq(<td><span class="first_start_codon" style="background:#${colour}40">$match->{'first_stop'}</span></td>);
 	} else {
 		$buffer .= $locus_info->{'complete_cds'} ? q(<td>-</td>) : q(<td>N/A</td>);
 	}
@@ -1573,7 +1573,17 @@ sub _identify_match_ends {
 
 sub _predict_allele_ends {
 	my ( $self, $length, $match, $record ) = @_;
-	if ( $length != $match->{'alignment'} ) {
+
+	# Don't use BLAST alignment length here.
+	# A gapped alignment may have alignment_length == allele_length
+	# while still not covering all allele positions (e.g. send < allele_length).
+	# Use subject coordinate coverage instead.
+	my $subject_start = $record->[8] < $record->[9] ? $record->[8] : $record->[9];
+	my $subject_end   = $record->[8] > $record->[9] ? $record->[8] : $record->[9];
+
+	my $subject_coverage = $subject_end - $subject_start + 1;
+
+	if ( $subject_coverage != $length ) {
 		if ( $match->{'reverse'} ) {
 			if ( $record->[8] < $record->[9] ) {
 				$match->{'predicted_start'} = $match->{'start'} - $length + $record->[9];
@@ -2007,9 +2017,11 @@ sub _simulate_hybridization {
 	open( my $fh, '>', $probe_fasta_file )
 	  or $logger->error("Can't open temp file $probe_fasta_file for writing");
 	my %probe_info;
+	my $shortest_probe_length = INF;
 
 	foreach my $probe (@$probes) {
 		$probe->{'sequence'} =~ s/\s//gx;
+		my $length = length( $probe->{'sequence'} );
 		print $fh ">$probe->{'id'}\n$probe->{'sequence'}\n";
 		$probe->{'max_mismatch'} = 0 if !$probe->{'max_mismatch'};
 		if ( $q->param('alter_probe_mismatches') && $q->param('alter_probe_mismatches') =~ /([\-\+]\d)/x ) {
@@ -2019,18 +2031,35 @@ sub _simulate_hybridization {
 		}
 		$probe->{'max_gaps'}          = 0                           if !$probe->{'max_gaps'};
 		$probe->{'min_alignment'}     = length $probe->{'sequence'} if !$probe->{'min_alignment'};
+		$shortest_probe_length        = $length                     if $shortest_probe_length > $length;
 		$probe_info{ $probe->{'id'} } = $probe;
 	}
 	close $fh;
-	system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
-		( -in => $fasta_file, -logfile => '/dev/null', -dbtype => 'nucl' ) );
+	my $contig_db_exists;
+	foreach my $suffix (qw(nsq nin nhr)) {
+		$contig_db_exists = 1 if -e "$fasta_file.$suffix";
+	}
+	if ( !$contig_db_exists ) {
+		system( "$self->{'config'}->{'blast+_path'}/makeblastdb",
+			( -in => $fasta_file, -logfile => '/dev/null', -dbtype => 'nucl' ) );
+	}
 	my $blast_threads = $self->{'config'}->{'blast_threads'} || 1;
+
+	my $word_size = 11;
+	if ( $shortest_probe_length >= 400 ) {
+		$word_size = 28;
+	} elsif ( $shortest_probe_length >= 100 ) {
+		$word_size = 20;
+	}
+
+	my $task = $shortest_probe_length > 100 ? 'megablast' : 'blastn';
 	system(
 		"$self->{'config'}->{'blast+_path'}/blastn",
 		(
-			-task            => 'blastn',
+			-task            => $task,
 			-num_threads     => $blast_threads,
-			-max_target_seqs => 1000,
+			-max_target_seqs => 100,
+			-word_size       => $word_size,
 			-db              => $fasta_file,
 			-out             => $results_file,
 			-query           => $probe_fasta_file,
@@ -2075,6 +2104,7 @@ sub _probe_filter_match {
 
 	#TODO Requires matches to all probes. Add option to loci table to allow match to ANY.
 	use constant MATCH_ALL => 1;
+	return 0 if !@$probe_matches;
 	my $good_match = 0;
 	my %matched_probe;
 	foreach my $match (@$probe_matches) {
@@ -2096,6 +2126,10 @@ sub _probe_filter_match {
 			if ( ( $end_distance < $probe_distance ) || ( $probe_distance == -1 ) ) {
 				$probe_distance = $end_distance;
 			}
+		}
+		if ( !defined $self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} } ) {
+			$logger->error("Probe locus link for locus: $locus; probe: $match->{'probe_id'} does not exist.");
+			next;
 		}
 		next
 		  if ( $probe_distance > $self->{'probe_locus'}->{$locus}->{ $match->{'probe_id'} }->{'max_distance'} )

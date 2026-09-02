@@ -254,7 +254,7 @@ sub _print_api_message {
 	my $date_restriction_message = $self->get_date_restriction_message;
 	if ( $self->{'config'}->{'rest_url'} ) {
 		my $url = "$self->{'config'}->{'rest_url'}/db/$self->{'instance'}";
-		say q(<div class="box" id="message">);
+		say q(<div class="box message">);
 		say q(<h2>Programmatic access</h2>);
 		say q(<p>Please note that if you are scripting downloads of alleles then you should use the )
 		  . qq(<a href="$url" target="_blank">application programming interface (API)</a> to do this.</p>);

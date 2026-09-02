@@ -1,6 +1,6 @@
 #Kaptive.pm - Kaptive wrapper for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2025, University of Oxford
+#Copyright (c) 2025-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -27,6 +27,7 @@ use List::MoreUtils qw(uniq);
 use Text::CSV;
 use File::Path qw(make_path rmtree);
 use JSON;
+use Encode qw(decode_utf8);
 use File::Copy;
 
 use Log::Log4perl qw(get_logger);
@@ -54,20 +55,20 @@ sub get_attributes {
 		description      => 'Wrapper for Kaptive',
 		full_description => 'Kaptive reports information about surface polysaccharide loci for <i>Klebsiella '
 		  . 'pneumoniae</i> species complex and <i>Acinetobacter baumannii</i> genome assemblies.',
-		category            => 'Third party',
+		category            => 'Analysis',
 		buttontext          => 'Kaptive',
 		menutext            => 'Kaptive',
 		module              => 'Kaptive',
-		version             => '1.0.1',
+		version             => '1.0.3',
 		dbtype              => 'isolates',
-		section             => 'third_party,isolate_info,postquery',
+		section             => 'analysis,isolate_info,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'offline_jobs,Kaptive,seqbin',
 		system_flag         => 'Kaptive',
 		explicit_enable     => 1,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/kaptive.html",
-		order               => 37,
+		order               => 50,
 		min                 => 1,
 		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
@@ -481,12 +482,13 @@ sub _store_results {
 	  qw(strain contig_count N50 largest_contig total_size ambiguous_bases ST Chr_ST gapA infB mdh pgi phoE rpoB tonB);
 	my $version = $self->_get_kaptive_version;
 	my $json    = encode_json( { version => $version, data => $data } );
+	my $json_text = decode_utf8($json);
 	my $att     = $self->get_attributes;
 	eval {
 		$self->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, $att->{'module'} );
 		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
-			undef, $att->{'module'}, $isolate_id, $json );
+			undef, $att->{'module'}, $isolate_id, $json_text );
 		$self->{'db'}->do(
 			'INSERT INTO last_run (name,isolate_id) VALUES (?,?) ON '
 			  . 'CONFLICT (name,isolate_id) DO UPDATE SET timestamp = now()',

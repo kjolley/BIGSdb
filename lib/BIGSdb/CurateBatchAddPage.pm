@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -321,7 +321,8 @@ sub print_interface_sender_field {
 		return;
 	}
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
-	say q(<div style="margin-bottom:1em"><p>Please select the sender from the list below:</p>);
+	say q(<fieldset><legend>Sender</legend>);
+	say q(<p>Please select the sender from the list below:</p>);
 	$user_names->{-1} = 'Override with sender field';
 	say $q->popup_menu(
 		-name     => 'sender',
@@ -330,8 +331,8 @@ sub print_interface_sender_field {
 		-labels   => $user_names,
 		-required => 'required'
 	);
-	say q(<span class="comment"> Value will be overridden if you include a sender field in your pasted data.</span>);
-	say q(</div>);
+	say q(<p class="comment"> Value will be overridden if you include a sender field in your pasted data.</p>);
+	say q(</fieldset>);
 	return;
 }
 
@@ -821,12 +822,30 @@ sub _check_classification_field_values {
 sub _check_lincode_prefix_values {
 	my ( $self, $args, $problems, $pk_combination ) = @_;
 	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	my $type = $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
-		[ $data->[ $file_header_pos->{'scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ] );
-	if ( $type eq 'integer'
-		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
+	my $scheme_id = $data->[ $file_header_pos->{'scheme_id'} ];
+	my $type      = $self->{'datastore'}->run_query(
+		'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
+		[ $scheme_id, $data->[ $file_header_pos->{'field'} ] ]
+	);
+	if ( !defined $type ) {
+		$problems->{$pk_combination} .=
+		  "Field $data->[$file_header_pos->{'field'}] is not a valid field for this scheme.";
+	} elsif (
+		$type eq 'integer'
+		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] )
+	  )
 	{
 		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
+	} elsif ( !$self->is_admin ) {
+		if (
+			!$self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM scheme_curators WHERE (scheme_id,curator_id)=(?,?))',
+				[ $scheme_id, $self->get_curator_id ]
+			)
+		  )
+		{
+			$problems->{$pk_combination} .= 'You are not a curator for this scheme.';
+		}
 	}
 	return;
 }
@@ -988,6 +1007,12 @@ sub _run_table_specific_reformatting {
 		},
 		dna_mutations => sub {
 			$self->_rewrite_mutations_data($new_args);
+		},
+		probes => sub {
+			$self->_rewrite_sequence_data($new_args);
+		},
+		pcr => sub {
+			$self->_rewrite_primer_data($new_args);
 		}
 	);
 	$methods{$table}->() if $methods{$table};
@@ -1010,6 +1035,26 @@ sub _rewrite_geography_point_data {
 	return if !$geo_fields->{$field};
 	if ( $$value =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
 		$$value = $self->{'datastore'}->convert_coordinates_to_geography( $1, $2 );
+	}
+	return;
+}
+
+sub _rewrite_sequence_data {
+	my ( $self,  $args )  = @_;
+	my ( $field, $value ) = @{$args}{qw(field value)};
+	if ( $field eq 'sequence' ) {
+		$$value =~ s/\s//gx;
+		$$value = uc($$value);
+	}
+	return;
+}
+
+sub _rewrite_primer_data {
+	my ( $self,  $args )  = @_;
+	my ( $field, $value ) = @{$args}{qw(field value)};
+	if ( $field =~ /^primer\d$/x ) {
+		$$value =~ s/\s//gx;
+		$$value = uc($$value);
 	}
 	return;
 }

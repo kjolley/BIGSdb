@@ -40,11 +40,12 @@ sub _get_user {
 		send_error( 'User id must be an integer.', 400 );
 	}
 	my $user = $self->{'datastore'}->get_user_info($user_id);
-	if ( !defined $user->{'id'} ) {
+	if ( !defined $user->{'id'} || hide_user($user) ) {
 		send_error( "User $user_id does not exist.", 404 );
 	}
 	my $values = {};
 	foreach my $field (qw(id first_name surname affiliation email)) {
+
 		#Only include E-mail for curators/admins
 		next
 		  if $field eq 'email'
@@ -53,6 +54,28 @@ sub _get_user {
 		$values->{$field} = $user->{$field};
 	}
 	return $values;
+}
+
+sub hide_user {
+	my ($user_info) = @_;
+	my $self        = setting('self');
+	my %always_show = map { $_ => 1 } qw (admin curator);
+	return if $always_show{ $user_info->{'status'} };
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		return
+		  if $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequences WHERE sender=? OR curator=?)',
+			[ $user_info->{'id'}, $user_info->{'id'} ] );
+		return
+		  if $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM profiles WHERE sender=? OR curator=?)',
+			[ $user_info->{'id'}, $user_info->{'id'} ] );
+	} elsif ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		return
+		  if $self->{'datastore'}
+		  ->run_query( "SELECT EXISTS(SELECT * FROM $self->{'system'}->{'view'} WHERE sender=? OR curator=?)",
+			[ $user_info->{'id'}, $user_info->{'id'} ] );
+	}
+
+	return 1;
 }
 
 sub _get_curators {

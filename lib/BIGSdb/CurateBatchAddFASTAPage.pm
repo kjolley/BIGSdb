@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2025, University of Oxford
+#Copyright (c) 2013-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -136,7 +136,8 @@ sub _print_interface {
 	  . q(extended attributes.</p>)
 	  if $extended_attributes;
 	say $q->start_form;
-	say q(<fieldset style="float:left"><legend>Enter parameters</legend><ul>);
+	say q(<fieldset style="float:left"><legend>Enter parameters</legend>);
+	say q(<div class="form_container">);
 	my ( $values, $desc ) = $self->{'datastore'}->get_locus_list(
 		{
 			set_id                          => $set_id,
@@ -145,7 +146,8 @@ sub _print_interface {
 			locus_curator                   => ( $self->is_admin ? undef : $self->get_curator_id )
 		}
 	);
-	say q(<li><label for="locus" class="form" style="width:5em">locus:!</label>);
+	say q(<div class="form_label"><label for="locus" class="required">locus:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'locus',
 		-id       => 'locus',
@@ -153,10 +155,15 @@ sub _print_interface {
 		-labels   => $desc,
 		-required => 'required'
 	);
-	say q(</li><li><label for="status" class="form" style="width:5em">status:!</label>);
+	say q(</div>);
+
+	say q(<div class="form_label"><label for="status" class="required">status:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'status', -id => 'status', -values => [ '', SEQ_STATUS ], -required => 'required' );
+	say q(</div>);
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users( { blank_message => 'Select sender ...' } );
-	say q(<li><label for="sender" class="form" style="width:5em">sender:!</label>);
+	say q(<div class="form_label"><label for="sender" class="required">sender:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'sender',
 		-id       => 'sender',
@@ -164,7 +171,8 @@ sub _print_interface {
 		-labels   => $user_names,
 		-required => 'required'
 	);
-	say q(</li><li>);
+	say q(</div></div>);
+	say q(<ul><li>);
 	say $q->checkbox(
 		-name  => 'complete_CDS',
 		-label => 'Reject all sequences that are not complete reading frames - these must have a start and '
@@ -415,7 +423,8 @@ sub _upload {
 			detail        => $detail,
 			navbar        => 1,
 			submission_id => $submission_id,
-			more_url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta"
+			more_url      => "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta",
+			more_text     => 'Add more'
 		}
 	);
 	$self->{'db'}->commit;
@@ -428,19 +437,4 @@ sub get_title {
 	return 'Batch insert sequences';
 }
 
-sub get_javascript {
-	my ($self) = @_;
-	my $buffer = << "END";
-\$(function () {
-  \$('#sender,#locus').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
-});
-END
-	return $buffer;
-}
 1;

@@ -56,15 +56,15 @@ sub get_attributes {
 		menutext           => 'Contigs',
 		module             => 'Contigs',
 		url                => "$self->{'config'}->{'doclink'}/data_export/contig_export.html",
-		version            => '2.1.0',
+		version            => '2.1.1',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		input              => 'query',
 		help               => 'tooltips',
-		order              => 20,
+		order              => 50,
 		system_flag        => 'ContigExport',
 		enabled_by_default => 1,
-		requires => 'seqbin,offline_jobs',    #Offline jobs set to force log in if required for downloads
+		requires => 'seqbin,offline_jobs',                   #Offline jobs set to force log in if required for downloads
 		image    => '/images/plugins/Contigs/screenshot.png'
 	);
 	return \%att;
@@ -72,7 +72,7 @@ sub get_attributes {
 
 sub get_initiation_values {
 	my ($self) = @_;
-	my $values = { 'jQuery.tablesort' => 1 };
+	my $values = { 'jQuery.tablesort' => 1, select2 => 1 };
 
 	my %allowed_formats = map { $_ => 1 } FORMATS;
 	my $q               = $self->{'cgi'};
@@ -366,7 +366,9 @@ sub _print_options_fieldset {
 	my $q         = $self->{'cgi'};
 	my @pc_values = ( 0 .. 100 );
 	say q(<fieldset style="float:left"><legend>Options</legend>);
-	say q(<ul><li><label for="header_list" class="aligned width6">Header line: </label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="header_list" class="label">Header line:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name   => 'header_list',
 		-id     => 'header_list',
@@ -375,7 +377,7 @@ sub _print_options_fieldset {
 	);
 	say $self->get_tooltip( q(Header line - Seqbin id will be used if the original designation has not been stored. )
 		  . q(This is used for FASTA output only.) );
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	return;
 }
 

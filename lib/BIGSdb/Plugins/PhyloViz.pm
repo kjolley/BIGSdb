@@ -1,7 +1,7 @@
 #PhyloViz.pm - phylogenetic inference and data visualization for sequence
 #based typing methods for BIGSdb
 #Written by Emmanuel Quevillon and Keith Jolley
-#Copyright (c) 2016-2024, Institut Pasteur, Paris
+#Copyright (c) 2016-2026, Institut Pasteur, Paris
 #E-mail: tuco@pasteur.fr; keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -25,8 +25,8 @@ package BIGSdb::Plugins::PhyloViz;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
-use List::MoreUtils qw(uniq all);
+use parent            qw(BIGSdb::Plugin);
+use List::MoreUtils   qw(uniq all);
 use BIGSdb::Constants qw(GOOD BAD);
 use BIGSdb::Exceptions;
 use LWP::UserAgent;
@@ -56,7 +56,7 @@ sub get_attributes {
 			}
 		],
 		description      => 'Creates phylogenetic inference and data visualization for sequence-based typing methods',
-		category         => 'Third party',
+		category         => 'External',
 		buttontext       => 'PhyloViz',
 		menutext         => 'PhyloViz',
 		full_description => 'PhyloViz Online is a tool for generating and visualising minimum-spanning trees based on '
@@ -64,14 +64,14 @@ sub get_attributes {
 		  . '<a href="https://online.phyloviz.net/">PhyloViz Online</a> for visualisation. Datasets can include '
 		  . 'metadata which allows nodes in the resultant tree to be coloured interactively.',
 		module              => 'PhyloViz',
-		version             => '1.4.1',
+		version             => '1.4.2',
 		dbtype              => 'isolates',
-		section             => 'third_party,postquery',
+		section             => 'external,postquery',
 		input               => 'query',
 		system_flag         => 'PhyloViz',
 		requires            => 'js_tree,phyloviz_user,phyloviz_passwd',
 		help                => 'tooltips',
-		order               => 45,
+		order               => 50,
 		min                 => 2,
 		max                 => 10000,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/phyloviz.html",
@@ -245,8 +245,7 @@ sub _print_interface {
 	say $q->start_form;
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_id_fieldset( { list => $isolate_ids } );
-	$self->print_isolate_fields_fieldset(
-		{ extended_attributes => 1, no_aliases => 1, default => ['id'], no_all_none => 1 } );
+	$self->print_isolate_fields_fieldset( { extended_attributes => 1, no_aliases => 1, default => ['id'] } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_action_fieldset( { no_reset       => 1 } );

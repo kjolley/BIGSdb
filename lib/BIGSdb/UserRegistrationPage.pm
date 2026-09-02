@@ -306,8 +306,8 @@ sub _print_registration_form {
 	  . q(full affiliation details (avoiding abbreviations). This information will appear with any data that you submit.)
 	  . q(</em></strong></p>);
 	say $q->start_form;
-	say q(<fieldset class="form" style="float:left"><legend>Please enter your details</legend>);
-	say q(<ul><li>);
+	say q(<fieldset style="float:left"><legend>Please enter your details</legend>);
+	say q(<div class="form_container">);
 	my $user_dbs = $self->{'config'}->{'site_user_dbs'};
 	my $values   = [];
 	my $labels   = {};
@@ -316,7 +316,8 @@ sub _print_registration_form {
 		push @$values, $user_db->{'dbase'};
 		$labels->{ $user_db->{'dbase'} } = $user_db->{'name'};
 	}
-	say q(<label for="db" class="aligned width5">Domain: </label>);
+	say q(<div class="form_label"><label for="db">Domain:</label></div>);
+	say q(<div class="form_value">);
 	if ( @$values == 1 ) {
 		say $q->popup_menu(
 			-name     => 'domain',
@@ -336,45 +337,61 @@ sub _print_registration_form {
 			-required => 'required'
 		);
 	}
-	say q(</li><li>);
-	say q(<label for="user_name" class="aligned width5">User name:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="user_name">User name:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'user_name', -id => 'user_name', -required => 'required', size => 25 );
-	say q(</li><li>);
-	say q(<label for="first_name" class="aligned width5">First name:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="first_name">First name:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'first_name', -id => 'first_name', -required => 'required', size => 25 );
-	say q(</li><li>);
-	say q(<label for="surname" class="aligned width5">Last name:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="surname">Last name:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'surname', -id => 'surname', -required => 'required', size => 25 );
-	say q(</li><li>);
-	say q(<label for="email" class="aligned width5">E-mail:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="email">E-mail:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'email', -id => 'email', -required => 'required', size => 30 );
-	say q(</li><li>);
-	say q(<label for="affiliation" class="aligned width5">Affiliation<br />(institute):</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="affiliation">Affiliation<br />(institute):</label></div>);
+	say q(<div class="form_value">);
 	say $q->textarea( -name => 'affiliation', -id => 'affiliation', -required => 'required', -cols => 30 );
+	say q(</div>);
 
 	if ( $self->{'config'}->{'site_user_sector'} ) {
-		say q(</li><li>);
-		say q(<label for="sector" class="aligned width5">Sector:</label>);
+		say q(<div class="form_label"><label for="sector">Sector:</label></div>);
 		$values = [ '', SECTORS, 'other' ];
+		say q(<div class="form_value">);
 		say $q->popup_menu( -name => 'sector', -id => 'sector', -values => $values, -required => 'required' );
-		say q(</li><li id="other" style="display:none">);
-		say q(<label for="other_sector" class="aligned width5">Other:</label>);
+		say q(</div>);
+		say q(<div id="other_label" class="form_label" style="display:none">)
+		  . q(<label for="other_sector">Other:</label></div>);
+		say q(<div id="other_value" class="form_value" style="display:none">);
 		say $q->textfield(
 			-name        => 'other_sector',
 			-id          => 'other_sector',
 			-size        => 30,
 			-placeholder => 'Enter other sector...'
 		);
+		say q(</div>);
 	}
 	if ( $self->{'config'}->{'site_user_country'} ) {
-		say q(</li><li>);
-		say q(<label for="country" class="aligned width5">Country:</label>);
+		say q(<div class="form_label"><label for="country">Country:</label></div>);
 		my $countries = COUNTRIES;
 		my $sorted    = BIGSdb::Utils::unicode_dictionary_sort( [ keys %$countries ] );
 		$values = [ '', @$sorted ];
-		say $q->popup_menu( -name => 'country', -id => 'country', -values => $values, -required => 'required' );
+		say q(<div class="form_value">);
+		say $self->popup_menu(
+			-name     => 'country',
+			-id       => 'country',
+			-values   => $values,
+			-required => 'required',
+			-style    => 'width:300px'
+		);
+		say q(</div>);
 	}
-	say q(</li></ul>);
+	say q(</div>);
 	say q(</fieldset>);
 	$q->param( register => 1 );
 	say $q->hidden($_) foreach qw(page register);
@@ -663,27 +680,11 @@ sub get_javascript {
 	    	}
 		});
 	});
-	\$('li#other').css('display',\$('select#sector').val() == 'other' ? 'block' : 'none');
+	\$('div#other_label,div#other_value').css('display',\$('select#sector').val() == 'other' ? 'block' : 'none');
  	\$('select#sector').change(function() {
  		console.log(this.value);
- 		\$('li#other').css('display',this.value == 'other' ? 'block' : 'none');
+ 		\$('div#other_label,div#other_value').css('display',this.value == 'other' ? 'block' : 'none');
  	});
- 	\$("#country").multiselect({
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter',
-	}).multiselectfilter({
-		placeholder: 'Search'
-	});
- 	
- 	\$("#sector").multiselect({
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter',
-	});
 });	
 function capitalize(textboxid, str) {
       // string with alteast one character
@@ -702,7 +703,7 @@ END
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw(jQuery noCache login jQuery.multiselect);
+	$self->{$_} = 1 foreach qw(jQuery noCache login select2);
 	$self->{'validate_time'} =
 	  BIGSdb::Utils::is_int( $self->{'config'}->{'new_account_validation_timeout_mins'} )
 	  ? $self->{'config'}->{'new_account_validation_timeout_mins'}

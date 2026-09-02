@@ -158,7 +158,7 @@ sub _print_results_header {
 	my ( $table, $browse, $records, $message, $currentpage, $totalpages, $passed_qry_file, $bar_buffer_ref ) =
 	  @{$args}{qw(table browse records message currentpage totalpages passed_qry_file bar_buffer_ref)};
 	my $class = $records ? 'largetable_resultsheader' : 'resultsheader';
-	say qq(<div class="box" id="$class">);
+	say qq(<div class="box $class">);
 	if ($browse) {
 		say q(<p>Browsing all records.</p>);
 	}
@@ -357,8 +357,17 @@ sub _print_project_add_function {
 	say q(<div id="project_section" style="margin-top:1em;display:none">);
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
-	say $q->popup_menu( -id => 'project', -name => 'project', -values => $project_ids, -labels => $labels );
+	say q(<span class="query_block">);
+	say $q->popup_menu(
+		-id     => 'project',
+		-name   => 'project',
+		-values => $project_ids,
+		-labels => $labels,
+		-style  => 'width:240px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->submit( -name => 'add_to_project', -label => 'Add these records', -class => 'small_submit' );
+	say q(</span>);
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
 
 	#Using print instead of say prevents blank line if attribute not set.
@@ -408,6 +417,7 @@ sub _print_add_bookmark_function {
 	#Using print instead of say prevents blank line if attribute not set.
 	print $q->hidden($_) foreach @$hidden_attributes;
 	say q(Bookmark name:<br />);
+	say q(<span class="query_block">);
 	say $q->textfield(
 		-id          => 'bookmark',
 		-name        => 'bookmark',
@@ -419,6 +429,7 @@ sub _print_add_bookmark_function {
 	say $q->submit( -name => 'add_bookmark', -label => 'Add bookmark', -class => 'small_submit' );
 	say qq(<span class="flash_message" style="margin-left:2em">$self->{'bookmark_add_message'}</span>)
 	  if $self->{'bookmark_add_message'};
+	say q(</span>);
 	say $q->end_form;
 	say q(</div>);
 	say q(</fieldset>);
@@ -599,7 +610,7 @@ sub _print_embargo_function {
 	my $hidden_attributes = $self->get_hidden_attributes;
 	say $q->start_form;
 	say q(<button type="submit" name="embargo" value="embargo" class="small_submit">)
-	  . q(<span class="fas fa-user-secret"></span> Set/update embargo </button>);
+	  . q(<span class="fas fa-lock"></span> Set/update embargo </button>);
 	say $q->hidden($_) foreach qw (db query_file temp_table_file table page);
 	say $q->hidden($_) foreach @$hidden_attributes;
 	say $q->end_form;
@@ -1577,10 +1588,10 @@ sub _print_plugin_buttons {
 		Breakdown     => 'fas fa-chart-pie',
 		Export        => 'far fa-save',
 		Analysis      => 'fas fa-chart-line',
-		'Third party' => 'fas fa-external-link-alt',
+		External      => 'fas fa-external-link-alt',
 		Miscellaneous => 'far fa-file-alt'
 	);
-	say q(<h2>Analysis tools</h2>);
+	say q(<h2>Tools</h2>);
 	my $set_id = $self->get_set_id;
 
 	foreach my $category (@$plugin_categories) {
@@ -1589,7 +1600,7 @@ sub _print_plugin_buttons {
 			'postquery',
 			$self->{'system'}->{'dbtype'},
 			$category || 'none',
-			{ set_id => $set_id, seqdb_type => $seqdb_type, username => $self->{'username'} }
+			{ set_id => $set_id, seqdb_type => $seqdb_type, username => $self->{'username'}, order => 'order' }
 		);
 		if (@$plugin_names) {
 			my $plugin_buffer;
@@ -1616,16 +1627,13 @@ sub _print_plugin_buttons {
 			if ($plugin_buffer) {
 				$category = 'Miscellaneous' if !$category;
 				$cat_buffer .=
-					q(<div><span style="float:left;text-align:right;width:8em;)
-				  . q(white-space:nowrap;margin-right:0.5em">)
-				  . qq(<span class="fa-fw fa-lg $icon{$category} plugin_icon" style="margin-right:0.2em">)
-				  . qq(</span>$category:</span>)
-				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
-				$cat_buffer .= $plugin_buffer;
-				$cat_buffer .= q(</div></div>);
+					q(<div class="plugin_category"><div class="plugin_category_menu">)
+				  . qq(<span class="fa-fw $icon{$category} plugin_icon"></span>)
+				  . qq(<span class="plugin_heading">$category:</span></div>)
+				  . qq(<div class="plugin_category_buttons">$plugin_buffer</div></div>);
 			}
 		}
-		say qq($cat_buffer<div style="clear:both"></div>) if $cat_buffer;
+		say $cat_buffer if $cat_buffer;
 	}
 	say q(</div>);
 	return;

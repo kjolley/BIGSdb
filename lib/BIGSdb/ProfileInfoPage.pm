@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,9 +20,9 @@ package BIGSdb::ProfileInfoPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::IsolateInfoPage);
+use parent            qw(BIGSdb::IsolateInfoPage);
 use BIGSdb::Constants qw(:interface);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_LOCI_SHOW => 100;
@@ -129,7 +129,7 @@ sub _print_plugin_buttons {
 		Breakdown     => 'fas fa-chart-pie',
 		Export        => 'far fa-save',
 		Analysis      => 'fas fa-chart-line',
-		'Third party' => 'fas fa-external-link-alt',
+		External      => 'fas fa-external-link-alt',
 		Miscellaneous => 'far fa-file-alt'
 	);
 	my $set_id = $self->get_set_id;
@@ -162,7 +162,7 @@ sub _print_plugin_buttons {
 				$cat_buffer .=
 					q(<div><span style="float:left;text-align:right;width:8em;)
 				  . q(white-space:nowrap;margin-right:0.5em">)
-				  . qq(<span class="fa-fw fa-lg $icon{$category} info_plugin_icon" style="margin-right:0.2em">)
+				  . qq(<span class="fa-fw fa-lg $icon{$category} plugin_icon" style="margin-right:0.2em">)
 				  . qq(</span>$category:</span>)
 				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
 				$cat_buffer .= $plugin_buffer;
@@ -267,11 +267,11 @@ sub _print_client_db_links {
 	}
 	if ($buffer) {
 		my $plural = @$clients > 1 ? q(s) : q();
-		say q(<span class="info_icon fas fa-2x fa-fw fa-database fa-pull-left" style="margin-top:-0.2em"></span>);
+		say q(<div><span class="info_icon fas fa-2x fa-fw fa-database fa-pull-left" style="margin-top:-5px"></span>);
 		say qq(<h2>Client database$plural</h2>);
 		say q(<dl class="data">);
 		say $buffer;
-		say q(</dl>);
+		say q(</dl></div>);
 	}
 	return;
 }
@@ -684,6 +684,20 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
+	\$("#show_refs").on("click", function(){
+		\$("li.hide_ref").slideDown("fast");
+		\$("div.references").removeClass("bottom_fade");
+		\$("a#show_refs").hide();
+		\$("a#hide_refs").show();
+	});
+	\$("#hide_refs").on("click", function(){
+		\$("li.hide_ref").slideUp("fast");
+		\$("div.references").addClass("bottom_fade");
+		\$("a#show_refs").show();
+		\$("a#hide_refs").hide();
+	});
+	
+	
 	\$('#expand_profile').on('click', function(){	  
 	  if (\$('#profile').hasClass('expandable_expanded')) {
 	  	\$('#profile').switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){

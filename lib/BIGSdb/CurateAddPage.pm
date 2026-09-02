@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -82,8 +82,9 @@ sub print_content {
 	return if !$self->_table_exists($table);
 	say qq(<h1>Add new $record_name</h1>);
 	if ( !$self->can_modify_table($table) ) {
-		my %seq_table   = map { $_ => 1 } qw(sequences retired_allele_ids);
-		my %locus_table = map { $_ => 1 } qw(locus_descriptions locus_links);
+		my %seq_table    = map { $_ => 1 } qw(sequences retired_allele_ids);
+		my %locus_table  = map { $_ => 1 } qw(locus_descriptions locus_links);
+		my %scheme_table = map { $_ => 1 } qw(lincode_prefixes);
 		if ( ( $seq_table{$table} && $q->param('locus') ) || $locus_table{$table} ) {
 			my $record_type = $self->get_record_name($table);
 			my $locus       = $q->param('locus');
@@ -92,6 +93,14 @@ sub print_content {
 					message => qq(Your user account is not allowed to add $locus ${record_type}s to the database.)
 				}
 			);
+		} elsif ( $scheme_table{$table} && $q->param('scheme_id') ) {
+			my $record_type = $self->get_record_name($table);
+			$self->print_bad_status(
+				{
+					message => qq(Your user account is not allowed to add ${record_type}s for this scheme.)
+				}
+			);
+
 		} else {
 			$self->print_bad_status(
 				{
@@ -222,7 +231,7 @@ sub _insert {
 	my %check_tables = map { $_ => 1 } qw(accession loci locus_aliases locus_descriptions profile_refs scheme_fields
 	  scheme_group_group_members sequences sequence_bin sequence_refs retired_profiles classification_group_fields
 	  retired_isolates schemes users eav_fields classification_group_field_values lincode_schemes lincode_prefixes
-	  projects peptide_mutations dna_mutations );
+	  projects peptide_mutations dna_mutations);
 
 	if (
 		   $table ne 'retired_isolates'
@@ -319,7 +328,7 @@ sub _insert {
 				);
 				$self->update_blast_caches;
 			} else {
-				my $record_name = $self->get_record_name($table);
+				my $record_name = ucfirst( $self->get_record_name($table) );
 				$self->print_good_status(
 					{ message => qq($record_name added.), detail => $detail, navbar => 1, %$navlinks } );
 			}
@@ -711,7 +720,9 @@ sub _check_lincode_prefixes {    ## no critic (ProhibitUnusedPrivateSubroutines)
 	my ( $self, $newdata, $problems ) = @_;
 	my $type = $self->{'datastore'}->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
 		[ $newdata->{'scheme_id'}, $newdata->{'field'} ] );
-	if ( $type eq 'integer' && !BIGSdb::Utils::is_int( $newdata->{'value'} ) ) {
+	if ( !defined $type ) {
+		push @$problems, q(Field does not exist for this LIN code scheme.);
+	} elsif ( $type eq 'integer' && !BIGSdb::Utils::is_int( $newdata->{'value'} ) ) {
 		push @$problems, q(Field value must be an integer.);
 	}
 	return;
@@ -1039,22 +1050,24 @@ sub get_javascript {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my %allowed_tables =
-	  map { $_ => 1 } qw(sequences query_interface_fields user_group_members users schemes curator_configs);
-	return if !defined $q->param('table') || !$allowed_tables{ $q->param('table') };
-	my $buffer = << "END";
-\$(function () {
- \$("#locus").change(function(){
+	  map { $_ => 1 }
+	  qw(sequences query_interface_fields user_group_members users schemes curator_configs loci
+	  retired_allele_ids);
+	my $table = $q->param('table');
+	return if !defined $table || !$allowed_tables{$table};
+	my $reload_locus = q();
+	if ( $table eq 'sequences' ) {
+		$reload_locus = <<"END";
+  \$("#locus").change(function(){
  	var locus_name = \$("#locus").val();
  	var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=add&table=sequences&locus=' + locus_name;
  	location.href=url;
-  });
-  \$('#locus,#field,#sender,#user_id,#country').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
+  });		
+END
+	}
+	my $buffer = << "END";
+\$(function () {
+  $reload_locus
   \$('#flags').multiselect({
   	classes: 'filter',
  	menuHeight: 250,
@@ -1064,6 +1077,12 @@ sub get_javascript {
   });
   \$('.dynamic').select2({
   	tags: true
+  });
+  \$("a#toggle1").click(function(event){
+  	\$("#modal_overlay").addClass("open");
+  });
+  \$("a#toggle2").click(function(event){
+  	\$("#modal_overlay").removeClass("open");
   });
 });
 END
@@ -1159,8 +1178,9 @@ sub _print_copy_locus_record_form {
 	my $q = $self->{'cgi'};
 	my ( $locus_list, $locus_labels ) = $self->get_field_selection_list( { loci => 1, sort_labels => 1 } );
 	return if !@$locus_list;
-	say q(<div class="floatmenu"><a id="toggle1" class="showhide" style="display:none">Show tools</a>);
-	say q(<a id="toggle2" class="hideshow" style="display:none">Hide tools</a></div>);
+	say
+q(<div class="floatmenu" style="z-index:9"><a id="toggle1" class="showhide button" style="display:none">Show tools</a>);
+	say q(<a id="toggle2" class="hideshow button" style="display:none">Hide tools</a></div>);
 	say q(<div class="hideshow" style="display:none">);
 	say q(<div id="curatetools">);
 	print $q->start_form;

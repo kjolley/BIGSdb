@@ -3291,13 +3291,21 @@ sub create_temp_ref_table {
 	my $all_authors = $self->run_query( 'SELECT id,surname,initials FROM authors',
 		undef, { db => $dbr, fetch => 'all_hashref', key => 'id' } );
 	my $count_qry;
+	my $list_table = $self->create_temp_list_table_from_array( 'int', $list );
+
 	if ($qry_ref) {
 		my $isolate_qry = $$qry_ref;
 		$isolate_qry =~ s/\*/id/x;
-		$count_qry = "SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=? AND isolate_id IN ($isolate_qry)";
+		$count_qry =
+			"SELECT pubmed_id,COUNT(*) AS count FROM refs r JOIN $list_table l ON r.pubmed_id=l.value "
+		  . "WHERE isolate_id IN ($isolate_qry) GROUP BY pubmed_id";
 	} else {
-		$count_qry = 'SELECT COUNT(*) FROM refs WHERE refs.pubmed_id=?';
+		$count_qry =
+			"SELECT pubmed_id,COUNT(*) AS count FROM refs r JOIN $list_table l ON "
+		  . 'r.pubmed_id=l.value GROUP BY pubmed_id';
 	}
+	my $counts = $self->run_query( $count_qry, undef, { fetch => 'all_arrayref', slice => {} } );
+	my %counts = map { $_->{'pubmed_id'} => $_->{'count'} } @$counts;
 	foreach my $pmid (@$list) {
 		my $paper = $self->run_query( 'SELECT pmid,year,journal,volume,pages,title,abstract FROM refs WHERE pmid=?',
 			$pmid, { db => $dbr, fetch => 'row_arrayref', cache => 'create_temp_ref_table_paper' } );
@@ -3309,7 +3317,7 @@ sub create_temp_ref_table {
 		}
 		local $" = ', ';
 		my $author_string = "@authors";
-		my $isolates      = $self->run_query( $count_qry, $pmid, { cache => 'create_temp_ref_table_count' } );
+		my $isolates      = $counts{$pmid} // 0;
 		eval {
 			my $qry = 'INSERT INTO temp_refs VALUES (?,?,?,?,?,?,?,?,?)';
 			if ($paper) {

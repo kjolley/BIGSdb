@@ -142,7 +142,7 @@ sub print_panel_buttons {
 	{
 		if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
 			say q(<span class="icon_button">)
-			  . q(<a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+			  . q(<a class="trigger_button primary_trigger" id="dashboard_panel_trigger" style="display:none">)
 			  . q(<span class="fas fa-lg fa-tools"></span><span class="icon_label">Modify dashboard</span></a></span>);
 		}
 	}

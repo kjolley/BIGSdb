@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2020-2021, University of Oxford
+#Copyright (c) 2020-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -72,14 +72,13 @@ sub print_content {
 		say q(<th>Set</th>);
 	}
 	say q(<th>Created</th><th class="sorter-false">Share</th><th class="sorter-false">Run query</th></tr></thead>);
-	my $td = 1;
 	say q(<tbody>);
 	my ( $query, $delete, $public, $private ) = ( QUERY, DELETE, UNLOCK, LOCK );
 	foreach my $bookmark (@$bookmarks) {
 
 		#The hidden span in the name field seems to be necessary due to a bug in the tablesorter
 		#when values look like dates.
-		print qq(<tr class="td$td">)
+		print qq(<tr>)
 		  . qq(<td><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 		  . qq(page=bookmarks&amp;delete=$bookmark->{'id'}">$delete</a></td>)
 		  . qq(<td><span style="display:none">x</span>$bookmark->{'name'}</td><td>$bookmark->{'dbase_config'}</td>);

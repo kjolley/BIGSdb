@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2020, University of Oxford
+#Copyright (c) 2015-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::AuthorizeClientPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent        qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant REQUEST_TOKEN_EXPIRES => 3600;
@@ -147,7 +147,7 @@ sub _authorize_token {
 		say q(<div class="box" id="resultspanel">);
 		say q(<span class="main_icon far fa-handshake fa-3x fa-pull-left"></span>);
 		my $version = $client->{'version'} ? " version $client->{'version'} " : '';
-		my $desc = $self->_get_resource_desc( $self->{'username'} ) || 'BIGSdb';
+		my $desc    = $self->_get_resource_desc( $self->{'username'} ) || 'BIGSdb';
 		say qq(<p>You have authorized <b>$client->{'application'}$version</b> to access <b>$desc</b> )
 		  . q(on your behalf.</p>);
 		say qq(<p>Enter the following verification code when asked by $client->{'application'}.</p>);
@@ -238,6 +238,7 @@ sub _modify_authorization {
 		say qq(<tr class="td$td"><td>$client->{'application'}</td><td>$client->{'version'}</td><td>);
 		say $q->checkbox( -name => $client->{'client_id'}, -label => '' );
 		say q(</td></tr>);
+		$td = $td == 1 ? 2 : 1;
 	}
 	say q(</table></fieldset>);
 	$self->print_action_fieldset( { modify => 1, submit_label => 'Revoke' } );

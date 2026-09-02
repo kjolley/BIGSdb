@@ -20,7 +20,7 @@ package BIGSdb::CombinationQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::QueryPage);
+use parent        qw(BIGSdb::QueryPage);
 use Log::Log4perl qw(get_logger);
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
@@ -28,7 +28,7 @@ use BIGSdb::Constants qw(LOCUS_PATTERN);
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (tooltips jQuery addProjects allowExpand);
+	$self->{$_} = 1 foreach qw (tooltips jQuery addProjects allowExpand select2);
 	$self->{'noCache'} = 1 if ( $self->{'system'}->{'sets'} // '' ) eq 'yes';
 	$self->set_level1_breadcrumbs;
 	return;
@@ -64,9 +64,6 @@ sub print_content {
 		if ( $q->param('confirm_publish') ) {
 			$self->publish;
 		}
-#		if ( $q->param('publish') ) {
-#			$self->publish;
-#		}
 	}
 	my $title = $self->get_title;
 	say qq(<h1>$title</h1>);
@@ -136,7 +133,7 @@ sub _get_show_common_names_button {
 
 sub get_javascript {
 	my ($self) = @_;
-	my $buffer   = $self->SUPER::get_javascript;
+	my $buffer = $self->SUPER::get_javascript;
 	$buffer .= << "END";
 \$(function () {
 	\$( "#show_common_names" ).click(function() {
@@ -151,6 +148,12 @@ sub get_javascript {
 		set_profile_widths();
 	});
 	\$("dl.profile input").css("border","0");
+	\$("select#project_list").select2({
+		minimumResultsForSearch: 0,
+		dropdownAutoWidth: true,
+	});
+	\$('.select2-selection__choice').removeAttr('title');
+	\$('.select2-selection__rendered').removeAttr('title');
 });
 function set_profile_widths(){
 	\$("dl.profile dt").css("width","auto").css("max-width","none");
@@ -248,17 +251,17 @@ sub _print_interface {
 		my $remote = $self->{'system'}->{'dbtype'} eq 'isolates' ? ' by searching remote database' : '';
 		say qq(<fieldset id="autofill_fieldset" style="float:left"><legend>Autofill profile$remote</legend><ul>);
 		my $first = 1;
-		say qq(<li><label for="$primary_key" class="display">$primary_key: </label>);
-		say $q->textfield( -name => $primary_key, -id => $primary_key, -class => 'allele_entry' );
+		say qq(<li><span class="query_block"><label for="$primary_key" class="label">$primary_key:</label>);
+		say $q->textfield( -name => $primary_key, -id => $primary_key, -style => 'width:100px' );
 		say $q->submit( -name => 'Autofill', -class => 'small_submit' ) if $first;
 		$first = 0;
-		say q(</li>);
+		say q(</span></li>);
 		say q(</ul></fieldset>);
 	}
 	say q(<div style="clear:both">);
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<fieldset style="float:left"><legend>Filters</legend><ul>);
-		my $buffer = $self->get_project_filter( { class => 'display' } );
+		my $buffer = $self->get_project_filter( { class => '' } );
 		say qq(<li>$buffer</li>) if $buffer;
 		say q(<li>);
 		say $self->get_old_version_filter;
@@ -273,11 +276,12 @@ sub _print_interface {
 	}
 	$labels{0} = q(Exact or nearest match);
 	$labels{ scalar @$loci } = q(Exact match only);
+	say q(<div class="form_container">);
 	say $self->get_filter( 'matches', \@values,
-		{ labels => \%labels, text => 'Search', noblank => 1, class => 'display' } );
-	say q(</fieldset>);
+		{ labels => \%labels, text => 'Search', noblank => 1, grid => 1, class => '' } );
+	say q(</div></fieldset>);
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
 	my ( $order_by, $dropdown_labels );
 
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -346,7 +350,7 @@ sub _print_profile_table_fieldset {
 	}
 	my $class = $all_integers ? 'int_entry' : 'allele_entry';
 	foreach my $locus (@display_loci) {
-		say q(<dl class="locus_combinations" style="float:left">);
+		say q(<dl class="profile" style="float:left">);
 		say qq(<dt>$label{$locus}</dt>);
 		say q(<dd style="min-height:initial">);
 		say $q->textfield( -name => $locus, -class => $class, -style => 'text-align:center' );

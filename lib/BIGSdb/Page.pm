@@ -175,15 +175,14 @@ sub _get_javascript_paths {
 	if ( $self->{'jQuery'} ) {
 		push @$js, { src => "$relative_js_path/jquery.min.js",    version => '3.6.0' };
 		push @$js, { src => "$relative_js_path/jquery-ui.min.js", defer   => 1, version => '1.12.1' };
-		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20231205' };
+		push @$js, { src => "$relative_js_path/bigsdb.min.js",    defer   => 1, version => '20260721' };
 		if ( !$self->{'config'}->{'no_cookie_consent'} && !$self->{'curate'} && $self->{'instance'} ) {
 			push @$js, { src => "$relative_js_path/cookieconsent.min.js", defer => 1 };
 		}
 		my $features = {
-			'jQuery.tablesort'      => { src => [qw(jquery.tablesorter.js)],        defer => 1, version => '20200308' },
-			'jQuery.jstree'         => { src => [qw(jquery.jstree.js)],             defer => 1, version => '20200308' },
+			'jQuery.tablesort' => { src => [qw(jquery.tablesorter.js)],           defer => 1, version => '20200308' },
+			'jQuery.jstree'    => { src => ['/jquery.jsTree/dist/jstree.min.js'], defer => 1, version => '3.3.17' },
 			'jQuery.coolfieldset'   => { src => [qw(jquery.coolfieldset.js)],       defer => 1, version => '20200308' },
-			'jQuery.slimbox'        => { src => [qw(jquery.slimbox2.js)],           defer => 1, version => '20200308' },
 			'jQuery.columnizer'     => { src => [qw(jquery.columnizer.js)],         defer => 1, version => '20200308' },
 			'jQuery.fonticonpicker' => { src => [qw(jquery.fonticonpicker.min.js)], defer => 1, version => '20210719' },
 			'modal'                 => { src => [qw(jquery.modal.min.js)],          defer => 1, version => '20210624' },
@@ -193,10 +192,11 @@ sub _get_javascript_paths {
 				defer   => 1,
 				version => '20240303'
 			},
-			'select2'  => { src => [qw(select2.min.js)], defer => 1, version => '4.1.0-rc.0' },
-			'packery'  => { src => [qw(packery.min.js)], defer => 1, version => '20210620' },
-			'muuri'    => { src => [qw(muuri.min.js)],   defer => 1, version => '20210620' },
-			'dropzone' => { src => [qw(dropzone.js)],    defer => 0, version => '20200308' },
+			'lightbox' => { src => [qw(lightbox.min.js)], defer => 1, version => '2.12.0' },
+			'select2'  => { src => [qw(select2.min.js)],  defer => 1, version => '4.1.0-rc.0' },
+			'packery'  => { src => [qw(packery.min.js)],  defer => 1, version => '20210620' },
+			'muuri'    => { src => [qw(muuri.min.js)],    defer => 1, version => '20210620' },
+			'dropzone' => { src => [qw(dropzone.js)],     defer => 0, version => '20200308' },
 
 			#See https://dolmenweb.it/viewers/openlayer/doc/tutorials/custom-builds.html
 			'ol' => { src => [qw(ol-custom.js bigsdb.openlayers.min.js)], defer => 0, version => '9.2.4#20240530' },
@@ -221,12 +221,17 @@ sub _get_javascript_paths {
 				version => '20200308'
 			},
 			'igv'                 => { src => [qw(igv.min.js)],              defer => 1, version => '20200308' },
-			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20240220' },
+			'bigsdb.dashboard'    => { src => [qw(bigsdb.dashboard.min.js)], defer => 1, version => '20260723' },
 			'bigsdb.dataexplorer' =>
-			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20230310' }
+			  { src => [qw(bigsdb.dataexplorer.min.js d3.v6.min.js)], defer => 1, version => '20230310' },
+			'bigsdb.curateindex' => {
+				src     => [qw(bigsdb.curateindex.min.js)],
+				defer   => 1,
+				version => '20260611'
+			}
 		};
 		if ( $self->{'pluginJS'} ) {
-			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20260515' };
+			$features->{'pluginJS'} = { src => ["Plugins/$self->{'pluginJS'}"], defer => 1, version => '20260618' };
 		}
 		my %used;
 		foreach my $feature ( keys %$features ) {
@@ -680,6 +685,7 @@ sub print_page_content {
 			  );
 			$self->{'setOptions'} = 1;
 		}
+		my $page = $q->param('page');
 		if ( defined $self->{'instance'} && $self->{"$self->{'instance'}_no_cache_loci_schemes"}
 			|| ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) )
 		{
@@ -761,7 +767,9 @@ sub print_page_content {
 			  . qq(style="max-width:${main_max_width_style}">);
 			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
+
 			$self->print_content;
+			say q(<div id="modal_overlay"></div>);
 			say q(</div></div>);
 			$self->_print_footer;
 		} else {
@@ -770,6 +778,7 @@ sub print_page_content {
 			say qq(<div id="main_container" class="main_container$main_container_class">);
 			say qq(<div id="main_content" class="main_content $main_content_class" )
 			  . qq(style="max-width:${main_max_width}px">);
+			$self->_print_button_panel;
 			say qq(<script>var max_width=${main_max_width}</script>);
 			$self->print_content;
 			say q(</div></div>);
@@ -789,13 +798,30 @@ sub print_page_content {
 	return;
 }
 
+#Need to set theme if a cached page is loading.
+sub _get_theme_script {
+	my ($self) = @_;
+	return << "END";
+<script>
+const m = document.cookie.match(/(?:^|;\\s*)theme=(dark|light)/);
+const colour_scheme = m ? m[1] : null;
+if (colour_scheme){
+	document.documentElement.dataset.theme = colour_scheme;
+}
+</script>
+END
+}
+
 sub _start_html {
 	my ( $self, $args ) = @_;
 	my ( $title, $meta, $style, $script, $shortcut_icon ) = @{$args}{qw(title meta style script shortcut_icon)};
 	my $tooltip_display = $self->{'prefs'}->{'tooltips'} ? 'inline' : 'none';
+	my $q               = $self->{'cgi'};
+	my $mode            = ( $self->_dark_mode_enabled && ( $q->cookie('theme') // q() ) eq 'dark' ) ? 'dark' : 'light';
 	say q(<!DOCTYPE html>);
-	say q(<html>);
+	say qq(<html data-theme="$mode">);
 	say q(<head>);
+	say $self->_get_theme_script  if $self->_dark_mode_enabled;
 	say qq(<title>$title</title>) if $title;
 	say q(<meta name="viewport" content="width=device-width" />);
 	say q(<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />);
@@ -849,7 +875,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20260422';
+	my $version = '20260829';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -859,6 +885,7 @@ sub _get_stylesheets {
 	push @filenames, qw(d3.geomap.css)                                        if $self->{'geomap'};
 	push @filenames, qw(jquery.modal.min.css)                                 if $self->{'modal'};
 	push @filenames, qw(ol.css)                                               if $self->{'ol'};
+	push @filenames, qw(lightbox.min.css)                                     if $self->{'lightbox'};
 	push @filenames, qw(jquery.fonticonpicker.min.css jquery.fonticonpicker.darkgrey.min.css)
 	  if $self->{'jQuery.fonticonpicker'};
 
@@ -895,10 +922,13 @@ sub _get_stylesheets {
 		push @paths, @css;
 	}
 	if ( $self->{'jQuery.jstree'} ) {
-		if ( $self->{'config'}->{'relative_js_dir'} ) {
-			push @paths, "$self->{'config'}->{'relative_js_dir'}/themes/default/style.min.css?v=$version";
-		} else {
-			push @paths, "/javascript/themes/default/style.min.css?v=$version";
+		foreach my $theme ( 'default', 'default-dark' ) {
+			if ( $self->{'config'}->{'relative_js_dir'} ) {
+				push @paths,
+				  "$self->{'config'}->{'relative_js_dir'}/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
+			} else {
+				push @paths, "/javascript/jquery.jsTree/dist/themes/$theme/style.min.css?v=$version";
+			}
 		}
 	}
 	return \@paths;
@@ -930,7 +960,7 @@ sub print_set_section {
 		: 'You can choose to display a single set or the whole database.</p>'
 	);
 	say $q->start_form;
-	say q(<label for="sets_list">Please select: </label>);
+	say q(<span class="query_block"><label for="sets_list" class="label">Please select:</label>);
 	my @set_ids;
 
 	if ( ( $self->{'system'}->{'only_sets'} // '' ) ne 'yes' ) {
@@ -949,6 +979,7 @@ sub print_set_section {
 		-default => $set_id
 	);
 	say $q->submit( -name => 'choose_set', -label => 'Choose', -class => 'small_submit' );
+	say q(</span>);
 	say $q->hidden($_) foreach qw (db page name set_id select_sets);
 	say $q->end_form;
 	say q(</div></div></div>);
@@ -1010,8 +1041,10 @@ sub print_scheme_section {
 	}
 	my $default = $q->param('scheme_id');
 	say $q->start_form;
+	say q(<span class="query_block">);
 	say $q->popup_menu( -name => 'scheme_id', -values => \@ids, -labels => \%desc, -default => $default );
 	say $q->submit( -class => 'small_submit', -name => 'Select' );
+	say q(</span>);
 	say $q->hidden($_) foreach qw(db page name);
 	say $q->end_form;
 	say q(</div></div>);
@@ -1134,21 +1167,19 @@ sub _print_login_details {
 	if ($user_info) {
 		if ( $self->{'curate'} ) {
 			if ( $self->{'config'}->{'query_script'} ) {
-				say q(<div id="login_details">);
 				say q(<span class="icon_button">)
-				  . qq(<a href="$self->{'config'}->{'query_script'}?db=$self->{'instance'}">)
+				  . qq(<a href="$self->{'config'}->{'query_script'}?db=$self->{'instance'}" )
+				  . q(class="trigger_button primary_trigger">)
 				  . q(<span class="fas fa-lg fa-user" )
 				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) - )
 				  . q(Click to access public interface"></span>)
 				  . q(<span class="icon_label">User interface</span></a></span>);
-				say q(</div>);
 			} else {
 				$logger->error('query_script attribute is not set in bigsdb.conf');
-				say q(<div id="login_details"><span class="icon_button">);
+				say q(<span class="icon_button"><a class="trigger_button primary_trigger">);
 				say q(<span class="fas fa-lg fa-user" )
 				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
-				  . q(</span><span class="icon_label">Logged in</span></span>);
-				say q(</div>);
+				  . q(</span><span class="icon_label">Logged in</span></a></span>);
 			}
 		} else {
 			my $curate_config = $self->{'system'}->{'curate_config'} // $self->{'instance'};
@@ -1158,24 +1189,23 @@ sub _print_login_details {
 						qq(Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'}) )
 					  . q( - Click to access curator interface);
 					$title =~ s/&lt;\s*script|script\s*&gt;//gx;
-					say q(<span class="icon_button"><a id="curator_link" )
-					  . qq(class="trigger_button" href="$self->{'config'}->{'curate_script'}?db=$curate_config" )
+					say q(<span class="icon_button"><a id="curator_link" class="trigger_button primary_trigger" )
+					  . qq(href="$self->{'config'}->{'curate_script'}?db=$curate_config" )
 					  . qq(title="$title"><span class="fas fa-lg fa-user-tie"></span>)
 					  . q(<span class="icon_label">Curator interface</span></a></span>);
 				} else {
 					$logger->error('curate_script attribute is not set in bigsdb.conf');
-					say q(<div id="login_details"><span class="icon_button">);
+					say q(<span class="icon_button">);
 					say q(<span class="fas fa-lg fa-user" )
 					  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
 					  . q(</span><span class="icon_label">Logged in</span></span>);
-					say q(</div>);
 				}
 			} else {
-				say q(<div id="login_details"><span class="icon_button">);
-				say qq(<a href="$self->{'system'}->{'script_name'}"><span class="fas fa-lg fa-user" )
+				say q(<span class="icon_button">);
+				say qq(<a href="$self->{'system'}->{'script_name'}" class="trigger_button primary_trigger">)
+				  . q(<span class="fas fa-lg fa-user" )
 				  . qq(title="Logged in: $user_info->{'first_name'} $user_info->{'surname'} ($self->{'username'})">)
 				  . q(</span><span class="icon_label">Logged in</span></a></span>);
-				say q(</div>);
 			}
 		}
 	} elsif ( $self->{'username'} ) {
@@ -1207,10 +1237,11 @@ sub _print_button_panel {
 	my ($self) = @_;
 	say q(<div class="button_panel">);
 	$self->_print_login_details;
+	$self->print_panel_buttons;
 	$self->_print_help_button;
 	$self->_print_tooltip_toggle;
 	$self->_print_expand_trigger;
-	$self->print_panel_buttons;
+	$self->_print_dark_mode_trigger;
 	say q(</div>);
 	return;
 }
@@ -1220,7 +1251,8 @@ sub _print_tooltip_toggle {
 	if ( $self->{'tooltips'} ) {
 		my $enabled = $self->{'prefs'}->{'tooltips'} ? 'tooltips_enabled' : 'tooltips_disabled';
 		my $title   = $self->{'prefs'}->{'tooltips'} ? 'Disable tooltips' : 'Enable tooltips';
-		say qq(<span class="icon_button"><a id="toggle_tooltips" class="trigger_button $enabled" style="display:none" )
+		say
+qq(<span class="icon_button"><a id="toggle_tooltips" class="trigger_button secondary_trigger $enabled" style="display:none" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=options&amp;)
 		  . q(toggle_tooltips=1">)
 		  . q(<span class="fas fa-lg fa-info-circle"></span><span class="icon_label">Tooltips</span></a></span>);
@@ -1230,13 +1262,14 @@ sub _print_tooltip_toggle {
 
 sub _print_help_button {
 	my ($self) = @_;
+	return if $self->{'login'};
 	my $q = $self->{'cgi'};
 	if ( $q->param('page') && $q->param('page') eq 'plugin' && defined $self->{'pluginManager'} ) {
 		my $plugin_att = $self->{'pluginManager'}->get_plugin_attributes( scalar $q->param('name') );
 		if ( ref $plugin_att eq 'HASH' ) {
 			if ( $plugin_att->{'url'} && !$self->{'config'}->{'intranet'} ) {
 				say q(<span class="icon_button">)
-				  . qq(<a id="help_link" class="trigger_button" href="$plugin_att->{'url'}" target="_blank" )
+				  . qq(<a id="help_link" class="trigger_button secondary_trigger" href="$plugin_att->{'url'}" target="_blank" )
 				  . q(title="Open context-sensitive help in new window">)
 				  . q(<span style="margin-left:0.5em" class="fas fa-lg fa-external-link-alt"></span>)
 				  . q(<span class="icon_label">Help</span></a></span>);
@@ -1249,7 +1282,7 @@ sub _print_help_button {
 		my $url = $self->get_help_url;
 		if ( $url && !$self->{'config'}->{'intranet'} ) {
 			say q(<span class="icon_button">)
-			  . qq(<a id="help_link" class="trigger_button" href="$url" target="_blank" )
+			  . qq(<a id="help_link" class="trigger_button secondary_trigger" href="$url" target="_blank" )
 			  . q(title="Open context-sensitive help in new window">)
 			  . q(<span style="margin-left:0.5em" class="fas fa-lg fa-external-link-alt"></span>)
 			  . q(<span class="icon_label">Help</span></a></span>);
@@ -1263,12 +1296,37 @@ sub _print_expand_trigger {
 	return if !$self->{'allowExpand'};
 	my $page_expand   = $self->{'prefs'}->{'expandPage'} ? 'none'   : 'inline';
 	my $page_contract = $self->{'prefs'}->{'expandPage'} ? 'inline' : 'none';
-	say q(<span class="icon_button"><a id="expand_trigger" class="trigger_button" style="display:none" )
+	say q(<span class="icon_button"><a id="expand_trigger" class="trigger_button secondary_trigger" )
+	  . q(style="display:none" )
 	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
 	  . qq(<span id="expand" class="fas fa-lg fa-expand" style="display:$page_expand" title="Expand width"></span>)
 	  . qq(<span id="contract" class="fas fa-lg fa-compress" style="display:$page_contract" title="Contract width">)
 	  . qq(</span><span class="icon_label"><span id="expand_label_expand" style="display:$page_expand">Expand</span>)
 	  . qq(<span id="expand_label_contract" style="display:$page_contract">Contract</span></span></a></span>);
+	return;
+}
+
+sub _dark_mode_enabled {
+	my ($self) = @_;
+	return if ( $self->{'system'}->{'disable_dark_mode'} // q() ) eq 'yes';
+	return if $self->{'config'}->{'disable_dark_mode'};
+	return 1;
+}
+
+sub _print_dark_mode_trigger {
+	my ($self) = @_;
+	return if !$self->_dark_mode_enabled;
+	my $q          = $self->{'cgi'};
+	my $theme      = ( $q->cookie('theme') // q() ) eq 'dark' ? 'dark'   : 'light';
+	my $show_dark  = $theme eq 'dark'                         ? 'none'   : 'inline';
+	my $show_light = $theme eq 'dark'                         ? 'inline' : 'none';
+	say q(<span class="icon_button"><a id="dark_trigger" class="trigger_button secondary_trigger" )
+	  . q(style="display:inline" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
+	  . qq(<span id="dark_mode" class="fas fa-lg fa-moon" style="display:$show_dark" title="Dark mode"></span>)
+	  . qq(<span id="light_mode" class="far fa-lg fa-sun" style="display:$show_light" title="Light mode">)
+	  . qq(</span><span class="icon_label"><span id="mode_label_dark" style="display:$show_dark">Dark mode</span>)
+	  . qq(<span id="mode_label_light" style="display:$show_light">Light mode</span></span></a></span>);
 	return;
 }
 
@@ -1920,24 +1978,32 @@ sub get_filter {
 	my ( $label, $title ) =
 	  $self->get_truncated_label( "$text: ", $length, { capitalize_first => $options->{'capitalize_first'} } );
 	my $title_attribute = $title ? qq(title="$title") : q();
-	( my $id = "$name\_list" ) =~ tr/:/_/;
+	( my $id = "${name}_list" ) =~ tr/:/_/;
+	my $remove_link = q();
 
 	if ( $options->{'remove_id'} ) {
 		my $delete = DELETE;
-		$label =
-			qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" title="Remove filter">)
-		  . qq($delete</a> $label);
+		$remove_link = qq(<a id="$options->{'remove_id'}" class="remove_filter" style="cursor:pointer" )
+		  . qq(title="Remove filter">$delete</a>);
+		$label = qq($remove_link $label);
 	}
-	my $buffer = qq(<label for="$id" class="$class" $title_attribute>$label</label>\n);
+	$label = ucfirst($label) if $options->{'ucfirst'};
+	my $buffer;
+	if ( $options->{'grid'} ) {
+		$buffer =
+		  qq(<div class="form_label"><label for="$id">$remove_link $text:</label></div><div class="form_value">);
+	} else {
+		$buffer = qq(<span class="query_block"><label for="$id" class="$class label" $title_attribute>$label</label>\n);
+	}
 	unshift @$values, '' if !$options->{'noblank'};
 	$options->{'labels'}->{''} = '&nbsp;';    #Required for HTML5 validation.
 	my %args = (
-		-name   => "$name\_list",
+		-name   => "${name}_list",
 		-id     => $id,
 		-values => $values,
 		-labels => $options->{'labels'},
+		-style  => $options->{'style'},
 		-class  => $class,
-		-style  => 'max-width:20em'
 	);
 	if ( $options->{'multiple'} ) {
 		$args{'-multiple'} = 'multiple';
@@ -1955,6 +2021,11 @@ sub get_filter {
 		$options->{'tooltip'} =~ tr/_/ /;
 		$buffer .= $self->get_tooltip( $options->{'tooltip'} );
 	}
+	if ( $options->{'grid'} ) {
+		$buffer .= q(</div>);
+	} else {
+		$buffer .= q(</span>);
+	}
 	return $buffer;
 }
 
@@ -1971,6 +2042,7 @@ sub get_user_filter {
 			class   => 'filter search',
 			tooltip => qq($field filter - Select $a_or_an $field to filter your search to only )
 			  . qq(those records that match the selected $field.),
+			grid => $args->{'grid'} ? 1 : 0,
 			%$args
 		}
 	);
@@ -1981,14 +2053,14 @@ sub get_number_records_control {
 	if ( $self->{'cgi'}->param('displayrecs') ) {
 		$self->{'prefs'}->{'displayrecs'} = $self->{'cgi'}->param('displayrecs');
 	}
-	my $buffer = q(<span style="white-space:nowrap"><label for="displayrecs" class="display">Display: </label>);
+	my $buffer = q(<span class="query_block"><label for="displayrecs" class="display label">Display: </label>);
 	$buffer .= $self->{'cgi'}->popup_menu(
 		-name    => 'displayrecs',
 		-id      => 'displayrecs',
 		-values  => [ '10', '25', '50', '100', '200', '500', 'all' ],
 		-default => $self->{'cgi'}->param('displayrecs') || $self->{'prefs'}->{'displayrecs'}
 	);
-	$buffer .= q( records per page);
+	$buffer .= q(<span class="label">records per page</span>);
 	$buffer .=
 	  $self->get_tooltip(q(Records per page - Analyses use the full query dataset, rather than just the page shown.));
 	$buffer .= q(</span>);
@@ -2015,14 +2087,15 @@ sub get_scheme_filter {
 			class   => 'filter search',
 			labels  => $self->{'cache'}->{'scheme_labels'},
 			tooltip => 'scheme filter - Select a scheme to filter your search to '
-			  . 'only those belonging to the selected scheme.'
+			  . 'only those belonging to the selected scheme.',
+			grid => $options->{'grid'}
 		}
 	);
 	return $buffer;
 }
 
 sub get_locus_filter {
-	my ($self) = @_;
+	my ( $self, $options ) = @_;
 	my $set_id = $self->get_set_id;
 	my ( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	my $buffer = $self->get_filter(
@@ -2030,17 +2103,26 @@ sub get_locus_filter {
 		{
 			labels  => $labels,
 			class   => 'filter search',
-			tooltip => 'locus filter - Select a locus to filter your search by.'
+			tooltip => 'locus filter - Select a locus to filter your search by.',
+			grid    => $options->{'grid'}
 		}
 	);
 	return $buffer;
 }
 
 sub get_old_version_filter {
-	my ($self) = @_;
-	my $buffer =
-	  $self->{'cgi'}->checkbox( -name => 'include_old', -id => 'include_old', -label => 'Include old record versions' );
-	return $buffer;
+	my ( $self, $options ) = @_;
+	my $q = $self->{'cgi'};
+	if ( $options->{'grid'} ) {
+		my $buffer =
+			q(<div class="form_label">Include old record versions:</div><div class="form_value">)
+		  . $self->{'cgi'}->checkbox( -name => 'include_old', -id => 'include_old', -label => '' )
+		  . q(</div>);
+		return $buffer;
+	}
+	return $self->{'cgi'}
+	  ->checkbox( -name => 'include_old', -id => 'include_old', -label => 'Include old record versions' );
+
 }
 
 sub get_isolate_publication_filter {
@@ -2070,7 +2152,8 @@ sub get_isolate_publication_filter {
 					multiple => 1,
 					noblank  => 1,
 					tooltip  => q(publication filter - Select publications to filter your )
-					  . q(search to only those isolates referred by them.)
+					  . q(search to only those isolates referred by them.),
+					grid => $options->{'grid'}
 				}
 			);
 		}
@@ -2097,6 +2180,7 @@ sub get_project_filter {
 	foreach my $project (@$projects) {
 		push @project_ids, $project->{'id'};
 		my $label = BIGSdb::Utils::unescape_html( $project->{'short_description'} );
+		$label =~ s/_/ /gx;
 		$labels{ $project->{'id'} } = $label;
 	}
 	if ( @project_ids && $options->{'any'} ) {
@@ -2108,7 +2192,13 @@ sub get_project_filter {
 	if (@project_ids) {
 		my $class   = $options->{'class'} || 'filter';
 		my $tooltip = 'project filter - Select projects to filter your query to only those isolates belonging to them.';
-		$args = { labels => \%labels, text => 'Project', tooltip => $tooltip, class => $class };
+		$args = {
+			labels  => \%labels,
+			text    => 'Project',
+			tooltip => $tooltip,
+			class   => $class,
+			grid    => $options->{'grid'}
+		};
 		if ( $options->{'multiple'} ) {
 			$args->{'multiple'} = 1;
 			$args->{'noblank'}  = 1;
@@ -2126,9 +2216,10 @@ sub get_sequence_method_filter {
 		'seq_method',
 		[SEQ_METHODS],
 		{
-			'text'    => 'Sequence method',
-			'tooltip' => 'sequence method filter - Only include sequences generated from the selected method.',
-			'class'   => $class
+			text    => 'Sequence method',
+			tooltip => 'sequence method filter - Only include sequences generated from the selected method.',
+			class   => $class,
+			grid    => $options->{'grid'}
 		}
 	);
 }
@@ -2167,7 +2258,8 @@ sub get_scheme_flags {
 		}
 		foreach my $flag (@$flags) {
 			$buffer .=
-			  qq(<span class="flag" style="color:$colours->{$flag};background:$colours->{$flag}15">$flag</span>\n);
+				qq(<span class="flag" style="color:$colours->{$flag};)
+			  . qq(background:color-mix(in srgb, $colours->{$flag} 6%, transparent)">$flag</span>\n);
 		}
 		if ( $options->{'link'} ) {
 			$buffer .= q(</a>);
@@ -2289,7 +2381,6 @@ sub get_db_description {
 
 sub get_link_button_to_ref {
 	my ( $self, $ref, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $buffer;
 	my $qry = "SELECT COUNT(refs.isolate_id) FROM $self->{'system'}->{'view'} LEFT JOIN refs on refs.isolate_id="
 	  . "$self->{'system'}->{'view'}.id WHERE pubmed_id=? AND new_version IS NULL";
@@ -2736,8 +2827,7 @@ sub can_modify_table {
 		user_group_members => $self->{'permissions'}->{'modify_usergroups'},
 	);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_loci'}
-	  foreach qw(loci locus_aliases client_dbases client_dbase_loci client_dbase_schemes
-	  locus_client_display_fields locus_extended_attributes locus_curators peptide_mutations dna_mutations);
+	  foreach qw(loci locus_aliases locus_extended_attributes locus_curators peptide_mutations dna_mutations);
 	$general_permissions{$_} = $self->{'permissions'}->{'modify_schemes'}
 	  foreach qw(schemes scheme_members scheme_fields scheme_curators classification_schemes
 	  classification_group_fields scheme_groups scheme_group_group_members scheme_group_scheme_members
@@ -2783,8 +2873,13 @@ sub can_modify_table {
 		my %seq_tables =
 		  map { $_ => 1 } qw (sequences locus_descriptions locus_links retired_allele_ids sequence_extended_attributes);
 		if ( $seq_tables{$table} ) {
-			return 1 if !$locus;
-			return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
+			if ( !$locus ) {
+				return $self->{'datastore'}
+				  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)',
+					$self->get_curator_id );
+			} else {
+				return $self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id );
+			}
 		}
 
 		#Profile refs and retired profiles
@@ -2801,6 +2896,22 @@ sub can_modify_table {
 			return $self->{'datastore'}
 			  ->run_query( 'SELECT EXISTS(SELECT * FROM scheme_curators WHERE scheme_id=? AND curator_id=?)',
 				[ $scheme_id, $self->get_curator_id ] );
+		}
+
+		#LINcode prefixes
+		if ( $table eq 'lincode_prefixes' ) {
+			if ($scheme_id) {
+				return $self->{'datastore'}->run_query(
+					'SELECT EXISTS(SELECT * FROM scheme_curators s JOIN lincode_fields l ON '
+					  . 's.scheme_id=l.scheme_id WHERE s.scheme_id=? AND curator_id=?)',
+					[ $scheme_id, $self->get_curator_id ]
+				);
+			}
+			return $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM scheme_curators s JOIN lincode_fields l ON '
+				  . 's.scheme_id=l.scheme_id WHERE curator_id=?)',
+				$self->get_curator_id
+			);
 		}
 
 		#Sequence refs
@@ -2835,6 +2946,29 @@ sub get_curator_id {
 
 sub isolate_exists {
 	my ( $self, $id, $options ) = @_;
+	$self->{'isolate_check_count'} //= 0;
+	$self->{'isolate_check_count'}++;
+	if ( $self->{'isolate_check_count'} > 100 ) {
+		if ( $options->{'has_seqbin'} ) {
+			if ( !defined $self->{'cache'}->{'seqbin_id_exists'} ) {
+				my $valid_seqbins =
+				  $self->{'datastore'}
+				  ->run_query( "SELECT id FROM $self->{'system'}->{'view'} v JOIN seqbin_stats s ON v.id=s.isolate_id",
+					undef, { fetch => 'col_arrayref' } );
+				$self->{'cache'}->{'seqbin_id_exists'}->{$_} = 1 foreach @$valid_seqbins;
+			}
+			return $self->{'cache'}->{'seqbin_id_exists'}->{$id};
+		} else {
+			if ( !defined $self->{'cache'}->{'isolate_id_exists'} ) {
+				my $valid_ids =
+				  $self->{'datastore'}
+				  ->run_query( "SELECT id FROM $self->{'system'}->{'view'}", undef, { fetch => 'col_arrayref' } );
+				$self->{'cache'}->{'isolate_id_exists'}->{$_} = 1 foreach @$valid_ids;
+			}
+			return $self->{'cache'}->{'isolate_id_exists'}->{$id};
+		}
+
+	}
 	if ( $options->{'has_seqbin'} ) {
 		return $self->{'datastore'}->run_query(
 			"SELECT EXISTS(SELECT id FROM $self->{'system'}->{'view'} v JOIN "
@@ -3079,7 +3213,7 @@ sub _initiate_isolatedb_general_prefs {
 	}
 
 	#Default off with options in config.xml
-	foreach my $att (qw(locus_aliases display_seqbin_size display_contig_count display_assembly_checks)) {
+	foreach my $att (qw(locus_alias display_seqbin_size display_contig_count display_assembly_checks)) {
 		my $default = ( $self->{'system'}->{$att} // '' ) eq 'yes' ? 'on' : 'off';
 		$general_prefs->{$att} //= $default // 'off';
 		$self->{'prefs'}->{$att} = $general_prefs->{$att} eq 'on' ? 1 : 0;
@@ -3377,14 +3511,14 @@ sub print_seqbin_isolate_fieldset {
 				$list_button =
 					q(<input type="button" id="isolate_list_show_button" )
 				  . q(onclick='isolate_list_show()' value="Paste list" )
-				  . qq(style="margin:1em 0 0 0.2em; display:$show_button_display" class="small_submit" />)
+				  . qq(style="margin:1em 0 0 0.2em; display:$show_button_display" class="button" />)
 				  . q(<input type="button" id="isolate_list_hide_button" onclick='isolate_list_hide()' value="Hide list" )
-				  . qq(style="margin:1em 0 0 0.2em; display:$hide_button_display" class="small_submit" />);
+				  . qq(style="margin:1em 0 0 0.2em; display:$hide_button_display" class="button" />);
 			}
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_selectall("isolate_id",true)' )
-			  . q(value="All" style="margin-top:1em" class="small_submit" />)
+			  . q(value="All" style="margin:1em 0 0 0.2em" class="button" />)
 			  . q(<input type="button" onclick='listbox_selectall("isolate_id",false)' value="None" )
-			  . qq(style="margin:1em 0 0 0.2em" class="small_submit" />$list_button</div></div>);
+			  . qq(style="margin:1em 0 0 0.2em" class="button" />$list_button</div></div>);
 			if ( $options->{'isolate_paste_list'} ) {
 				my $display = $q->param('isolate_paste_list') ? 'block' : 'none';
 				say qq(<div id="isolate_paste_list_div" style="float:left; display:$display">);
@@ -3409,13 +3543,13 @@ sub print_seqbin_isolate_fieldset {
 			$args{'-required'} = 'required' if !$options->{'allow_empty_list'};
 			say $q->textarea(%args);
 			say q(<div style="text-align:center"><input type="button" onclick='listbox_clear("isolate_paste_list")' )
-			  . q(value="Clear" style="margin-top:1em" class="small_submit" />);
+			  . q(value="Clear" style="margin:0.5em 0 0 0" class="button" />);
 			if ( $options->{'only_genomes'} ) {
 				say q(<input type="button" onclick='listbox_listgenomes("isolate_paste_list")' value="List all" )
-				  . q(style="margin-top:1em" class="small_submit" /></div></div>);
+				  . q(style="margin:0.5em 0 0 0" class="button" /></div></div>);
 			} else {
 				say q(<input type="button" onclick='listbox_listall("isolate_paste_list")' value="List all" )
-				  . q(style="margin-top:1em" class="small_submit" /></div></div>);
+				  . q(style="margin:0.5em 0 0 0" class="button" /></div></div>);
 			}
 		}
 	} else {
@@ -3427,7 +3561,6 @@ sub print_seqbin_isolate_fieldset {
 
 sub get_ids_from_pasted_list {
 	my ( $self, $options ) = @_;
-	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	my ( @cleaned_ids, @invalid_ids );
 	if ( $q->param('isolate_paste_list') ) {
@@ -3436,6 +3569,7 @@ sub get_ids_from_pasted_list {
 			next if $id =~ /^\s*$/x;
 			$id         =~ s/^\s*//x;
 			$id         =~ s/\s*$//x;
+
 			if ( BIGSdb::Utils::is_int($id) && $self->isolate_exists( $id, $options ) ) {
 				push @cleaned_ids, $id;
 			} else {
@@ -3498,16 +3632,16 @@ sub print_isolates_locus_fieldset {
 		say q(<div style="text-align:center">);
 		if ( !$options->{'no_all_none'} ) {
 			say q(<input type="button" onclick='listbox_selectall("locus",true)' )
-			  . q(value="All" style="margin-top:1em" class="small_submit" /><input type="button" )
-			  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:1em 0 0 0.2em" class="small_submit" />);
+			  . q(value="All" style="margin:0.5em 0.2em 0 0" class="button" /><input type="button" )
+			  . q(onclick='listbox_selectall("locus",false)' value="None" style="margin:0.5em 0 0 0" class="button" />);
 		}
 		if ( $options->{'locus_paste_list'} ) {
 			my $show_button_display = $q->param('locus_paste_list') ? 'none'    : 'display';
 			my $hide_button_display = $q->param('locus_paste_list') ? 'display' : 'none';
 			say q(<input type="button" id="locus_list_show_button" onclick='locus_list_show()' value="Paste list" )
-			  . qq(style="margin:1em 0 0 0.2em;display:$show_button_display" class="small_submit" />)
+			  . qq(style="margin:0.5em 0 0 0;float:right;display:$show_button_display" class="button" />)
 			  . q(<input type="button" id="locus_list_hide_button" onclick='locus_list_hide()' value="Hide list" )
-			  . qq(style="margin:1em 0 0 0.2em;display:$hide_button_display" class="small_submit" />);
+			  . qq(style="margin:0.5em 0 0 0;float:right;display:$hide_button_display" class="button" />);
 		}
 		say q(</div>);
 	} else {
@@ -3700,9 +3834,11 @@ sub get_user_db_name {
 
 sub get_tooltip {
 	my ( $self, $text, $options ) = @_;
-	my $id           = $options->{'id'} ? qq( id="$options->{'id'}") : q();
+	my $id           = $options->{'id'}          ? qq( id="$options->{'id'}")   : q();
+	my $extra_class  = $options->{'extra_class'} ? " $options->{'extra_class'}" : q();
 	my $tooltip_icon = TOOLTIP;
-	return qq(<a class="tooltip"$id style="margin-left:0.5em;vertical-align:top" title="$text">$tooltip_icon</a>);
+	return qq(<a class="tooltip$extra_class"$id style="margin-left:0.5em;vertical-align:top" )
+	  . qq(title="$text">$tooltip_icon</a>);
 }
 
 sub get_warning_tooltip {
@@ -3716,61 +3852,47 @@ sub get_warning_tooltip {
 sub print_navigation_bar {
 	my ( $self, $options ) = @_;
 	my $script = $options->{'script'} // $self->{'system'}->{'script_name'};
-	my ( $back, $home, $key, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit, $curate ) =
-	  ( BACK, HOME, KEY, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE, CURATE );
+	my ( $back, $home, $key, $more, $query_more, $upload_contigs, $link_contigs, $reload, $edit ) =
+	  ( BACK, HOME, KEY, MORE, QUERY_MORE, UPLOAD_CONTIGS, LINK_CONTIGS, RELOAD, EDIT_MORE );
 	my $buffer = q();
 	if ( $options->{'submission_id'} ) {
 		$buffer .=
 			qq(<a href="$script?db=$self->{'instance'}&amp;page=submit&amp;)
-		  . qq(submission_id=$options->{'submission_id'}&amp;curate=1" title="Return to submission" )
-		  . qq(style="margin-right:1em">$back</a>);
+		  . qq(submission_id=$options->{'submission_id'}&amp;curate=1" class="button">)
+		  . qq($back Return to submission</a>);
 	} elsif ( $options->{'back_url'} || $options->{'back_page'} ) {
 		my $page = $options->{'back_page'} // 'index';
 		my $url  = $options->{'back_url'}  // "$script?db=$self->{'instance'}&amp;page=$page";
-		$buffer .= qq(<a href="$url" title="Back" style="margin-right:1em">$back</a>);
-	}
-	if ( $options->{'curator_interface'} && $self->{'config'}->{'curate_script'} ) {
-		$buffer .= qq(<a href="$self->{'config'}->{'curate_script'}?db=$self->{'instance'}" )
-		  . qq(title="Curators' interface" style="margin-right:1em">$curate</a>);
+		$buffer .= qq(<a href="$url" class="button">$back Back</a>);
 	}
 	if ( $options->{'change_password'} ) {
-		$buffer .= qq(<a href="$options->{'change_password'}" title="Set password" style="margin-right:1em">$key</a>);
+		$buffer .= qq(<a href="$options->{'change_password'}" class="button">$key Set password</a>);
 	}
 	if ( $options->{'closed_submissions'} ) {
+		my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 		$buffer .=
-			q(<a id="show_closed" style="cursor:pointer;margin-right:1em" class="small_submit">)
-		  . q(<span id="show_closed_text" style="display:inline">)
-		  . q(<span class="fas fa fa-eye"></span> Show closed submissions</span>)
-		  . q(<span id="hide_closed_text" style="display:none">)
-		  . q(<span class="fas fa fa-eye-slash"></span> Hide closed submissions</span></a>);
+			qq(<a id="show_closed" class="button">$eye_show Show closed submissions</a>)
+		  . qq(<a id="hide_closed" class="button" style="display:none">$eye_hide Hide closed submissions</a>);
 	}
 	if ( $options->{'more_url'} ) {
 		$options->{'more_text'} //= 'Add another';
-		$buffer .=
-		  qq(<a href="$options->{'more_url'}" title="$options->{'more_text'}" style="margin-right:1em">$more</a>);
+		$buffer .= qq(<a href="$options->{'more_url'}" class="button">$more $options->{'more_text'}</a>);
 	}
 	if ( $options->{'query_more_url'} ) {
-		$buffer .=
-			qq(<a href="$options->{'query_more_url'}" title="Query another" style="margin-right:1em">)
-		  . qq($query_more</a>);
+		$buffer .= qq(<a href="$options->{'query_more_url'}" class="button">$query_more Query another</a>);
 	}
 	if ( $options->{'upload_contigs_url'} ) {
-		$buffer .=
-			qq(<a href="$options->{'upload_contigs_url'}" title="Upload contigs" style="margin-right:1em">)
-		  . qq($upload_contigs</a>);
+		$buffer .= qq(<a href="$options->{'upload_contigs_url'}" class="button">$upload_contigs Upload contigs</a>);
 	}
 	if ( $options->{'link_contigs_url'} ) {
-		$buffer .=
-			qq(<a href="$options->{'link_contigs_url'}" title="Link remote contigs" style="margin-right:1em">)
-		  . qq($link_contigs</a>);
+		$buffer .= qq(<a href="$options->{'link_contigs_url'}" class="button">$link_contigs Link remote contigs</a>);
 	}
 	if ( $options->{'reload_url'} ) {
 		$options->{'reload_text'} //= 'Reload scan form';
-		$buffer .= qq(<a href="$options->{'reload_url'}" title="$options->{'reload_text'}" )
-		  . qq(style="margin-right:1em">$reload</a>);
+		$buffer .= qq(<a href="$options->{'reload_url'}" class="button">$reload $options->{'reload_text'}</a>);
 	}
 	if ( $options->{'update_url'} ) {
-		$buffer .= qq(<a href="$options->{'update_url'}" title="Update record" style="margin-right:1em">$edit</a>);
+		$buffer .= qq(<a href="$options->{'update_url'}" class="button">$edit Update record</a>);
 	}
 	if ($buffer) {
 		$buffer = qq(<div class="navigation">$buffer</div><div style="clear:both"></div>);
@@ -3784,7 +3906,7 @@ sub print_bad_status {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Failed!';
 	my $buffer = q();
-	$buffer .= q(<div class="box statusbad" style="min-height:5em">);
+	$buffer .= q(<div class="box statusbad">);
 	$buffer .= q(<p><span class="failure fas fa-times fa-5x fa-pull-left"></span></p>);
 	$buffer .= qq(<p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
@@ -3802,7 +3924,7 @@ sub print_good_status {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Success!';
 	my $buffer = q();
-	$buffer .= q(<div class="box resultsheader" style="min-height:5em">);
+	$buffer .= q(<div class="box statusgood">);
 	$buffer .= q(<p><span class="success fas fa-check fa-5x fa-pull-left"></span></p>);
 	$buffer .= qq(<p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
@@ -3828,13 +3950,14 @@ sub print_loading_message {
 sub print_warning {
 	my ( $self, $options ) = @_;
 	$options->{'message'} //= 'Warning!';
-	say q(<div class="box statuswarn" style="min-height:5em");
+	say q(<div class="box statuswarn" style="min-height:6em");
 	say q(<p><a><span class="warn fas fa-exclamation fa-5x fa-pull-left"></span></a></p>);
-	say qq(<p class="outcome_message">$options->{'message'}</p>);
+	say qq(<div style="padding-left:20px"><p class="outcome_message">$options->{'message'}</p>);
 	if ( $options->{'detail'} ) {
 		say qq(<p class="outcome_detail">$options->{'detail'}</p>);
 	}
-	say q(</div>);
+
+	say q(</div></div>);
 	return;
 }
 
@@ -3949,11 +4072,11 @@ sub print_related_dbases_button {
 	return if !@$links;
 	say q(<span class="icon_button">);
 	if ( @$links > 1 ) {
-		say q(<a id="related_db_trigger" class="trigger_button">)
+		say q(<a id="related_db_trigger" class="trigger_button primary_trigger">)
 		  . q(<span id="related_db" class="fas fa-lg fa-database"></span>)
 		  . q(<span class="icon_label">Related databases</span></a>);
 	} else {
-		say qq(<a id="related_db_trigger" class="trigger_button" href="$links->[0]->{'href'}">)
+		say qq(<a id="related_db_trigger" class="trigger_button primary_trigger" href="$links->[0]->{'href'}">)
 		  . q(<span id="related_db" class="fas fa-lg fa-database"></span>)
 		  . qq(<span class="icon_label">$links->[0]->{'text'} database</span></a>);
 	}
@@ -3982,8 +4105,8 @@ sub print_related_database_panel {
 	my ($self) = @_;
 	my $links = $self->get_related_databases;
 	return if @$links < 2;
-	say q(<div id="related_db_panel" style="display:none">);
-	say q(<a class="close_trigger" id="close_related_db"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<div id="related_db_panel" class="panel" style="display:none">);
+	say q(<a class="close_trigger" id="close_related_db"><span class="fas fa-times"></span></a>);
 	say q(<h2>Related databases</h2>);
 	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
 	foreach my $link (@$links) {

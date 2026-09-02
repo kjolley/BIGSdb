@@ -29,6 +29,9 @@ use Template;
 use Template::Stash;
 use MIME::Base64 qw(encode_base64);
 use JSON;
+use File::Temp qw(tempdir tempfile);
+use IPC::Open3;
+use Symbol        qw(gensym);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
@@ -51,11 +54,11 @@ sub get_attributes {
 		buttontext      => 'Reports',
 		menutext        => 'Reports',
 		module          => 'Reports',
-		version         => '1.1.1',
+		version         => '1.1.2',
 		dbtype          => 'isolates',
 		section         => 'isolate_info',
 		input           => '',
-		order           => 10,
+		order           => 50,
 		help            => 'tooltips',
 		system_flag     => 'Reports',
 		explicit_enable => 1,
@@ -232,10 +235,59 @@ sub _generate_report {
 	}
 
 	#Convert to PDF.
-	open( my $make_pdf, '|-', $self->{'config'}->{'weasyprint_path'}, '-', '-' )
-	  || $logger->error("Cannot convert PDF. $!");
-	say $make_pdf $template_output;
-	close $make_pdf;
+	my $tmpdir = tempdir( DIR => $self->{'config'}->{'secure_tmp_dir'} );
+
+	# Create temp files
+	my ( $html_fh, $html_file ) = tempfile(
+		DIR    => $tmpdir,
+		SUFFIX => '.html',
+		UNLINK => 0,
+	);
+	my ( $pdf_fh, $pdf_file ) = tempfile(
+		DIR    => $tmpdir,
+		SUFFIX => '.pdf',
+		UNLINK => 0,
+	);
+
+	# Write HTML to temp file
+	binmode $html_fh, ':encoding(utf8)';
+	print $html_fh $template_output;
+	close $html_fh;
+	close $pdf_fh;    # weasyprint writes here
+
+	my $cmd = "$self->{'config'}->{'weasyprint_path'} $html_file $pdf_file";
+
+	my $err_fh = gensym;
+
+	eval {
+		my $pid = open3( my $in_fh, my $out_fh, $err_fh, $cmd );
+		close $in_fh;
+
+		local $/ = undef;
+		my $out = <$out_fh>;
+		my $err = <$err_fh>;
+
+		waitpid( $pid, 0 );
+		my $exit_code = $? >> 8;
+
+		if ($exit_code) {
+			if ($err) {
+				$err =~ s/\s+$//x;
+				$logger->error($err);
+			}
+			$logger->error($out) if $out;
+		}
+	};
+
+	# Read back generated PDF
+	my $pdf_ref = BIGSdb::Utils::slurp($pdf_file);
+	binmode STDOUT;
+	say $$pdf_ref;
+
+	# Clean up temp files
+	unlink $html_file if -e $html_file;
+	unlink $pdf_file  if -e $pdf_file;
+
 	return;
 }
 
@@ -503,7 +555,7 @@ sub _print_interface {
 			local $" = q(</li><li>);
 			my @reasons;
 			push @reasons, ( $reasons->{$_} // $_ ) foreach @{ $status->{'reasons'} };
-			say q(<div class="file_output disabled">)
+			say q(<div class="report_file_output disabled">)
 			  . qq(<span style="float:left;margin-right:0.2em">$html</span>)
 			  . qq(<span style="float:left;margin-right:1em">$pdf</span>)
 			  . qq(<div style="width:90%;margin-top:0.2em">$desc</div>)
@@ -515,7 +567,7 @@ sub _print_interface {
 		my $url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=plugin&amp;"
 		  . "name=Reports&amp;isolate_id=$isolate_id&amp;report=$template->{'index'}";
 
-		say qq(<div class="file_output"><a href="$url&amp;format=html" target="_blank">)
+		say qq(<div class="report_file_output"><a href="$url&amp;format=html" target="_blank">)
 		  . qq(<span style="float:left;margin-right:0.2em">$html</span></a>)
 		  . qq(<a href="$url&amp;format=pdf"><span style="float:left;margin-right:1em">$pdf</span></a>)
 		  . qq(<div style="width:90%;margin-top:0.2em">$desc);

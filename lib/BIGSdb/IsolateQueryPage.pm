@@ -27,8 +27,8 @@ use List::MoreUtils qw(any none uniq);
 use JSON;
 use BIGSdb::Constants qw(:interface :limits SEQ_FLAGS LOCUS_PATTERN OPERATORS MIN_GENOME_SIZE);
 use constant WARN_IF_TAKES_LONGER_THAN_X_SECONDS => 5;
-use constant MAX_LOCI_DROPDOWN                   => 200;
 use constant MAX_LIST_RENDER_SIZE                => 10000;
+use constant MAX_OPTION_RENDER_LENGTH            => 22;
 
 sub _ajax_content {
 	my ($self) = @_;
@@ -254,6 +254,8 @@ sub print_content {
 		return if $self->embargo;
 	}
 	my $title = $self->get_title;
+
+	$self->_print_bookmark_fieldset;
 	say qq(<h1>$title</h1>);
 	my $qry;
 	if (   !defined $q->param('currentpage')
@@ -263,6 +265,7 @@ sub print_content {
 		say q(<noscript><div class="box statusbad"><p>This interface requires that you enable Javascript )
 		  . q(in your browser.</p></div></noscript>);
 		$self->_print_interface;
+		$self->_print_modify_search_fieldset;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
 	$self->print_modify_dashboard_fieldset( { no_filters => 1 } )
@@ -303,8 +306,6 @@ sub _print_interface {
 	$self->_print_display_fieldset;
 	$self->print_action_fieldset(
 		{ id => 'search', submit_label => 'Search', interface => scalar $q->param('interface') } );
-	$self->_print_modify_search_fieldset;
-	$self->_print_bookmark_fieldset;
 	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);
@@ -322,19 +323,20 @@ sub print_panel_buttons {
 		|| $q->param('First') )
 	{
 		say q(<span class="icon_button">)
-		  . q(<a class="trigger_button" id="panel_trigger" style="display:none">)
+		  . q(<a class="trigger_button primary_trigger" id="panel_trigger" style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><span class="icon_label">Modify form</span></a></span>);
 		if ( $self->dashboard_enabled( { query_dashboard => 1 } ) ) {
 			if ( $q->param('submit') || defined $q->param('query_file') ) {
 				say q(<span class="icon_button">)
-				  . q(<a class="trigger_button" id="dashboard_panel_trigger" style="display:none">)
+				  . q(<a class="trigger_button primary_trigger" id="dashboard_panel_trigger" style="display:none">)
 				  . q(<span class="fas fa-lg fa-tools"></span><span class="icon_label">Modify dashboard</span></a></span>);
 			}
 		}
 		my $bookmarks = $self->_get_bookmarks;
 		if (@$bookmarks) {
-			say q(<span class="icon_button"><a class="trigger_button" id="bookmark_trigger" style="display:none">)
-			  . q(<span class="far fa-lg fa-bookmark"></span><span class="icon_label">Bookmarks</span></a></span>);
+			say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="bookmark_trigger" )
+			  . q(style="display:none"><span class="far fa-lg fa-bookmark"></span>)
+			  . q(<span class="icon_label">Bookmarks</span></a></span>);
 		}
 	}
 	return;
@@ -353,8 +355,8 @@ sub _print_provenance_fields_fieldset {
 	say qq(<fieldset id="provenance_fieldset" style="float:left;display:$display">)
 	  . q(<legend>Isolate provenance/primary metadata fields</legend>);
 	my $display_field_heading = $prov_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="prov_field_heading" style="display:$display_field_heading">)
-	  . q(<label for="prov_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="prov_field_heading" style="display:$display_field_heading">)
+	  . q(<label for="prov_andor" class="label">Combine with: </label>);
 	say $q->popup_menu( -name => 'prov_andor', -id => 'prov_andor', -values => [qw (AND OR)] );
 	say q(</span><ul id="provenance">);
 	my ( $select_items, $labels ) = $self->_get_select_items;
@@ -468,7 +470,7 @@ sub _print_display_fieldset {
 			push @$values, $q->optgroup( -name => $name, -values => $group_members->{$name}, -labels => $labels );
 		}
 	}
-	say q(<ul><li><span style="display:flex"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
 	say $q->popup_menu(
 		-name   => 'order',
 		-id     => 'order',
@@ -518,8 +520,8 @@ sub _print_designations_fieldset_contents {
 		my $locus_fields = $self->_highest_entered_fields('loci') || 1;
 		$locus_fields = @$preselected if @$preselected;
 		my $loci_field_heading = $locus_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="loci_field_heading" style="display:$loci_field_heading">)
-		  . q(<label for="designation_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="loci_field_heading" style="display:$loci_field_heading">)
+		  . q(<label for="designation_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'designation_andor', -id => 'designation_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="loci" style="white-space:normal">);
 		for my $row ( 1 .. $locus_fields ) {
@@ -560,8 +562,8 @@ sub _print_sequence_variation_fieldset_contents {
 	my $q                          = $self->{'cgi'};
 	my $sequence_variation_fields  = $self->_highest_entered_fields('sequence_variation') || 1;
 	my $sequence_variation_heading = $sequence_variation_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="sequence_variation_field_heading" style="display:$sequence_variation_heading">)
-	  . q(<label for="sequence_variation_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="sequence_variation_field_heading" style="display:$sequence_variation_heading">)
+	  . q(<label for="sequence_variation_andor" class="label">Combine with:</label>);
 	say $q->popup_menu(
 		-name   => 'sequence_variation_andor',
 		-id     => 'sequence_variation_andor',
@@ -625,13 +627,14 @@ sub _print_sequence_variation_fields {
 			}
 		}
 	}
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "sequence_variation$row",
 		-id     => "sequence_variation$row",
 		-values => [ q(), @values ],
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-style  => 'width:240px',
+		-class  => 'do_not_calc_width'
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -666,8 +669,8 @@ sub _print_allele_count_fieldset_contents {
 	if (@$locus_list) {
 		my $locus_fields    = $self->_highest_entered_fields('allele_count') || 1;
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="allele_count_field_heading" style="display:$heading_display">)
-		  . q(<label for="count_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="allele_count_field_heading" style="display:$heading_display">)
+		  . q(<label for="count_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'count_andor', -id => 'count_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="allele_count">);
 		for ( 1 .. $locus_fields ) {
@@ -705,8 +708,8 @@ sub _print_allele_status_fieldset_contents {
 	if (@$locus_list) {
 		my $locus_fields    = $self->_highest_entered_fields('allele_status') || 1;
 		my $heading_display = $locus_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="allele_status_field_heading" style="display:$heading_display">)
-		  . q(<label for="status_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="allele_status_field_heading" style="display:$heading_display">)
+		  . q(<label for="status_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'status_andor', -id => 'status_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="allele_status">);
 		for ( 1 .. $locus_fields ) {
@@ -743,8 +746,8 @@ sub _print_tag_count_fieldset_contents {
 	if (@$locus_list) {
 		my $tag_count_fields  = $self->_highest_entered_fields('tag_count') || 1;
 		my $tag_count_heading = $tag_count_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="tag_count_heading" style="display:$tag_count_heading">)
-		  . q(<label for="tag_count_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="tag_count_heading" style="display:$tag_count_heading">)
+		  . q(<label for="tag_count_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'tag_count_andor', -id => 'tag_count_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="tag_count">);
 		for ( 1 .. $tag_count_fields ) {
@@ -781,8 +784,8 @@ sub _print_annotation_status_fieldset_contents {
 	my $q                         = $self->{'cgi'};
 	my $annotation_status_fields  = $self->_highest_entered_fields('annotation_status') || 1;
 	my $annotation_status_heading = $annotation_status_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="annotation_status_field_heading" style="display:$annotation_status_heading">)
-	  . q(<label for="annotation_status_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="annotation_status_field_heading" style="display:$annotation_status_heading">)
+	  . q(<label for="annotation_status_andor" class="label">Combine with:</label>);
 	say $q->popup_menu(
 		-name   => 'annotation_status_andor',
 		-id     => 'annotation_status_andor',
@@ -816,8 +819,8 @@ sub _print_seqbin_fieldset_contents {
 	my $q              = $self->{'cgi'};
 	my $seqbin_fields  = $self->_highest_entered_fields('seqbin') || 1;
 	my $seqbin_heading = $seqbin_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="seqbin_field_heading" style="display:$seqbin_heading">)
-	  . q(<label for="seqbin_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="seqbin_field_heading" style="display:$seqbin_heading">)
+	  . q(<label for="seqbin_andor" class="label">Combine with:</label>);
 	say $q->popup_menu( -name => 'seqbin_andor', -id => 'seqbin_andor', -values => [qw (AND OR)] );
 	say q(</span><ul id="seqbin">);
 	for ( 1 .. $seqbin_fields ) {
@@ -888,8 +891,8 @@ sub _print_tags_fieldset_contents {
 	if (@$locus_list) {
 		my $locus_tag_fields   = $self->_highest_entered_fields('tags') || 1;
 		my $locus_tags_heading = $locus_tag_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="locus_tags_heading" style="display:$locus_tags_heading">)
-		  . q(<label for="tag_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="locus_tags_heading" style="display:$locus_tags_heading">)
+		  . q(<label for="tag_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'tag_andor', -id => 'tag_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="tags">);
 		for ( 1 .. $locus_tag_fields ) {
@@ -921,8 +924,8 @@ sub _print_analysis_fieldset_contents {
 	my $q                = $self->{'cgi'};
 	my $analysis_fields  = $self->_highest_entered_fields('analysis') || 1;
 	my $analysis_heading = $analysis_fields == 1 ? 'none' : 'inline';
-	say qq(<span id="analysis_heading" style="display:$analysis_heading">)
-	  . q(<label for="analysis_andor">Combine with: </label>);
+	say qq(<span class="query_block" id="analysis_heading" style="display:$analysis_heading">)
+	  . q(<label for="analysis_andor" class="label">Combine with:</label>);
 	say $q->popup_menu( -name => 'analysis_andor', -id => 'analysis_andor', -values => [qw (AND OR)] );
 	say q(</span><ul id="analysis">);
 	for ( 1 .. $analysis_fields ) {
@@ -938,15 +941,22 @@ sub _print_analysis_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
 	my ( $values, $labels ) = $self->get_analysis_field_values_and_labels;
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $q->popup_menu(
 		-name   => "analysis_field$row",
 		-id     => "analysis_field$row",
 		-values => $values,
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-style  => 'width:200px',
+		-class  => 'do_not_calc_width'
 	);
-	say $q->popup_menu( -name => "analysis_operator$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "analysis_operator$row",
+		-id     => "analysis_operator$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield(
 		-name        => "analysis_value$row",
 		-id          => "analysis_value$row",
@@ -1010,14 +1020,15 @@ sub _print_list_fieldset_contents {
 		-labels => $labels,
 		-class  => $class
 	);
-	say q(<br />);
+	say q(<div>);
 	say $q->textarea(
 		-name        => 'list',
 		-id          => 'list',
 		-rows        => 6,
-		-style       => 'width:100%',
+		-style       => 'width:100%;margin-top:2px',
 		-placeholder => 'Enter list of values (one per line)...'
 	);
+	say q(</div>);
 	return;
 }
 
@@ -1162,9 +1173,9 @@ sub _print_filters_fieldset_contents {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	my @filters;
-	my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1 } );
+	my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1, grid => 1 } );
 	push @filters, $buffer if $buffer;
-	$buffer = $self->get_project_filter( { any => 1, multiple => 1 } );
+	$buffer = $self->get_project_filter( { any => 1, multiple => 1, grid => 1 } );
 	push @filters, $buffer if $buffer;
 
 	#Enable filters if used in bookmark.
@@ -1181,26 +1192,28 @@ sub _print_filters_fieldset_contents {
 	push @filters, @$profile_filters;
 	my $private_data_filter = $self->_get_private_data_filter;
 	push @filters, $private_data_filter if $private_data_filter;
-	push @filters, $self->get_old_version_filter;
-	say q(<ul>);
-	say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
-	say q(</ul>);
+	push @filters, $self->get_old_version_filter( { grid => 1 } );
+	say q(<div class="form_container">);
+	say qq($_) foreach @filters;
+
 	my ( $list, $labels ) = $self->_get_inactive_filters;
 
 	if (@$list) {
 		unshift @$list, q();
-		say q(<span style="display:flex">);
-		say q(Add filter:&nbsp;);
+		say q(<div class="form_label"><label>Add filter:</label></div>);
+		say q(<div class="form_value"><span class="query_block">);
 		say $self->popup_menu(
 			-name   => 'new_filter',
 			-id     => 'new_filter',
 			-values => $list,
 			-labels => $labels,
-			-style  => 'max-width:25em'
+			-class  => 'do_not_calc_width',
+			-style  => 'width:240px'
 		);
 		say q( <a id="add_filter" class="small_submit">Add</a>);
-		say q(</span>);
+		say q(</span></div>);
 	}
+	say q(</div>);
 	return;
 }
 
@@ -1208,77 +1221,84 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p>Click to add or remove additional query terms:</p><ul style="list-style:none;margin-left:-2em">);
-	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_provenance">$provenance_fieldset_display</a>);
-	say q(Provenance fields</li>);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>);
+
+	say q(<h3>Metadata</h3><ul class="toggle">);
+	my $provenance_fieldset_display = $self->_should_display_fieldset('provenance') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_provenance">$provenance_fieldset_display);
+	say q(Provenance field</li>);
 
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM eav_fields)') ) {
-		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? HIDE : SHOW;
+		my $phenotypic_fieldset_display = $self->_should_display_fieldset('phenotypic') ? ON : OFF;
 		my $field_name                  = ucfirst( $self->{'system'}->{'eav_fields'} // 'secondary metadata' );
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_phenotypic">$phenotypic_fieldset_display</a>);
+		say qq(<li class="fieldset_trigger" id="show_phenotypic">$phenotypic_fieldset_display);
 		say qq($field_name</li>);
 	}
-	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? HIDE : SHOW;
-	say q(<li><a href="" class="button fieldset_trigger" id="show_allele_designations">)
-	  . qq($allele_designations_fieldset_display</a>);
-	say q(Allele designations/scheme field values</li>);
-	if ( $self->{'sequence_variation_fieldset_exists'} ) {
-		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? HIDE : SHOW;
-		say q(<li><a href="" class="button fieldset_trigger" id="show_sequence_variation">)
-		  . qq($sequence_variation_fieldset_display</a>);
-		say q(Sequence variation</li>);
-	}
-	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele_count">$allele_count_fieldset_display</a>);
-	say q(Allele designation counts</li>);
-	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele_status">$allele_status_fieldset_display</a>);
-	say q(Allele designation status</li>);
-	if ( $self->{'annotation_status_fieldset_exists'} ) {
-		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? HIDE : SHOW;
-		say q(<li><a href="" class="button fieldset_trigger" id="show_annotation_status">)
-		  . qq($annotation_status_fieldset_display</a>);
-		say q(Annotation status</li>);
-	}
-	if ( $self->{'seqbin_fieldset_exists'} ) {
-		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_seqbin">$seqbin_fieldset_display</a>);
-		say q(Sequence bin</li>);
-	}
-	if ( $self->{'assembly_checks_fieldset_exists'} ) {
-		my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? HIDE : SHOW;
-		say q(<li><a href="" class="button fieldset_trigger" id="show_assembly_checks">)
-		  . qq($assembly_checks_fieldset_display</a>);
-		say q(Assembly checks</li>);
-	}
-	if ( $self->{'tags_fieldset_exists'} ) {
-		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_tag_count">$tag_count_fieldset_display</a>);
-		say q(Tagged sequence counts</li>);
-		my $tags_fieldset_display = $self->_should_display_fieldset('tags') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_tags">$tags_fieldset_display</a>);
-		say q(Tagged sequence status</li>);
-	}
-	if ( $self->{'analysis_fieldset_exists'} ) {
-		my $analysis_fieldset_display = $self->_should_display_fieldset('analysis') ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_analysis">$analysis_fieldset_display</a>);
-		say q(Analysis results</li>);
-	}
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
-	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
+	  || $q->param('list') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_list">$list_fieldset_display);
 	say q(Attribute values list</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
-	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filters_fieldset_display</a>);
+	  || $self->filters_selected ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_filters">$filters_fieldset_display);
 	say q(Filters</li>);
 	say q(</ul>);
+
+	if ( $self->{'seqbin_fieldset_exists'} ) {
+		say q(<h3>Assembly</h3><ul class="toggle">);
+		my $seqbin_fieldset_display = $self->_should_display_fieldset('seqbin') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_seqbin">$seqbin_fieldset_display);
+		say q(Sequence bin properties</li>);
+		if ( $self->{'assembly_checks_fieldset_exists'} ) {
+			my $assembly_checks_fieldset_display = $self->_should_display_fieldset('assembly_checks') ? ON : OFF;
+			say qq(<li class="fieldset_trigger" id="show_assembly_checks">$assembly_checks_fieldset_display);
+			say q(Assembly checks</li>);
+		}
+		say q(</ul>);
+	}
+
+	say q(<h3>Schemes/Loci</h3><ul class="toggle">);
+	my $allele_designations_fieldset_display = $self->_should_display_fieldset('allele_designations') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_allele_designations">$allele_designations_fieldset_display);
+	say q(Allele designations/scheme field values</li>);
+	if ( $self->{'sequence_variation_fieldset_exists'} ) {
+		my $sequence_variation_fieldset_display = $self->_should_display_fieldset('sequence_variation') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_sequence_variation">$sequence_variation_fieldset_display);
+		say q(Sequence variation</li>);
+	}
+	my $allele_count_fieldset_display = $self->_should_display_fieldset('allele_count') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_allele_count">$allele_count_fieldset_display);
+	say q(Allele designation counts</li>);
+	my $allele_status_fieldset_display = $self->_should_display_fieldset('allele_status') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_allele_status">$allele_status_fieldset_display);
+	say q(Allele designation status</li>);
+
+	if ( $self->{'tags_fieldset_exists'} ) {
+		my $tag_count_fieldset_display = $self->_should_display_fieldset('tag_count') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_tag_count">$tag_count_fieldset_display);
+		say q(Tagged sequence counts</li>);
+		my $tags_fieldset_display = $self->_should_display_fieldset('tags') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_tags">$tags_fieldset_display);
+		say q(Tagged sequence status</li>);
+	}
+	if ( $self->{'annotation_status_fieldset_exists'} ) {
+		my $annotation_status_fieldset_display = $self->_should_display_fieldset('annotation_status') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_annotation_status">$annotation_status_fieldset_display);
+		say q(Annotation status</li>);
+	}
+
+	say q(</ul>);
+	if ( $self->{'analysis_fieldset_exists'} ) {
+		say q(<h3>Analysis</h3><ul class="toggle">);
+		my $analysis_fieldset_display = $self->_should_display_fieldset('analysis') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_analysis">$analysis_fieldset_display);
+		say q(Analysis results</li></ul>);
+	}
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	  . qq(page=query&amp;save_options=1" style="display:none">$save Save options</a> <span id="saving"></span><br />);
 	say q(</div>);
 	return;
 }
@@ -1290,7 +1310,8 @@ sub _get_bookmarks {
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return [] if !$user_info;
 	my $bookmarks =
-	  $self->{'datastore'}->run_query( 'SELECT id,name,dbase_config FROM bookmarks WHERE user_id=? ORDER BY name',
+	  $self->{'datastore'}->run_query(
+		'SELECT id,name,dbase_config,date_entered,last_accessed,public FROM bookmarks WHERE user_id=? ORDER BY name',
 		$user_info->{'id'}, { fetch => 'all_arrayref', slice => {} } );
 	return $bookmarks;
 }
@@ -1299,18 +1320,26 @@ sub _print_bookmark_fieldset {
 	my ($self) = @_;
 	my $bookmarks = $self->_get_bookmarks;
 	return if !@$bookmarks;
-	say q(<div id="bookmark_panel" style="display:none">);
-	say q(<a class="close_trigger" id="close_bookmark"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<div id="bookmark_panel" class="panel" style="display:none">);
+	say q(<a class="close_trigger" id="close_bookmark"><span class="fas fa-times"></span></a>);
 	say q(<h2>Bookmarks</h2>);
-	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
+	say q(<div class="bookmark_panel"><ul>);
+
 	foreach my $bookmark (@$bookmarks) {
+		my $public =
+		  $bookmark->{'public'}
+		  ? '<span class="public">public</span>'
+		  : '<span class="private">private</span>';
 		say qq(<li><a href="$self->{'system'}->{'script_name'}?db=$bookmark->{'dbase_config'}&amp;)
-		  . qq(page=query&amp;bookmark=$bookmark->{'id'}">$bookmark->{'name'}</a></li>);
+		  . qq(page=query&amp;bookmark=$bookmark->{'id'}"><div>)
+		  . qq(<span class="name">$bookmark->{'name'}</span>)
+		  . qq(<span class="created"><strong>Created: </strong>$bookmark->{'date_entered'}</span>)
+		  . qq($public</div></a></li>);
 	}
 	say q(</ul></div>);
 	say qq(<p style="margin-top:1em"><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . q(page=bookmarks">Manage bookmarks</a></p>);
-	say q(</div></div>);
+	  . q(page=bookmarks" class="small_submit"><span class="far fa-bookmark"></span> Manage bookmarks</a></p>);
+	say q(</div>);
 	return;
 }
 
@@ -1331,7 +1360,8 @@ sub _get_profile_filters {
 					tooltip => "$scheme->{'name'} profile completion filter - Select whether the isolates should "
 					  . 'have complete, partial, or unstarted profiles.',
 					capitalize_first => 1,
-					remove_id        => "remove_scheme_$scheme->{'id'}_profile_status"
+					remove_id        => "remove_scheme_$scheme->{'id'}_profile_status",
+					grid             => 1
 				}
 			  );
 		}
@@ -1355,7 +1385,8 @@ sub _get_profile_filters {
 							  "$field ($scheme->{'name'}) filter - Select $a_or_an $field to filter your search "
 							  . "to only those isolates that match the selected $field.",
 							capitalize_first => 1,
-							remove_id        => "remove_scheme_$scheme->{'id'}_$field"
+							remove_id        => "remove_scheme_$scheme->{'id'}_$field",
+							grid             => 1
 						}
 					  );
 				}
@@ -1398,7 +1429,8 @@ sub _get_private_data_filter {
 			labels  => $labels,
 			text    => 'Private records',
 			tooltip => 'private records filter - Filter by whether the isolate record is private. '
-			  . 'The default is to include both your private and public records.'
+			  . 'The default is to include both your private and public records.',
+			grid => 1
 		}
 	);
 }
@@ -1420,7 +1452,7 @@ sub _get_field_filters {
 				|| ( ( $thisfield->{'userfield'} // q() ) eq 'yes' ) )
 			{
 				push @$filters,
-				  $self->get_user_filter( $field, { capitalize_first => 1, remove_id => "remove_$field" } );
+				  $self->get_user_filter( $field, { capitalize_first => 1, remove_id => "remove_$field", grid => 1 } );
 			} else {
 				if ( ( $thisfield->{'optlist'} // q() ) eq 'yes' ) {
 					$dropdownlist = $self->{'xmlHandler'}->get_field_option_list($field);
@@ -1462,7 +1494,8 @@ sub _get_field_filters {
 						  "$display_field filter - Select $a_or_an $display_field to filter your search to only those "
 						  . "isolates that match the selected $display_field.",
 						capitalize_first => 1,
-						remove_id        => "remove_$field"
+						remove_id        => "remove_$field",
+						grid             => 1
 					}
 				  ) if @$dropdownlist;
 			}
@@ -1490,7 +1523,8 @@ sub _get_field_filters {
 							  "$extended_attribute filter - Select $a_or_an $extended_attribute to filter your "
 							  . "search to only those isolates that match the selected $field.",
 							capitalize_first => 1,
-							remove_id        => "remove_${field}___$extended_attribute"
+							remove_id        => "remove_${field}___$extended_attribute",
+							grid             => 1
 						}
 					  );
 				}
@@ -1507,6 +1541,7 @@ sub _print_provenance_fields {
 	my @group_list    = split /,/x, ( $self->{'system'}->{'field_groups'} // q() );
 	my $group_members = {};
 	my $is_curator    = $self->is_curator;
+
 	if (@group_list) {
 		my $attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 		foreach my $field (@$select_items) {
@@ -1534,15 +1569,26 @@ sub _print_provenance_fields {
 	} else {
 		$values = $select_items;
 	}
-	say q(<span style="display:flex">);
+	my $longest_length = 0;
+	foreach my $value ( values %$labels ) {
+		my $length = length($value);
+		$longest_length = $length if $length > $longest_length;
+	}
+	say q(<span class="query_block">);
+	my $class = $longest_length > MAX_OPTION_RENDER_LENGTH ? ' widelist' : q();
 	say $q->popup_menu(
 		-name   => "prov_field$row",
 		-id     => "prov_field$row",
 		-values => $values,
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-class  => "fieldlist$class",
 	);
-	say $q->popup_menu( -name => "prov_operator$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "prov_operator$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield(
 		-name        => "prov_value$row",
 		-id          => "prov_value$row",
@@ -1586,16 +1632,28 @@ sub _print_phenotypic_fields {
 	} else {
 		$values = $select_items;
 	}
-	say q(<span style="display:flex">);
+	my $longest_length = 0;
+	foreach my $value ( values %$labels ) {
+		my $length = length($value);
+		$longest_length = $length if $length > $longest_length;
+	}
+	say q(<span class="query_block">);
+	my $class = $longest_length > MAX_OPTION_RENDER_LENGTH ? ' widelist' : q();
 	unshift @$values, q();
 	say $q->popup_menu(
 		-name   => "phenotypic_field$row",
 		-id     => "phenotypic_field$row",
 		-values => $values,
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-class  => "fieldlist$class"
 	);
-	say $q->popup_menu( -name => "phenotypic_operator$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "phenotypic_operator$row",
+		-id     => "phenotypic_operator$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield(
 		-name        => "phenotypic_value$row",
 		-id          => "phenotypic_value$row",
@@ -1624,8 +1682,8 @@ sub _print_phenotypic_fieldset_contents {
 		my $phenotypic_fields = $self->_highest_entered_fields('phenotypic') || 1;
 		$phenotypic_fields = @$preselected if @$preselected;
 		my $phenotypic_heading = $phenotypic_fields == 1 ? 'none' : 'inline';
-		say qq(<span id="phenotypic_field_heading" style="display:$phenotypic_heading">)
-		  . q(<label for="phenotypic_andor">Combine with: </label>);
+		say qq(<span class="query_block" id="phenotypic_field_heading" style="display:$phenotypic_heading">)
+		  . q(<label for="phenotypic_andor" class="label">Combine with:</label>);
 		say $q->popup_menu( -name => 'phenotypic_andor', -id => 'phenotypic_andor', -values => [qw (AND OR)] );
 		say q(</span><ul id="phenotypic">);
 		for my $row ( 1 .. $phenotypic_fields ) {
@@ -1651,7 +1709,7 @@ sub _print_allele_status_fields {
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "allele_status_field$row",
 		-id     => "allele_status_field$row",
@@ -1659,14 +1717,16 @@ sub _print_allele_status_fields {
 		-labels => $locus_labels,
 		-class  => $class
 	);
-	print '&nbsp;is&nbsp;';
+	print '<span class="label">is</span>';
 	my $values = [ '', 'provisional', 'confirmed' ];
 	my %labels = ( '' => ' ' );                        #Required for HTML5 validation.
 	say $q->popup_menu(
 		-name   => "allele_status_value$row",
 		-id     => "allele_status_value$row",
 		-values => $values,
-		-labels => \%labels
+		-labels => \%labels,
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
 	);
 
 	if ( $row == 1 ) {
@@ -1689,8 +1749,8 @@ sub _print_allele_count_fields {
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
-	say q(Count of&nbsp;);
+	say q(<span class="query_block">);
+	say q(<span class="label">Count of</span>);
 	say $self->popup_menu(
 		-name   => "allele_count_field$row",
 		-id     => "allele_count_field$row",
@@ -1699,7 +1759,13 @@ sub _print_allele_count_fields {
 		-class  => $class
 	);
 	my $values = [ '>', '<', '=' ];
-	say $q->popup_menu( -name => "allele_count_operator$row", -id => "allele_count_operator$row", -values => $values );
+	say $q->popup_menu(
+		-name   => "allele_count_operator$row",
+		-id     => "allele_count_operator$row",
+		-values => $values,
+		-style  => 'width:60px',
+		-class  => 'do_not_calc_width'
+	);
 	my %args = (
 		-name        => "allele_count_value$row",
 		-id          => "allele_count_value$row",
@@ -1728,7 +1794,7 @@ sub _print_loci_fields {
 	$locus_labels->{''} = q( );    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$locus_list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "designation_field$row",
 		-id     => "designation_field$row",
@@ -1740,6 +1806,8 @@ sub _print_loci_fields {
 		-name   => "designation_operator$row",
 		-id     => "designation_operator$row",
 		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
 	);
 	say $q->textfield(
 		-name        => "designation_value$row",
@@ -1765,7 +1833,7 @@ sub _print_locus_tag_fields {
 	unshift @$list, '';
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "tag_field$row",
 		-id     => "tag_field$row",
@@ -1773,12 +1841,19 @@ sub _print_locus_tag_fields {
 		-labels => $locus_labels,
 		-class  => $class
 	);
-	print '&nbsp;is&nbsp;';
+	print '<span class="label">is</span>';
 	my @values = qw(untagged tagged complete incomplete);
 	push @values, "flagged: $_" foreach ( 'any', 'none', SEQ_FLAGS );
 	unshift @values, '';
 	my %labels = ( '' => ' ' );    #Required for HTML5 validation.
-	say $q->popup_menu( -name => "tag_value$row", -id => "tag_value$row", values => \@values, -labels => \%labels );
+	say $q->popup_menu(
+		-name   => "tag_value$row",
+		-id     => "tag_value$row",
+		values  => \@values,
+		-labels => \%labels,
+		-style  => 'width:240px',
+		-class  => 'do_not_calc_width'
+	);
 
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -1800,8 +1875,8 @@ sub _print_tag_count_fields {
 	$locus_labels->{''} = ' ';    #Required for HTML5 validation.
 	my $q     = $self->{'cgi'};
 	my $class = @$list > MAX_LIST_RENDER_SIZE ? q() : 'locuslist';
-	say q(<span style="display:flex">);
-	say q(Count of&nbsp;);
+	say q(<span class="query_block">);
+	say q(<span class="label">Count of</span>);
 	say $self->popup_menu(
 		-name   => "tag_count_field$row",
 		-id     => "tag_count_field$row",
@@ -1810,7 +1885,13 @@ sub _print_tag_count_fields {
 		-class  => $class
 	);
 	my $values = [ '>', '<', '=' ];
-	say $q->popup_menu( -name => "tag_count_operator$row", -id => "tag_count_operator$row", -values => $values );
+	say $q->popup_menu(
+		-name   => "tag_count_operator$row",
+		-id     => "tag_count_operator$row",
+		-values => $values,
+		-style  => 'width:60px',
+		-class  => 'do_not_calc_width'
+	);
 	my %args = (
 		-name        => "tag_count_value$row",
 		-id          => "tag_count_value$row",
@@ -1852,19 +1933,22 @@ sub _print_annotation_status_fields {
 		push @$fields, "s_$scheme->{'id'}";
 		$labels->{"s_$scheme->{'id'}"} = $scheme->{'name'};
 	}
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $self->popup_menu(
 		-name   => "annotation_status_field$row",
 		-id     => "annotation_status_field$row",
 		-values => [ q(), @$fields ],
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-class  => 'widelist',
+		-style  => 'width:240px'
 	);
 	my $values = [ q(), qw(good bad intermediate) ];
 	say $q->popup_menu(
 		-name   => "annotation_status_value$row",
 		-id     => "annotation_status_value$row",
-		-values => $values
+		-values => $values,
+		-style  => 'width:140px',
+		-class  => 'do_not_calc_width'
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -1880,7 +1964,7 @@ sub _print_annotation_status_fields {
 sub _print_seqbin_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	my @values = qw(size contigs N50 L50);
 	if (
 		$self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM analysis_results WHERE name=?)', 'AssemblyStats' )
@@ -1893,10 +1977,18 @@ sub _print_seqbin_fields {
 		-id     => "seqbin_field$row",
 		-values => [ q(), @values ],
 		-labels => { size => 'total length (Mbp)', contigs => 'number of contigs', percent_GC => '%GC', N => 'Ns' },
-		-class  => 'fieldlist'
+		-class  => 'fieldlist',
+		-style  => 'width:170px',
+		-class  => 'do_not_calc_width'
 	);
 	my $values = [ '>', '>=', '<', '<=', '=' ];
-	say $q->popup_menu( -name => "seqbin_operator$row", -id => "seqbin_operator$row", -values => $values );
+	say $q->popup_menu(
+		-name   => "seqbin_operator$row",
+		-id     => "seqbin_operator$row",
+		-values => $values,
+		-style  => 'width:60px',
+		-class  => 'do_not_calc_width'
+	);
 	my %args = (
 		-name        => "seqbin_value$row",
 		-id          => "seqbin_value$row",
@@ -1933,7 +2025,7 @@ sub _get_assembly_check_values {
 sub _print_assembly_checks_fields {
 	my ( $self, $row, $max_rows ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="white-space:nowrap">);
+	say q(<span class="query_block">);
 	my @values = ( 'any', 'all' );
 	my $checks = $self->_get_assembly_check_values;
 	foreach my $value (qw(contigs size n50 gc ns gaps)) {
@@ -1961,7 +2053,8 @@ sub _print_assembly_checks_fields {
 		-id     => "assembly_checks_field$row",
 		-values => [ q(), @values ],
 		-labels => $labels,
-		-class  => 'fieldlist'
+		-style  => 'width:170px',
+		-class  => 'do_not_calc_width'
 	);
 	my $values = [ q(), qw(pass warn pass/warn warn/fail fail) ];
 	$labels = {
@@ -1974,7 +2067,9 @@ sub _print_assembly_checks_fields {
 		-name   => "assembly_checks_value$row",
 		-id     => "assembly_checks_value$row",
 		-values => $values,
-		-labels => $labels
+		-labels => $labels,
+		-style  => 'width:250px',
+		-class  => 'do_not_calc_width'
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -4372,9 +4467,11 @@ sub get_javascript {
  	\$('.multiselect').multiselect({
  		classes: 'filter',
  		menuHeight: 250,
- 		menuWidth: 400
+ 		menuWidth: 400,
+ 		selectedList: 1
  	}).multiselectfilter();
  	render_loaded_locuslists();
+ 	render_loaded_widelists();
 $panel_js
 	//Render multiselect lists when fieldset first triggered.
 	\$('.fieldset_trigger').on('click', function(){
@@ -4384,13 +4481,23 @@ $panel_js
 			show_allele_status: 'allele_status_field1',
 			show_tag_count: 'tag_count_field1',
 			show_tags: 'tag_field1',
-			analysis: 'analysis_field1',
 			show_list: 'attribute'
 		};
+
 		if (query_fields[this.id]){
 			if (\$('#' + query_fields[this.id] + ' > option').length <= $max_list_render_size){
 				render_locuslists('#' + query_fields[this.id]);
 			}	
+		} else {
+			query_fields = {
+				show_provenance: 'prov_field1',
+				show_phenotypic: 'phenotypic_field1',
+				show_analysis: 'analysis_field1',
+				show_annotation_status: 'annotation_status_field1'
+			}
+			if (\$('#' + query_fields[this.id]).hasClass('widelist')){
+				render_widelists('#' + query_fields[this.id]);
+			}
 		}
 	});
 	
@@ -4427,7 +4534,7 @@ $panel_js
 	       	if (row == null){
 	       		row = 1;
 	        }
-	        
+	        console.log(fieldset);
          	if (fieldset != null){
          		let element_names = {
          			allele_designations: "designation_field",
@@ -4436,23 +4543,22 @@ $panel_js
          			tags: "tag_field",
          			tag_count: "tag_count_field",
           			list: "attribute",
-         			filters: "filters"
+         			filters: "filters",
+         			phenotypic: "phenotypic_field",
+         			annotation_status: "annotation_status_field"
          		};
-         		if (element_names[fieldset]){
-         			
+         		if (element_names[fieldset]){        			
          			if (fieldset === 'list'){
          				if (\$('#attribute > option').length <= $max_list_render_size){
-          					render_locuslists("#attribute");
+          					render_locuslists("#attribute",false);
          				}
          			} else if (fieldset === 'filters'){
-         				\$('.multiselect').multiselect({
-					 		classes: 'filter',
-					 		menuHeight: 250,
-					 		menuWidth: 400
-					 	}).multiselectfilter();
+         				renderFilters();
 					 	setFilterTriggers();
          			} else {
-         				if (\$('#' + element_names[fieldset] + row + ' > option').length <= $max_list_render_size){
+         				if (\$("#" + element_names[fieldset] + row).hasClass('widelist')){
+          					render_widelists(\$("#" + element_names[fieldset] + row));
+         				} else if (\$('#' + element_names[fieldset] + row + ' > option').length <= $max_list_render_size){
 			        		render_locuslists("#" + element_names[fieldset] + row);
          				}
          			}
@@ -4466,23 +4572,53 @@ $panel_js
          			tag_count: "tag_count_field"
          		};
          		if (element_names[fields]){
-		        	render_locuslists("#" + element_names[fields] + row);
+ 		        	render_locuslists("#" + element_names[fields] + row);
+         		} else {
+         			element_names = {
+         				provenance: "prov_field",
+         				phenotypic: "phenotypic_field",
+         				annotation_status: "annotation_status_field"
+         			}
+          			if (\$("#" + element_names[fields] + row).hasClass('widelist')){
+         				render_widelists(\$("#" + element_names[fields] + row));
+         			}
          		}
+         		
          	} 
         	
         }
 	});
 	setFilterTriggers();
+	renderFilters();
 	\$("#bookmark_trigger,#close_bookmark").click(function(){		
-		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast");
+		\$("#bookmark_panel").toggle("slide",{direction:"right"},"fast",function(){
+			if (\$("#bookmark_panel").is(":visible")){
+				\$("#modal_overlay").addClass("open");
+			} else {
+				\$("#modal_overlay").removeClass("open");
+			}
+		});		
 		return false;
 	});
 	\$("#bookmark_trigger").show();
-	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
-	\$(document).on('select2:open', () => {
-   	   document.querySelector('.select2-search__field').focus();
-	});
  });
+ 
+function renderFilters(){
+	\$('.multiselect').filter(function () {
+  		return \$(this).next('.ui-multiselect').length === 0;
+	}).multiselect({
+ 		classes: 'filter',
+ 		menuHeight: 250,
+ 		menuWidth: 400,
+ 		selectedList: 1
+ 	}).multiselectfilter();
+ 	\$("select.filter:not(.multiselect)").not('.select2-hidden-accessible').select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
+		allowClear: true
+	});
+}
 
 function setFilterTriggers(){
 	\$("#add_filter").on('click',function(){
@@ -4565,31 +4701,47 @@ function render_loaded_locuslists() {
 	render_locuslists("select.locuslist");
 }
 
-function render_locuslists(selector){
+function render_loaded_widelists() {
+	render_widelists("select.widelist");
+}
+
+function render_locuslists(selector, allowClear=true){
 	\$(selector).filter(':visible').select2({
 		width: '240px',
 		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20,
 		placeholder: '',
-		allowClear: true
+		allowClear: allowClear
+	});
+}
+
+function render_widelists(selector){
+	\$(selector).not('.select2-hidden-accessible').filter(':visible')
+	.each(function() {
+		const \$select = \$(this);
+		const hasEmptyOption = \$select.find('option[value=""]').length > 0;	
+		\$select.select2({
+			width: '240px',
+			dropdownAutoWidth: true,
+			placeholder: hasEmptyOption ? "" : undefined,
+			allowClear: hasEmptyOption
+		});
+		\$('.select2-selection__choice').removeAttr('title');
+		\$('.select2-selection__rendered').removeAttr('title');
 	});
 }
 
 function refresh_filters(){
-	var list_values = [];
-	var url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&fieldset=filters";
+	const list_values = [];
+	const url = "$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=query&no_header=1&fieldset=filters";
 	\$("fieldset#filters_fieldset select[id\$='_list']").each(function (index){
 		list_values[\$(this).attr('id')] =  \$(this).val();
 	});
 	\$("fieldset#filters_fieldset div")
 	.load(url, function(){			
 		reloadTooltips();
-		for (key in list_values){
+		for (const key in list_values){
 			\$("#" + key).val(list_values[key]);				
 		}
-		\$('.multiselect').multiselect({
-			classes: 'filter'
-		}).multiselectfilter();
 	});
 }
 END

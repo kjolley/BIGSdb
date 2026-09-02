@@ -159,7 +159,7 @@ sub _get_message {
 	if ( $table eq 'users' && $options->{'update'} ) {
 		if ( $data->{'user_db'} ) {
 			my $msg =
-				q(<div class="box" id="message"><p>The name, E-mail and affiliation of this user are )
+				q(<div class="box message"><p>The name, E-mail and affiliation of this user are )
 			  . q(imported from the site user database. Modifying these here will change them for all )
 			  . q(databases on the system that this account uses. Changes to status affect only this )
 			  . q(database.</p>);
@@ -196,13 +196,6 @@ sub get_javascript {
 	return if !defined $q->param('table') || !$allowed_tables{ $q->param('table') };
 	my $buffer = << "END";
 \$(function () {
-  \$('#locus,#field,#sender,#country').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
   \$('#flags').multiselect({
   	classes: 'filter',
  	menuHeight: 250,

@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20260105
+#Version: 20260707
 use strict;
 use warnings;
 use 5.010;
@@ -35,6 +35,7 @@ use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN :limits);
 use JSON;
+use Encode qw(decode_utf8);
 use Term::Cap;
 use POSIX;
 use File::Path qw(make_path rmtree);
@@ -240,11 +241,12 @@ sub store_results {
 	my ( $self, $isolate_id, $data ) = @_;
 	my $version = get_kaptive_version($self);
 	my $json    = encode_json( { version => $version, data => $data } );
+	my $json_text = decode_utf8($json);
 	eval {
 		$self->{'db'}
 		  ->do( 'DELETE FROM analysis_results WHERE (isolate_id,name)=(?,?)', undef, $isolate_id, MODULE_NAME );
 		$self->{'db'}->do( 'INSERT INTO analysis_results (name,isolate_id,results) VALUES (?,?,?)',
-			undef, MODULE_NAME, $isolate_id, $json );
+			undef, MODULE_NAME, $isolate_id, $json_text );
 	};
 	if ($@) {
 		$logger->error($@);

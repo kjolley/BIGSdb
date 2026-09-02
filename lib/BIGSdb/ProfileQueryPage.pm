@@ -91,6 +91,7 @@ sub print_content {
 		say q(<noscript><div class="box statusbad"><p>This interface requires )
 		  . q(that you enable Javascript in your browser.</p></div></noscript>);
 		return if $self->_print_interface;    #Returns 1 if scheme is invalid
+		$self->_print_modify_search_fieldset;
 	}
 	$self->_run_query if $q->param('submit') || defined $q->param('query_file');
 	return;
@@ -156,7 +157,6 @@ sub _print_interface {
 	$self->_print_filter_fieldset($scheme_id);
 	$self->_print_order_fieldset($scheme_id);
 	$self->print_action_fieldset( { page => 'query', scheme_id => $scheme_id, submit_label => 'Search' } );
-	$self->_print_modify_search_fieldset;
 	say q(</div>);
 	say $q->end_form;
 	say q(</div></div>);
@@ -170,7 +170,8 @@ sub print_panel_buttons {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
+		say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="panel_trigger" )
+		  . q(style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><span class="icon_label">Modify form</span></a></span>);
 	}
 	return;
@@ -196,7 +197,10 @@ sub _print_filter_fieldset {
 					labels  => $labels,
 					text    => 'Publication',
 					tooltip => 'publication filter - Select a publication to filter your search '
-					  . 'to only those isolates that match the selected publication.'
+					  . 'to only those isolates that match the selected publication.',
+					grid  => 1,
+					class => 'do_not_calc_width',
+					style => 'width:240px'
 				}
 			  );
 		}
@@ -220,16 +224,19 @@ sub _print_filter_fieldset {
 				{
 					text    => $field,
 					tooltip => "$field ($scheme_info->{'name'}) filter - Select $a_or_an $field to "
-					  . "filter your search to only those profiles that match the selected $field."
+					  . "filter your search to only those profiles that match the selected $field.",
+					grid  => 1,
+					class => 'do_not_calc_width',
+					style => 'width:240px'
 				}
 			  );
 		}
 	}
 	if (@filters) {
 		say q(<fieldset id="filters_fieldset" style="float:left;display:none"><legend>Filters</legend>);
-		say q(<ul>);
-		say qq(<li><span style="white-space:nowrap">$_</span></li>) foreach @filters;
-		say q(</ul></fieldset>);
+		say q(<div class="form_container">);
+		say $_ foreach @filters;
+		say q(</div></fieldset>);
 		$self->{'filters_present'} = 1;
 	}
 	return;
@@ -239,7 +246,7 @@ sub _print_order_fieldset {
 	my ( $self, $scheme_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="display_fieldset" style="float:left"><legend>Display/sort options</legend>);
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
 	my ( $primary_key, $selectitems, $orderitems, $cleaned ) = $self->_get_select_items($scheme_id);
 	say $q->popup_menu(
 		-name   => 'order',
@@ -258,7 +265,7 @@ sub _print_order_fieldset {
 sub _print_scheme_fields {
 	my ( $self, $row, $max_rows, $scheme_id, $selectitems, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	say $q->popup_menu(
 		-name   => "s$row",
 		-id     => "s$row",
@@ -266,7 +273,13 @@ sub _print_scheme_fields {
 		-labels => $labels,
 		-class  => 'locuslist'
 	);
-	say $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
+	say $q->popup_menu(
+		-name   => "y$row",
+		-id => "y$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield( -name => "t$row", -id => "t$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -925,14 +938,16 @@ sub _print_list_fieldset {
 		-labels => $labels,
 		-class  => 'locuslist'
 	);
-	say q(<br />);
+	say q(<div>);
 	say $q->textarea(
 		-name        => 'list',
 		-id          => 'list',
 		-rows        => 6,
 		-style       => 'width:100%',
-		-placeholder => 'Enter list of values (one per line)...'
+		-placeholder => 'Enter list of values (one per line)...',
+		-style       => 'width:100%; margin-top:2px'
 	);
+	say q(</div>);
 	say q(</fieldset>);
 	return;
 }
@@ -994,14 +1009,10 @@ function render_loaded_locuslists() {
 }
 
 function render_locuslists(selector){
-	\$(selector).filter(':visible').multiselect({
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter',
-	}).multiselectfilter({
-		placeholder: 'Search'
+	\$(selector).filter(':visible').select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
 	});
 }
 END
@@ -1022,29 +1033,28 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p>)
-	  . q(<ul style="list-style:none;margin-left:-2em">);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>) . q(<ul class="toggle">);
 	my $scheme_fieldset_display = $self->{'prefs'}->{'scheme_fieldset'}
-	  || $self->_highest_entered_fields ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_scheme">$scheme_fieldset_display</a>);
+	  || $self->_highest_entered_fields ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_scheme">$scheme_fieldset_display);
 	say q(Locus/scheme field values</li>);
 	my $list_fieldset_display = $self->{'prefs'}->{'list_fieldset'}
-	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
+	  || $q->param('list') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_list">$list_fieldset_display);
 	say q(Attribute values list</li>);
 
 	if ( $self->{'filters_present'} ) {
 		my $filter_fieldset_display = $self->{'prefs'}->{'filters_fieldset'}
-		  || $self->filters_selected ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filter_fieldset_display</a>);
+		  || $self->filters_selected ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_filters">$filter_fieldset_display);
 		say q(Filters</li>);
 	}
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?)
-	  . qq(db=$self->{'instance'}&amp;page=query&amp;save_options=1" style="display:none">$save</a> )
+	  . qq(db=$self->{'instance'}&amp;page=query&amp;save_options=1" style="display:none">$save Save options</a> )
 	  . q(<span id="saving"></span><br />);
 	say q(</div>);
 	return;

@@ -21,10 +21,10 @@ package BIGSdb::Plugins::FieldBreakdown;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(COUNTRIES TREEMAP_ICON);
-use Storable qw(dclone);
-use Log::Log4perl qw(get_logger);
+use Storable          qw(dclone);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use JSON;
 
@@ -48,12 +48,12 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.10.1',
+		version    => '2.11.0',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
 		input      => 'query',
-		order      => 10,
+		order      => 20,
 		image      => '/images/plugins/FieldBreakdown/screenshot.png'
 	);
 	return \%att;
@@ -67,7 +67,8 @@ sub get_initiation_values {
 		filesaver          => 1,
 		noCache            => 0,
 		'jQuery.tablesort' => 1,
-		pluginJS           => 'FieldBreakdown.min.js'
+		pluginJS           => 'FieldBreakdown.min.js',
+		select2            => 1
 	};
 	$values->{'ol'} = 1 if $self->need_openlayers;
 	if ( $self->_has_country_optlist ) {
@@ -100,9 +101,23 @@ sub set_pref_requirements {
 
 sub _has_country_optlist {
 	my ($self) = @_;
-	return if !$self->{'xmlHandler'}->is_field('country');
-	my $thisfield = $self->{'xmlHandler'}->get_field_attributes('country');
-	return $thisfield->{'optlist'} ? 1 : 0;
+	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	if ( $self->{'xmlHandler'}->is_field($country_field) ) {
+		my $thisfield = $self->{'xmlHandler'}->get_field_attributes($country_field);
+		return 1 if ( $thisfield->{'optlist'} // q() ) eq 'yes';
+	}
+	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
+	foreach my $field ( keys %$atts ) {
+		return 1 if ( $atts->{$field}->{'country_field'} // q() ) eq 'yes';
+	}
+	return;
+}
+
+sub _is_country_field {
+	my ( $self, $field ) = @_;
+	my $attributes = $self->{'xmlHandler'}->get_field_attributes($field);
+	return 1 if ( $attributes->{'country_field'} // q() ) eq 'yes';
+	return;
 }
 
 sub _export {
@@ -218,6 +233,10 @@ sub _get_field_values {
 sub _get_display_field {
 	my ( $self, $field ) = @_;
 	my $display_field = $field;
+	$display_field =~ s/^f_//x;
+	if ( $display_field =~ /^e.+\|\|(.+)$/x ) {
+		$display_field = $1;
+	}
 	$display_field =~ s/^s_\d+_//x;
 	$display_field =~ s/^.*\.\.//x;
 	$display_field =~ tr/_/ /;
@@ -357,18 +376,21 @@ sub run {
 	say q(<div class="box" id="resultspanel" style="position:relative">);
 	my $record_count = BIGSdb::Utils::commify( $self->_get_id_count );
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
-	say q(<fieldset><legend>Field selection</legend><ul>);
-	say q(<li><label for="field">Select field:</label>);
+	say q(<fieldset><legend>Field selection</legend><div class="form_container">);
+	say q(<div class="form_label"><label for="field" class="label">Select field:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( - name => 'field', id => 'field', values => $fields, labels => $labels );
-	say q(</li><li style="margin-top:0.5em"><label for="field_type">List:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="field_type" class="label">List:</label></div>);
 	my $set_id = $self->get_set_id;
 	my $loci   = $self->{'datastore'}->get_loci( { set_id => $set_id, analysis_pref => 1 } );
 	my $types  = [qw(fields)];
 	push @$types, 'loci' if @$loci;
 	my $schemes = $self->{'datastore'}->get_scheme_list( { with_pk => 1, set_id => $set_id, analysis_pref => 1 } );
 	push @$types, 'schemes' if @$schemes;
+	say q(<div class="form_value">);
 	say $q->radio_group( -name => 'field_type', -values => $types, -default => 'fields' );
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
 	say q(<div id="bb_chart" style="min-height:400px;display:flex;justify-content:center">);
@@ -413,12 +435,12 @@ sub _print_map_controls {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="map_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
-	say q(<ul>);
+	say q(<div class="form_container">);
 	$self->_print_chart_types;
-	say q(<style>.theme.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
+	say q(<style>.theme.fa-square {text-shadow: 1px 1px 1px #999;font-size:1.8em;margin-right:0.2em;cursor:pointer})
 	  . q(</style>);
-	say q(<li><span style="float:left;margin-right:0.5em">Theme:</span>)
-	  . q(<div style="display:inline-block">)
+	say q(<div class="form_label"><label class="label">Theme:</label></div>)
+	  . q(<div class="form_value"><div style="display:inline-block">)
 	  . q(<span id="theme_grey" style="color:#636363" class="theme fas fa-square"></span>)
 	  . q(<span id="theme_blue" style="color:#3182bd" class="theme fas fa-square"></span>)
 	  . q(<span id="theme_green" style="color:#31a354" class="theme fas fa-square"></span>)
@@ -454,10 +476,12 @@ sub _print_map_controls {
 	  . q(class="theme fas fa-square"></span>)
 	  . q(<span id="theme_yellow_orange_red" style="color:#fecc5c;text-shadow:2px 2px 2px #bd0026" )
 	  . q(class="theme fas fa-square"></span>)
-	  . q(</span></div></li>);
-	say q(<li><label for="height">Range:</label>);
-	say q(<div id="colour_range" style="display:inline-block;width:12em;margin-left:0.5em"></div></li>);
-	say q(<li><label for="projection">Projection:</label>);
+	  . q(</span></div></div>);
+	say q(<div class="form_label"><label for="height" class="label">Range:</label></div>);
+	say q(<div class="form_value">);
+	say q(<div id="colour_range" style="display:inline-block;width:200px"></div></div>);
+	say q(<div class="form_label"><label for="projection" class="label">Projection:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-id     => 'projection',
 		-values => [
@@ -467,8 +491,8 @@ sub _print_map_controls {
 		],
 		-default => 'Natural Earth'
 	);
-	say q(</li>);
-	say q(</ul></fieldset>);
+	say q(</div>);
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -478,7 +502,7 @@ sub _print_geography_controls {
 	my $q               = $self->{'cgi'};
 	say q(<fieldset id="geography_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
-	say q(<ul>);
+	say q(<div class="form_container">);
 	my %allowed = map { $_ => 1 } qw(Map Aerial);
 	my $guid    = $self->get_guid;
 	my $style;
@@ -493,19 +517,20 @@ sub _print_geography_controls {
 		$style = 'Map';
 	}
 	if ( $mapping_options->{'option'} > 0 ) {
-		say q(<li><label for="view">View:</label>);
+		say q(<div class="form_label"><label for="view" class="label">View:</label></div>);
+		say q(<div class="form_value">);
 		say $q->radio_group(
 			-name    => 'geography_view',
 			-id      => 'geography_view',
 			-values  => [qw(Map Aerial)],
 			-default => $style
 		);
-		say q(</li>);
+		say q(</div>);
 	}
 	say q(<style>.marker_colour.fa-square {text-shadow: 2px 2px 2px #999;font-size:1.8em;)
 	  . q(margin-right:0.2em;cursor:pointer}</style>);
-	say q(<li><span style="float:left;margin-right:0.5em">Marker colour:</span>)
-	  . q(<div style="display:inline-block">)
+	say q(<div class="form_label"><label class="label">Marker colour:</label></div>)
+	  . q(<div class="form_value"><div style="display:inline-block">)
 	  . q(<span id="marker_red" style="color:#ff0000" class="marker_colour fas fa-square"></span>)
 	  . q(<span id="marker_green" style="color:#0d823a" class="marker_colour fas fa-square"></span>)
 	  . q(<span id="marker_blue" style="color:#0000ff" class="marker_colour fas fa-square"></span>)
@@ -513,9 +538,11 @@ sub _print_geography_controls {
 	  . q(<span id="marker_orange" style="color:#fa5502" class="marker_colour fas fa-square"></span>)
 	  . q(<span id="marker_yellow" style="color:#fccf03" class="marker_colour fas fa-square"></span>)
 	  . q(<span id="marker_grey" style="color:#303030" class="marker_colour fas fa-square"></span>);
-	say q(</li><li><label for="segments">Marker size:</label>);
-	say q(<div id="marker_size" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
-	say q(</li></ul></fieldset>);
+	say q(</div></div>);
+	say q(<div class="form_label"><label for="segments" class="label">Marker size:</label></div>);
+	say q(<div class="form_value">);
+	say q(<div id="marker_size" style="display:inline-block;width:200px"></div>);
+	say q(</div></div></fieldset>);
 	return;
 }
 
@@ -524,12 +551,14 @@ sub _print_pie_controls {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="pie_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
-	say q(<ul>);
-	say q(<li><label for="segments">Max segments:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="segments" class="label">Max segments:</label></div>);
+	say q(<div class="form_value">);
 	say q(<div id="segments" style="display:inline-block;width:8em;margin-left:0.5em"></div>);
 	say q(<div id="segments_display" style="display:inline-block;width:3em;margin-left:1em"></div></li>);
+	say q(</div>);
 	$self->_print_chart_types;
-	say q(</ul></fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -538,9 +567,9 @@ sub _print_treemap_controls {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="treemap_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
-	say q(<ul>);
+	say q(<div class="form_container">);
 	$self->_print_chart_types;
-	say q(</ul></fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -548,7 +577,8 @@ sub _print_chart_types {
 	my ($self)  = @_;
 	my $q       = $self->{'cgi'};
 	my $treemap = TREEMAP_ICON;
-	say q(<li>);
+	say q(<div class="form_label"><label class="label">Chart type:</label></div>);
+	say q(<div class="form_value">);
 	say q(<a class="chart_icon transform_to_pie" title="Pie chart" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-pie" style="color:#448"></span></a>);
 	say q(<a class="chart_icon transform_to_donut" title="Donut chart" style="display:none">)
@@ -561,7 +591,7 @@ sub _print_chart_types {
 	  . q(<span class="chart_icon fas fa-2x fa-chart-column" style="color:#484"></span></a>);
 	say q(<a class="chart_icon transform_to_line" title="Line chart (cumulative values)" style="display:none">)
 	  . q(<span class="chart_icon fas fa-2x fa-chart-line" style="color:#844"></span></a>);
-	say q(</li>);
+	say q(</div>);
 	return;
 }
 
@@ -570,13 +600,15 @@ sub _print_bar_controls {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="bar_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
-	say q(<ul>);
-	say q(<li><label for="orientation">Orientation:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="orientation" class="label">Orientation:</label></div>);
+	say q(<div class="form_value">);
 	say $q->radio_group( -name => 'orientation', -values => [qw(horizontal vertical)], -default => 'horizontal' );
-	say q(</li>);
-	say q(<li><label for="height">Height:</label>);
-	say q(<div id="bar_height" style="display:inline-block;width:8em;margin-left:0.5em"></div></li>);
-	say q(</ul></fieldset>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="height" class="label">Height:</label></div>);
+	say q(<div class="form_value">);
+	say q(<div id="bar_height" style="display:inline-block;width:8em;margin-left:0.5em"></div></div>);
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -585,11 +617,12 @@ sub _print_line_controls {
 	my $q = $self->{'cgi'};
 	say q(<fieldset id="line_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
-	say q(<ul>);
-	say q(<li><label for="height">Height:</label>);
-	say q(<div id="line_height" style="display:inline-block;width:8em;margin-left:0.5em"></div></li>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="height" class="label">Height:</label></div>);
+	say q(<div class="form_value">);
+	say q(<div id="line_height" style="display:inline-block;width:200px"></div></div>);
 	$self->_print_chart_types;
-	say q(</ul></fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -699,17 +732,30 @@ sub _get_fields_js {
 	my $buffer = q(var field_list=) . encode_json($fields) . qq(;\n);
 	$buffer .= qq(\tvar field_types = {@type_values};\n);
 	if ( $self->_has_country_optlist ) {
-		my @map_fields = qw(f_country e_country||continent);
+
+		my @map_fields;
+		my @country_fields;
+		my $atts          = $self->{'xmlHandler'}->get_all_field_attributes;
+		my $country_field = $self->{'system'}->{'country_field'} // 'country';
+		foreach my $field ( keys %$atts ) {
+			if ( $field eq $country_field || ( $atts->{$field}->{'country_field'} // q() ) eq 'yes' ) {
+				push @map_fields,     qq(f_$field);
+				push @map_fields,     qq(e_$field||continent);
+				push @country_fields, qq(f_$field);
+			}
+		}
+
 		local $" = q(',');
-		$buffer .= qq(var map_fields = ['@map_fields'];\n);
+		$buffer .= qq(const map_fields = ['@map_fields'];\n);
+		$buffer .= qq(const country_fields = ['@country_fields'];\n);
 	} else {
-		$buffer .= qq(var map_fields = [];\n);
+		$buffer .= qq(const map_fields = [];\n);
 	}
 	if (@geography_lookup_values) {
 		local $" = q(',');
-		$buffer .= qq(var geography_point_lookup_fields = ['@geography_lookup_values'];\n);
+		$buffer .= qq(const geography_point_lookup_fields = ['@geography_lookup_values'];\n);
 	} else {
-		$buffer .= qq(var geography_point_lookup_fields = [];\n);
+		$buffer .= qq(const geography_point_lookup_fields = [];\n);
 	}
 	return $buffer;
 }
@@ -756,9 +802,8 @@ sub _get_schemes_js {
 }
 
 sub get_plugin_javascript {
-	my ($self)              = @_;
-	my $has_valid_countries = $self->_has_country_optlist;
-	my $query_params        = $self->_get_query_params;
+	my ($self) = @_;
+	my $query_params = $self->_get_query_params;
 	local $" = q(&);
 	my $url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=plugin&name=FieldBreakdown);
 	my $plugin_prefs_ajax_url =
@@ -806,7 +851,8 @@ sub _ajax {
 sub _get_field_freqs {
 	my ( $self, $field, $options ) = @_;
 	my ( $needs_conversion, $qry );
-	my $country_field = $self->{'system'}->{'country_field'} // 'country';
+	my $country_field    = $self->{'system'}->{'country_field'} // 'country';
+	my $is_country_field = $field eq $country_field || $self->_is_country_field($field);
 	if ( $options->{'geography_point_lookup'} ) {
 		$qry = "SELECT $country_field,$field AS label,COUNT(*) AS value FROM $self->{'system'}->{'view'} v "
 		  . "JOIN id_list i ON v.id=i.value GROUP BY $country_field,label";
@@ -819,7 +865,7 @@ sub _get_field_freqs {
 	my $order = $options->{'order'} ? $options->{'order'} : 'value DESC';
 	$qry .= " ORDER BY $order";
 	my $values = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'all_arrayref', slice => {} } );
-	if ( $field eq $country_field ) {
+	if ($is_country_field) {
 		my $countries = dclone(COUNTRIES);
 		foreach my $value (@$values) {
 			$value->{'iso3'} = $countries->{ $value->{'label'} }->{'iso3'} // q(XXX);

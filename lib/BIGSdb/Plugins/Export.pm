@@ -1,6 +1,6 @@
 #Export.pm - Export plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,7 +21,7 @@ package BIGSdb::Plugins::Export;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent        qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use BIGSdb::Constants qw(:interface);
@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.16.1',
+		version            => '1.17.1',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -59,7 +59,7 @@ sub get_attributes {
 		requires           => 'ref_db,js_tree,offline_jobs',
 		help               => 'tooltips',
 		image              => '/images/plugins/Export/screenshot.png',
-		order              => 15,
+		order              => 20,
 		system_flag        => 'DatasetExport',
 		enabled_by_default => 1
 	);
@@ -71,7 +71,7 @@ sub get_initiation_values {
 }
 
 sub get_plugin_javascript {
-	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
+	my ( $on, $off, $save ) = ( ON, OFF, SAVE );
 	my $js = << "END";
 function enable_ref_controls(){
 	if (\$("#m_references").prop("checked")){
@@ -120,7 +120,13 @@ function enable_tag_controls(){
  		\$("span#example_private").css("color",\$('#private_fg').val());
  	});
  	\$("#panel_trigger,#close_trigger").click(function(){			
-		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
+		\$("#modify_panel").toggle("slide",{direction:"right"},"fast", function(){
+			if (\$("#modify_panel").is(":visible")){
+				\$("#modal_overlay").addClass("open");
+			} else {
+				\$("#modal_overlay").removeClass("open");
+			}
+		});
 		return false;
 	});
  	\$("#panel_trigger").show();
@@ -131,35 +137,43 @@ function enable_tag_controls(){
 		var trigger = \$("#panel_trigger");
  		var container = \$("#modify_panel");
 		if (!container.is(e.target) && container.has(e.target).length === 0 && 
-		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+		!trigger.is(e.target) && trigger.has(e.target).length === 0 && container.is(':visible')) {
 			container.hide();
+			\$("#modal_overlay").removeClass("open");			
 		}
 	});
 	\$(".fieldset_trigger").click(function(event) {
-		let show = '$show';
-		let hide = '$hide';
+		let show = '$on';
+		let hide = '$off';
 		let fieldset = this.id.replace('show_','');
 		event.preventDefault();
 		if(\$(this).html() == hide){
 			clear_form(fieldset);
 		}
 		\$("#" + fieldset + "_fieldset").toggle(100);
-		\$(this).html(\$(this).html() == show ? hide : show);
+		let value = \$(this).html();
+		if (value.includes(hide)){
+			\$(this).html(value.replace(hide,show));
+		} else if (value.includes(show)){
+			\$(this).html(value.replace(show,hide));
+		}	
 		\$("a#save_options").fadeIn();
 		return false;
 	});
 	\$("a#save_options").click(function(event){		
 		event.preventDefault();
-		let show = '$show';
+		let show = '$off';
 		let save_url = this.href;
 		let fieldsets = ['eav','composite','refs','private','classification','analysis','lincode','molwt','options'];
 		for (let i = 0; i < fieldsets.length; ++i) {			
-			let value = \$("#show_" + fieldsets[i]).html() == show ? 0 : 1;
-			save_url += "&" + fieldsets[i] + "=" + value;
+			let value;
+			if (\$("#show_" + fieldsets[i]).length){
+				value = \$("#show_" + fieldsets[i]).html().includes(show) ? 0 : 1;
+				save_url += "&" + fieldsets[i] + "=" + value;
+			}
 		}
-	  	\$(this).attr('href', function(){  	
-	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100)
-	  		.animate({backgroundColor: "#f0f0f0"},100);
+		
+	  	\$(this).attr('href', function(){  	  		
 	  		\$("span#saving").text('Saving...');
 		  	\$.ajax({
 	  			url : save_url,
@@ -167,6 +181,7 @@ function enable_tag_controls(){
 	  				\$("a#save_options").hide();
 	  				\$("span#saving").text('');
 	  				\$("a#save_options").html('$save');
+	  				\$("#modal_overlay").removeClass("open");
 	  				\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
 	  			}
 	  		});
@@ -174,10 +189,12 @@ function enable_tag_controls(){
 	});
 	if (!localStorage.getItem('export_onboarding_202411')) {
         \$('#onboarding').show();
+        \$("#modal_overlay").addClass("open");
         localStorage.setItem('export_onboarding_202411', 'true');
     }
     \$('#close_onboarding').click(function() {
         \$('#onboarding').hide();
+        \$("#modal_overlay").removeClass("open");
     });
     //Reset form if not visible, e.g. after reloading.
 	let fieldsets = ['eav','composite','refs','private','classification','analysis','lincode','molwt','options'];
@@ -520,6 +537,7 @@ sub run {
 		$self->_save_options;
 		return;
 	}
+
 	say q(<h1>Export dataset</h1>);
 	if ( ( $self->{'system'}->{'DatasetExport'} // q() ) eq 'no' ) {
 		$self->print_bad_status( { message => q(Dataset exports are disabled.) } );
@@ -561,6 +579,24 @@ sub run {
 			local $" = ', ';
 			$self->print_bad_status(
 				{ message => qq(The following isolates in your pasted list are invalid: @$invalid_ids.) } );
+			$self->_print_interface;
+			return;
+		}
+		my $limit =
+		  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
+		  ? $self->{'system'}->{'export_limit'}
+		  : MAX_DEFAULT_DATA_POINTS;
+		my $data_points = @$ids * @$selected_fields;
+		if ( $data_points > $limit ) {
+			my $nice_data_points = BIGSdb::Utils::commify($data_points);
+			my $nice_limit       = BIGSdb::Utils::commify($limit);
+			$self->print_bad_status(
+				{
+					message =>
+					  qq(The submitted job is too big - you requested output containing $nice_data_points data points )
+					  . qq((isolates x fields). Jobs are limited to $nice_limit data points.)
+				}
+			);
 			$self->_print_interface;
 			return;
 		}
@@ -658,10 +694,12 @@ sub _get_excel_formatting {
 
 sub _print_onboarding {
 	my ($self) = @_;
-	say q(<div id="onboarding" style="max-width:300px"><h2 style="color:white">More options</h2>)
+	my $ok = OKAY;
+	say q(<div id="onboarding" style="max-width:300px">)
+	  . q(<h2>More options</h2>)
 	  . q(<p>Please note that some export options are now hidden by default but are available for )
 	  . q(selection by clicking the 'Modify Form' tab at the top-right of the page.</p>)
-	  . q(<button id="close_onboarding">Close</button></div>);
+	  . qq(<p style="text-align:center"><a class="button" id="close_onboarding">$ok OK</a></p></div>);
 	return;
 }
 
@@ -698,7 +736,7 @@ sub _print_interface {
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset(
-		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ], no_all_none => 1 } );
+		{ extended_attributes => 1, default => [ 'id', $self->{'system'}->{'labelfield'} ] } );
 	$self->print_eav_fields_fieldset( { no_all_none => 1, hide => $self->{'plugin_prefs'}->{'eav_fieldset'} ? 0 : 1 } );
 	$self->print_composite_fields_fieldset( { hide => $self->{'plugin_prefs'}->{'composite_fieldset'} ? 0 : 1 } );
 	$self->_print_ref_fields;
@@ -712,11 +750,11 @@ sub _print_interface {
 	$self->_print_molwt_options;
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say q(<div style="clear:both"></div>);
-	$self->_print_modify_search_fieldset;
 	$q->param( set_id => $set_id );
 	say $q->hidden($_) foreach qw (db page name set_id);
 	say $q->end_form;
 	say q(</div></div>);
+	$self->_print_modify_search_fieldset;
 	return;
 }
 
@@ -731,20 +769,6 @@ sub run_job {
 	my @fields   = split /\|\|/x, $params->{'selected_fields'};
 	$params->{'job_id'} = $job_id;
 	my $ids = $self->{'jobManager'}->get_job_isolates($job_id);
-	my $limit =
-	  BIGSdb::Utils::is_int( $self->{'system'}->{'export_limit'} )
-	  ? $self->{'system'}->{'export_limit'}
-	  : MAX_DEFAULT_DATA_POINTS;
-	my $data_points = @$ids * @fields;
-
-	if ( $data_points > $limit ) {
-		my $nice_data_points = BIGSdb::Utils::commify($data_points);
-		my $nice_limit       = BIGSdb::Utils::commify($limit);
-		my $msg = qq(<p>The submitted job is too big - you requested output containing $nice_data_points data points )
-		  . qq((isolates x fields). Jobs are limited to $nice_limit data points.</p>);
-		$self->{'jobManager'}->update_job_status( $job_id, { status => 'failed', message_html => $msg } );
-		return;
-	}
 	$self->_write_tab_text(
 		{
 			ids      => $ids,
@@ -756,6 +780,7 @@ sub run_job {
 		}
 	);
 	return if $self->{'exit'};
+
 	if ( -e $filename ) {
 		$self->{'jobManager'}->update_job_output(
 			$job_id,
@@ -1561,53 +1586,62 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="close_trigger" id="close_trigger"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p>Click to add or remove additional<br />export category selections:</p>)
-	  . q(<ul style="list-style:none;margin-left:-2em">);
+	say q(<p class="modal_description">Click to add or remove additional export category selections:</p>)
+	  . q(<h3>General</h3><ul class="toggle">);
+	my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_options">$options_display);
+	say q(General options</li>);
+	say q(</ul><h3>Metadata</h3><ul class="toggle">);
+
 	if ( $self->{'eav_fieldset'} ) {
-		my $eav_fieldset_display = $self->{'plugin_prefs'}->{'eav_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_eav">$eav_fieldset_display</a>);
+		my $eav_fieldset_display = $self->{'plugin_prefs'}->{'eav_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_eav">$eav_fieldset_display);
 		say q(Secondary metadata</li>);
 	}
 	if ( $self->{'composite_fieldset'} ) {
-		my $composite_fieldset_display = $self->{'plugin_prefs'}->{'composite_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_composite">$composite_fieldset_display</a>);
+		my $composite_fieldset_display = $self->{'plugin_prefs'}->{'composite_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_composite">$composite_fieldset_display);
 		say q(Composite fields</li>);
 	}
-	my $refs_display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_refs">$refs_display</a>);
+	my $refs_display = $self->{'plugin_prefs'}->{'refs_fieldset'} ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_refs">$refs_display);
 	say q(References</li>);
+	if ( $self->{'classification_fieldset'} || $self->{'lincode_fieldset'} ) {
+		say q(</ul><h3>Schemes</h3><ul class="toggle">);
+		if ( $self->{'classification_fieldset'} ) {
+			my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? ON : OFF;
+			say qq(<li class="fieldset_trigger" id="show_classification">$classification_display);
+			say q(Classification schemes</li>);
+		}
+		if ( $self->{'lincode_fieldset'} ) {
+			my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? ON : OFF;
+			say qq(<li class="fieldset_trigger" id="show_lincode">$lincode_display);
+			say q(LIN code prefixes</li>);
+		}
+	}
 	if ( $self->{'private_fieldset'} ) {
-		my $private_display = $self->{'plugin_prefs'}->{'private_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_private">$private_display</a>);
+		say q(</ul><h3>Private data</h3><ul class="toggle">);
+		my $private_display = $self->{'plugin_prefs'}->{'private_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_private">$private_display);
 		say q(Private records</li>);
 	}
-	if ( $self->{'classification_fieldset'} ) {
-		my $classification_display = $self->{'plugin_prefs'}->{'classification_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_classification">$classification_display</a>);
-		say q(Classification schemes</li>);
-	}
-	if ( $self->{'lincode_fieldset'} ) {
-		my $lincode_display = $self->{'plugin_prefs'}->{'lincode_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_lincode">$lincode_display</a>);
-		say q(LIN code prefixes</li>);
-	}
+	say q(</ul><h3>Analysis</h3><ul class="toggle">);
 	if ( $self->{'analysis_fieldset'} ) {
-		my $analysis_display = $self->{'plugin_prefs'}->{'analysis_fieldset'} ? HIDE : SHOW;
-		say qq(<li><a href="" class="button fieldset_trigger" id="show_analysis">$analysis_display</a>);
+		my $analysis_display = $self->{'plugin_prefs'}->{'analysis_fieldset'} ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_analysis">$analysis_display);
 		say q(Analysis fields</li>);
 	}
-	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_molwt">$molwt_display</a>);
+	my $molwt_display = $self->{'plugin_prefs'}->{'molwt_fieldset'} ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_molwt">$molwt_display);
 	say q(Molecular weights</li>);
-	my $options_display = $self->{'plugin_prefs'}->{'options_fieldset'} ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_options">$options_display</a>);
-	say q(General options</li>);
+
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=plugin&amp;name=Export&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	  . qq(page=plugin&amp;name=Export&amp;save_options=1" style="display:none">$save Save options</a> )
+	  . q(<span id="saving"></span><br />);
 	say q(</div>);
 	return;
 }

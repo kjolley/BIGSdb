@@ -1,6 +1,6 @@
 /**
  * Written by Keith Jolley 
- * Copyright (c) 2021-2024, University of Oxford 
+ * Copyright (c) 2021-2026, University of Oxford 
  * E-mail: keith.jolley@biology.ox.ac.uk
  * 
  * This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -74,19 +74,20 @@ $(function() {
 		}
 	});
 	$("#dashboard_panel_trigger,#close_dashboard_trigger").click(function() {
-		$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
+		$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast", function() {
+			if ($("#modify_dashboard_panel").is(":visible")) {
+				$("#modal_overlay").addClass("open");
+			} else {
+				$("#modal_overlay").removeClass("open");
+			}
+		});
 		$("#dashboard_panel_trigger").show();
 		return false;
 	});
 	$("#dashboard_panel_trigger").show();
-	$(document).mouseup(function(e) {
-		var container = $("#modify_dashboard_panel");
-
-		// if the target of the click isn't the container nor a
-		// descendant of the container
-		if (!container.is(e.target) && container.has(e.target).length === 0) {
-			container.hide();
-		}
+	$('#modal_overlay').on('click', function () {
+	  $('#modify_dashboard_panel').hide();
+	  $(this).removeClass('open');
 	});
 	$("#fill_gaps").change(function() {
 		fill_gaps = $("#fill_gaps").prop('checked');
@@ -404,7 +405,7 @@ function setGridMargins(grid) {
 function showOrHideElements() {
 	var small_screen = $(window).width() < MOBILE_WIDTH;
 	$("div.hide_mobile").css("display", small_screen ? "none" : "block");
-	$("div.hide_border").css("border", small_screen ? "0" : "1px solid #ccc");
+	$("div.hide_border").css("border", small_screen ? "0" : "1px solid var(--border-card)");
 	$.each(elements, function(index, element) {
 		if (element['display'] == 'setup') {
 			$("div#element_" + element['id'] + " div.item-content").css("display", "block");
@@ -543,9 +544,10 @@ function editElement(grid, id, setup) {
 		}
 		$("span#wait_" + id).hide();
 		showOrHideControlElements(id);
-
+		let m = document.cookie.match(/(?:^|;\s*)theme=(dark|light)/);
+		let colour_scheme = m ? m[1] : 'light';
 		$("select.watermark_selector").fontIconPicker({
-			theme: 'fip-darkgrey',
+			theme: (colour_scheme === 'light' ? 'fip-darkgrey' : 'fip-inverted'),
 			emptyIconValue: 'none',
 		});
 		$("div.modal").on("change", "#" + id + "_visualisation_type", function() {
@@ -599,7 +601,6 @@ function showOrHideControlElements(id) {
 		} else if (specific_value_display === 'number') {
 			$("fieldset#change_duration_control,fieldset#design_control").css("display", "inline");
 			$("li#watermark_control,li#text_colour_control,li#background_colour_control").css("display", "block");
-
 		}
 	} else if (visualisation_type === 'breakdown') {
 		$("li#breakdown_display_selector").css("display", "block");
@@ -625,6 +626,7 @@ function showOrHideControlElements(id) {
 			$("li#gps_map_control").css("display", "block");
 		}
 	}
+	
 }
 
 function show_palette(id) {
@@ -859,7 +861,9 @@ function saveLayout(grid) {
 }
 
 function resetDefaults() {
-	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast");
+	$("#modify_dashboard_panel").toggle("slide", { direction: "right" }, "fast", function() {
+		$("#modal_overlay").removeClass("open");
+	});
 	var reset_url = url + "&resetDefaults=1&type=" + dashboard_type;
 	if (typeof projectId !== 'undefined') {
 		reset_url += "&project_id=" + projectId;

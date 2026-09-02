@@ -1,6 +1,6 @@
 #BURST.pm - BURST plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,7 +23,7 @@ package BIGSdb::Plugins::BURST;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent        qw(BIGSdb::Plugin);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use constant PI => 3.141592654;
@@ -58,11 +58,11 @@ sub get_attributes {
 		buttontext          => 'BURST',
 		menutext            => 'BURST',
 		module              => 'BURST',
-		version             => '1.2.4',
+		version             => '1.2.5',
 		dbtype              => 'isolates,sequences',
 		seqdb_type          => 'schemes',
 		section             => 'postquery,analysis',
-		order               => 12,
+		order               => 50,
 		system_flag         => 'BURST',
 		input               => 'query',
 		requires            => 'pk_scheme',
@@ -75,6 +75,10 @@ sub get_attributes {
 		always_show_in_menu => 1
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { jQuery => 1, select2 => 1 };
 }
 
 sub run {
@@ -180,9 +184,9 @@ sub run {
 	}
 	my ( $scheme_ids_ref, $desc_ref ) = $self->extract_scheme_desc($filtered_schemes);
 	if ( @$scheme_ids_ref > 1 ) {
-		say q(<p>Select scheme: );
+		say q(<p><span class="query_block"><span class="label">Select scheme:</span>);
 		say $q->popup_menu( -name => 'scheme_id', -values => $scheme_ids_ref, -labels => $desc_ref );
-		say q(</p>);
+		say q(</span></p>);
 	} else {
 		say qq(<p>Scheme: $desc_ref->{$scheme_ids_ref->[0]}</p>);
 		$q->param( 'scheme_id', $scheme_ids_ref->[0] );
@@ -193,21 +197,23 @@ sub run {
 	  ->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id IN (SELECT scheme_id FROM '
 		  . "scheme_fields WHERE primary_key) GROUP BY scheme_id HAVING COUNT(*) <= $attr->{'max_scheme_loci'} "
 		  . 'ORDER BY COUNT(*) desc LIMIT 1' );
-	say q(<p>Group definition: profiles match at );
+	say q(<p><span class="query_block"><span class="label">Group definition: profiles match at</span>);
 	my @values;
 	for my $i ( 1 .. $locus_count - 1 ) {
 		push @values, "n-$i";
 	}
 	say $q->popup_menu( -name => 'grpdef', -value => [@values], -default => 'n-2' );
-	say q( loci to any other member of the group <span class="comment">)
-	  . q([n = number of loci in scheme]</span>.</p><p>);
+	say q(<span class="label">loci to any other member of the group <span class="comment">)
+	  . q([n = number of loci in scheme]</span>.</span></p><p>);
+	say q(<ul><li>);
 	say $q->checkbox( -name => 'shade', -label => 'Shade variant rings', -checked => 1 );
-	say q(<br />);
+	say q(</li><li>);
 	say $q->checkbox(
 		-name    => 'hide',
 		-label   => 'Hide variant names (useful for overview if names start to overlap)',
 		-checked => 0
 	);
+	say q(</li></ul>);
 	say q(</fieldset>);
 	$self->print_action_fieldset( { no_reset => 1 } );
 	say $q->end_form;

@@ -49,18 +49,18 @@ sub get_attributes {
 		  . 'that facilitates the detection of genetic clusters and their linkage to epidemiological data. It is '
 		  . 'described in <a href="https://pubmed.ncbi.nlm.nih.gov/37322495/">Mix&#227;o <i>et al.</i> 2023 <i>Genome '
 		  . 'Med</i> 15:43</a>.',
-		category            => 'Third party',
+		category            => 'Analysis',
 		buttontext          => 'ReporTree',
 		menutext            => 'ReporTree',
 		module              => 'ReporTree',
-		version             => '1.2.1',
+		version             => '1.2.2',
 		dbtype              => 'isolates',
-		section             => 'third_party,postquery',
+		section             => 'analysis,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'offline_jobs,js_tree,ReporTree',
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/reportree.html",
-		order               => 70,
+		order               => 50,
 		min                 => 2,
 		max                 => $self->_get_limit,
 		always_show_in_menu => 1,
@@ -319,7 +319,7 @@ sub _update_output_files {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2 => 1 };
 }
 
 sub _print_interface {
@@ -339,7 +339,7 @@ sub _print_interface {
 	say q(<div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $list, isolate_paste_list => 1 } );
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
-	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset( { fields_or_loci => 0 } );
 	$self->print_includes_fieldset(
 		{

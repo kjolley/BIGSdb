@@ -54,16 +54,24 @@ sub get_attributes {
 		menutext   => 'Gene presence',
 		module     => 'GenePresence',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/gene_presence.html",
-		version    => '2.3.1',
+		version    => '2.3.3',
 		dbtype     => 'isolates',
 		section    => 'analysis,postquery',
 		input      => 'query',
 		requires   => 'offline_jobs,seqbin',
 		help       => 'tooltips',
-		order      => 16,
+		order      => 50,
 		image      => '/images/plugins/GenePresence/screenshot.png'
 	);
 	return \%att;
+}
+
+sub _get_max_records {
+	my ($self) = @_;
+	my $max_records = $self->{'system'}->{'genepresence_record_limit'}
+	  // $self->{'config'}->{'genepresence_record_limit'} // MAX_RECORDS;
+	$max_records = MAX_RECORDS if !BIGSdb::Utils::is_int($max_records);
+	return $max_records;
 }
 
 sub _print_interface {
@@ -84,17 +92,15 @@ sub _print_interface {
 	say q(<div class="box" id="queryform"><p>Please select the required isolate ids and loci for comparison. )
 	  . q(In addition to selecting individual loci, you can choose to include all loci defined in schemes by )
 	  . q(selecting the appropriate scheme description.</p>);
-	my $max_records = $self->{'system'}->{'genepresence_record_limit'}
-	  // $self->{'config'}->{'genepresence_record_limit'} // MAX_RECORDS;
-	$max_records = MAX_RECORDS if !BIGSdb::Utils::is_int($max_records);
-	my $max = BIGSdb::Utils::commify($max_records);
+	my $max_records = $self->_get_max_records;
+	my $max         = BIGSdb::Utils::commify($max_records);
 	say qq(<p>Analysis is limited to $max data points (isolates x loci). );
 	say $q->start_form;
 	say q(<div class="scrollable"><div class="flex_container" style="justify-content:left">);
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_user_genome_upload_fieldset;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
-	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	$self->_print_parameters_fieldset;
 	$self->print_action_fieldset;
@@ -109,18 +115,24 @@ sub _print_parameters_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left"><legend>Parameters / options</legend>);
-	say q(<ul><li><label for ="identity" class="parameter">Min % identity:</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="identity">Min % identity:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'identity', -id => 'identity', -values => [ 30 .. 100 ], -default => 70 );
 	say $self->get_tooltip(q(Minimum % identity - Match required for partial matching.));
-	say q(</li><li><label for="alignment" class="parameter">Min % alignment:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="alignment">Min % alignment:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
 	say $self->get_tooltip( q(Minimum % alignment - Percentage of allele sequence length required to be )
 		  . q(aligned for partial matching.) );
-	say q(</li><li><label for="word_size" class="parameter">BLASTN word size:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="word_size">BLASTN word size:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 20 );
 	say $self->get_tooltip( q(BLASTN word size - This is the length of an exact match required to )
 		  . q(initiate an extension. Larger values increase speed at the expense of sensitivity.) );
-	say q(</li></ul></fieldset>);
+	say q(</div></div></fieldset>);
 	return;
 }
 
@@ -133,7 +145,7 @@ sub get_initiation_values {
 	if ( $q->param('heatmap') ) {
 		return { heatmap => 1, papaparse => 1, noCache => 1 };
 	}
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2 => 1 };
 }
 
 sub _pivot_table {
@@ -323,8 +335,9 @@ sub run {
 			push @errors, q(You must either select one or more loci or schemes.);
 			$continue = 0;
 		}
-		if ( @$loci_selected * @$ids > MAX_RECORDS ) {
-			my $limit    = BIGSdb::Utils::commify(MAX_RECORDS);
+		my $max_records = $self->_get_max_records;
+		if ( @$loci_selected * @$ids > $max_records ) {
+			my $limit    = BIGSdb::Utils::commify($max_records);
 			my $selected = BIGSdb::Utils::commify( @$loci_selected * @$ids );
 			$self->print_bad_status(
 				{
@@ -694,7 +707,7 @@ function get_config(attribute){
 	var config = {
 		container: document.getElementById('heatmap'),
   		radius: radius,
- 		opacity: 1,
+ 		opacity: 0.6,
   		blur: blur
 	};
 	if (attribute == 'completion'){

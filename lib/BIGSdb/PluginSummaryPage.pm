@@ -23,7 +23,7 @@ use 5.010;
 use parent qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
-use constant CAT_ORDER => qw(breakdown export analysis third_party miscellaneous);
+use constant CAT_ORDER => qw(breakdown export analysis external miscellaneous);
 
 sub print_content {
 	my ($self)             = @_;
@@ -110,8 +110,8 @@ sub _get_sub_cats {
 	my ( $self, $cat ) = @_;
 	my %subcats = (
 		export   => [qw(export)],
-		analysis => [qw(breakdown analysis third_party)],
-		all      => [qw(breakdown export analysis third_party miscellaneous)]
+		analysis => [qw(breakdown analysis external)],
+		all      => [qw(breakdown export analysis external miscellaneous)]
 	);
 	my $set_id         = $self->get_set_id;
 	my $subcat_plugins = {};

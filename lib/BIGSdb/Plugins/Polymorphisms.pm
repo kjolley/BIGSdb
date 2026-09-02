@@ -21,7 +21,7 @@ package BIGSdb::Plugins::Polymorphisms;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugins::LocusExplorer);
+use parent        qw(BIGSdb::Plugins::LocusExplorer);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 use Try::Tiny;
@@ -48,16 +48,17 @@ sub get_attributes {
 		  . 'sites present in the selected dataset. These are also shown in a tabular form with precise frequencies '
 		  . 'for each nucleotide at every position.',
 		category    => 'Breakdown',
+		buttontext  => 'Polymorphisms',
 		menutext    => 'Polymorphic sites',
 		module      => 'Polymorphisms',
-		version     => '1.2.2',
+		version     => '1.2.3',
 		dbtype      => 'isolates',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/polymorphisms.html",
 		section     => 'breakdown,postquery',
 		requires    => 'aligner,offline_jobs',
 		input       => 'query',
 		help        => 'tooltips',
-		order       => 16,
+		order       => 50,
 		image       => '/images/plugins/Polymorphisms/screenshot.png',
 		max         => MAX_SEQUENCES,
 		system_flag => 'Polymorphisms'

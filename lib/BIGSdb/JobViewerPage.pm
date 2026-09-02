@@ -68,7 +68,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	} else {
-		$self->{$_} = 1 foreach qw(jQuery jQuery.slimbox jQuery.tablesort packery noCache allowExpand);
+		$self->{$_} = 1 foreach qw(jQuery jQuery.tablesort packery lightbox noCache allowExpand);
 	}
 	$self->set_level1_breadcrumbs;
 	return if !defined $id;
@@ -437,25 +437,29 @@ sub _print_output {
 			$file_type = $1;
 		}
 		my $icon = $icons{$file_type} // MISC_FILE;
-		my $text =
-			qq(<div class="file_output"><a href="$url">)
-		  . qq(<span style="float:left;margin-right:1em">$icon</span></a>)
-		  . qq(<div style="width:90%;margin-top:1em"><a href="$url">$link_text</a>);
+		my $is_image_file = $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x;
+		my $class = $is_image_file ? 'image_file_output' : 'file_output';
+		my $text = qq(<div class="$class"><a href="$url">);
+		$text.= q(<div>) if $is_image_file;
+		$text  .= qq(<span style="float:left;margin-right:1em">$icon</span></a>)
+		  . qq(<div style="width:90%;margin:5px 0;vertical-align:middle"><a href="$url">$link_text</a>);
 		$text .= qq( - $comments) if $comments;
 		my $size = -s qq($self->{'config'}->{'tmp_dir'}/$output->{$description}) // 0;
 		if ( $size > ( 1024 * 1024 ) ) {    #1Mb
 			my $size_in_MB = BIGSdb::Utils::decimal_place( $size / ( 1024 * 1024 ), 1 );
 			$text .= qq( ($size_in_MB MB));
 		}
+		$text .= q(</div>);
 		$include_in_tar++ if $size < ( 10 * 1024 * 1024 );    #10MB
-		if ( $output->{$description} =~ /\.png$/x || $output->{$description} =~ /\.svg$/x ) {
+		if ( $is_image_file ) {
 			$text .=
-				q(<div style="margin-top:1em;text-align:center">)
-			  . qq(<a href="/tmp/$output->{$description}" data-rel="lightbox-1" class="lightbox" )
-			  . qq(title="$link_text"><img src="/tmp/$output->{$description}" alt="" )
-			  . q(style="max-width:200px;border:1px dashed black" /></a><p>(click to enlarge)</p></div>);
+				q(</div><div style="margin-top:1em;text-align:center">)
+			  . qq(<a href="/tmp/$output->{$description}" data-lightbox="lightbox-1"  )
+			  . qq(data-title="$link_text"><img src="/tmp/$output->{$description}" alt="" )
+			  . q(style="max-width:280px;max-height:200px;border:1px dashed black" /></a>)
+			  .q(<p><span class="comment">(click to enlarge)</span></p></div>);
 		}
-		$text .= q(</div></div>);
+		$text .= q(</div>);
 		push @buffer, $text;
 	}
 	my $tar_msg =
@@ -466,8 +470,8 @@ sub _print_output {
 	my $url  = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 	  . qq(page=job&amp;id=$job->{'id'}&amp;output=archive);
 	push @buffer,
-		qq(<div class="file_output"><a href="$url"><span style="float:left;margin-right:1em">$icon</span></a>)
-	  . q(<div style="width:90%;margin-top:1em">)
+		qq(<div class="file_output"><a href="$url"><span style="margin-right:1em">$icon</span></a>)
+	  . q(<div>)
 	  . qq(<a href="$url">Tar file containing all output files</a>$tar_msg</div></div>)
 	  if $job->{'status'} eq 'finished' && $include_in_tar > 1;
 	if (@buffer) {

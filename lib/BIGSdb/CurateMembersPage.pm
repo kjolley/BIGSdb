@@ -20,22 +20,22 @@ package BIGSdb::CurateMembersPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage);
+use parent            qw(BIGSdb::CuratePage);
 use BIGSdb::Constants qw(:interface);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub get_title {
 	my ($self) = @_;
-	my $table = $self->{'cgi'}->param('table');
-	my $type = $self->get_record_name($table) // 'record';
+	my $table  = $self->{'cgi'}->param('table');
+	my $type   = $self->get_record_name($table) // 'record';
 	return qq(Batch update ${type}s);
 }
 
 sub print_content {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $table  = $q->param('table');
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $table       = $q->param('table');
 	my %valid_table = map { $_ => 1 } qw (user_group_members locus_curators scheme_curators);
 	if ( !$self->{'datastore'}->is_table($table) ) {
 		say q(<h1>Batch update</h1>);
@@ -86,7 +86,7 @@ sub _print_interface {
 				#make sure 'id IN' has a space before it - used in the substitution
 				#a few lines on (also matches scheme_id otherwise).
 				$set_clause =
-				    'AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN '
+					'AND ( id IN (SELECT locus FROM scheme_members WHERE scheme_id IN '
 				  . "(SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) OR id IN (SELECT "
 				  . "locus FROM set_loci WHERE set_id=$set_id))";
 			} elsif ( $table eq 'scheme_curators' ) {
@@ -136,13 +136,13 @@ sub _print_interface {
 		);
 		say q(</td></tr>);
 		say q(<tr><td style="text-align:center"><input type="button" onclick='listbox_selectall("available",true)' )
-		  . q(value="All" style="margin-top:1em" class="small_submit" />);
+		  . q(value="All" style="margin:0.5em 0 0 0" class="button" />);
 		say q(<input type="button" onclick='listbox_selectall("available",false)' value="None" )
-		  . q(style="margin-top:1em" class="small_submit" /></td><td></td>);
+		  . q(style="margin:0.5em 0 0 0" class="button" /></td><td></td>);
 		say q(<td style="text-align:center"><input type="button" onclick='listbox_selectall("selected",true)' )
-		  . q(value="All" style="margin-top:1em" class="small_submit" />);
+		  . q(value="All" style="margin:0.5em 0 0 0" class="button" />);
 		say q(<input type="button" onclick='listbox_selectall("selected",false)' value="None" )
-		  . q(style="margin-top:1em" class="small_submit" />);
+		  . q(style="margin:0.5em 0 0 0" class="button" />);
 		say q(</td></tr>);
 
 		if ( $table eq 'locus_curators' ) {
@@ -247,8 +247,10 @@ sub _print_user_form {
 	  . q(page=tableQuery&amp;table=users">set to curator</a> for permissions to work.</p>)
 	  if $q->param('table') =~ /_curators$/x;
 	say $q->start_form;
-	say $self->get_filter( 'users', \@users, { class => 'display', labels => \%usernames } );
+	say q(<span class="query_block">);
+	say $self->get_filter( 'users', \@users, { class => 'display', labels => \%usernames, ucfirst => 1 } );
 	say $q->submit( -name => 'Select', -class => 'small_submit' );
+	say q(</span>);
 	say $q->hidden($_) foreach qw(db page table);
 	say $q->end_form;
 	say q(</fieldset>);
@@ -293,7 +295,7 @@ sub _get_labels {
 	my ( $self, $table ) = @_;
 	my %labels;
 	my $table_data = $self->_get_table_data($table);
-	my $field = $table eq 'scheme_curators' ? 'name' : 'description';
+	my $field      = $table eq 'scheme_curators' ? 'name' : 'description';
 	if ( $table ne 'locus_curators' ) {
 		my $data = $self->{'datastore'}->run_query( "SELECT id, $field FROM $table_data->{'parent'}",
 			undef, { fetch => 'all_arrayref', slice => {} } );
@@ -305,17 +307,6 @@ sub _get_labels {
 sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
-\$(function () {
-  \$("select#users_list").select2({
-		width: '240px',
-		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
-	});
-	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
-	\$(document).on('select2:open', () => {
-   	   document.querySelector('.select2-search__field').focus();
-	}); 
-});
 function listbox_selectall(listID, isSelect) {
 	\$("#" + listID + " option").prop("selected",isSelect);
 }

@@ -35,7 +35,7 @@ sub initiate {
 	}
 	$self->set_level1_breadcrumbs;
 	my $table = $q->param('table');
-	$self->{$_} = 1 foreach (qw (noCache tooltips jQuery jQuery.coolfieldset jQuery.multiselect));
+	$self->{$_} = 1 foreach (qw (noCache tooltips jQuery jQuery.coolfieldset allowExpand select2));
 	if ( !$q->param('save_options') ) {
 		my $guid = $self->get_guid;
 		return if !$guid;
@@ -120,6 +120,7 @@ sub print_content {
 			{ message => q(This interface requires that you enable Javascript in your browser.) } );
 		say q(</noscript>);
 		$self->_print_interface;
+		$self->_print_modify_search_fieldset;
 	}
 	if ( $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
 		$self->_run_query;
@@ -152,18 +153,8 @@ sub get_javascript {
   		+ "values can be searched using the term 'null'. </p><h3>Number of fields</h3><p>Add more fields by clicking the '+' button."
   		+ "</p><h3>Query modifier</h3><p>Select 'AND' for the isolate query to match ALL search terms, 'OR' to match ANY of these terms."
   		+ "</p>" );
+  	render_filters();
   	$panel_js
-  	\$("select.filter").multiselect({
-		header: "Please select...",
-		noneSelectedText: "Please select...",
-		selectedList: 1,
-		menuHeight: 250,
-		menuWidth: 300,
-		classes: 'filter'
-	});
-	\$("select.filter.search").multiselectfilter({
-		placeholder: 'Search'
-	});
 });
   	
 function loadContent(url) {
@@ -174,6 +165,18 @@ function loadContent(url) {
 	} else if (fields == 'allele_properties'){
 		add_rows(url,fields,'ap_field',row,'ap_heading','add_allele_properties');
 	}
+}
+
+function render_filters(){
+	\$("select.filter").each(function () {
+	    const hasEmptyOption = \$(this).find('option[value=""]').length > 0;	
+	    \$(this).select2({
+	    	width: '240px',
+	    	dropdownAutoWidth: true,
+	        placeholder: hasEmptyOption ? "" : undefined,
+	        allowClear: hasEmptyOption
+	    });
+	});
 }
  
 END
@@ -232,7 +235,7 @@ sub _get_select_items {
 sub _print_table_fields {
 	my ( $self, $table, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="display:flex">);
+	say q(<span class="query_block">);
 	print $q->popup_menu( -name => "s$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
 	print $q->popup_menu( -name => "y$row", -values => [OPERATORS] );
 	say $q->textfield( -name => "t$row", -class => 'value_entry' );
@@ -314,7 +317,7 @@ sub _print_interface {
 	}
 	say q(</ul></fieldset>);
 	say q(<fieldset style="float:left"><legend>Display</legend>);
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by: </label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
 	say q(</span></li><li>);
@@ -326,7 +329,6 @@ sub _print_interface {
 	$self->_print_list_fieldset( $table, $attributes );
 	$self->_print_table_specific_fieldset( $table, $attributes );
 	$self->print_action_fieldset( { page => 'tableQuery', table => $table, submit_label => 'Search' } );
-	$self->_print_modify_search_fieldset;
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -337,9 +339,9 @@ sub _get_sequence_filters {
 	my $filters = [];
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
-		push @$filters, $self->get_filter( 'allele_flag', \@flag_values );
+		push @$filters, $self->get_filter( 'allele_flag', \@flag_values, { grid => 1 } );
 	}
-	push @$filters, $self->get_scheme_filter;
+	push @$filters, $self->get_scheme_filter( { grid => 1 } );
 	return $filters;
 }
 
@@ -354,7 +356,8 @@ sub _get_locus_description_filter {
 		$common_names,
 		{
 			tooltip => 'common names filter - Select a name to filter your search '
-			  . 'to only those loci with the selected common name.'
+			  . 'to only those loci with the selected common name.',
+			grid => 1
 		}
 	);
 }
@@ -362,14 +365,15 @@ sub _get_locus_description_filter {
 sub _get_allele_sequences_filters {
 	my ($self) = @_;
 	my $filters = [];
-	push @$filters, $self->get_scheme_filter;
+	push @$filters, $self->get_scheme_filter( { grid => 1 } );
 	push @$filters,
 	  $self->get_filter(
 		'sequence_flag',
 		[ 'any flag', 'no flag', SEQ_FLAGS ],
 		{
 			tooltip => 'sequence flag filter - Select the appropriate value to '
-			  . 'filter tags to only those flagged accordingly.'
+			  . 'filter tags to only those flagged accordingly.',
+			grid => 1
 		}
 	  );
 	push @$filters,
@@ -387,7 +391,8 @@ sub _get_allele_sequences_filters {
 				50 => '50 or more'
 			},
 			tooltip => 'Duplicates filter - Filter search to only those loci that have '
-			  . 'been tagged a specified number of times per isolate.'
+			  . 'been tagged a specified number of times per isolate.',
+			grid => 1
 		}
 	  );
 	return $filters;
@@ -399,13 +404,13 @@ sub _get_dropdown_filter {
 		|| $att->{'name'} eq 'curator'
 		|| ( $att->{'foreign_key'} // '' ) eq 'users' )
 	{
-		return $self->get_user_filter( $att->{'name'} );
+		return $self->get_user_filter( $att->{'name'}, { grid => 1 } );
 	}
 	if ( $att->{'name'} eq 'scheme_id' ) {
-		return $self->get_scheme_filter( { with_pk => $att->{'with_pk'} } );
+		return $self->get_scheme_filter( { with_pk => $att->{'with_pk'}, grid => 1 } );
 	}
 	if ( $att->{'name'} eq 'locus' ) {
-		return $self->get_locus_filter;
+		return $self->get_locus_filter( { grid => 1 } );
 	}
 	my $desc;
 	my $values;
@@ -432,9 +437,7 @@ sub _get_dropdown_filter {
 			undef, { fetch => 'col_arrayref' } );
 		@$values = uniq @$values;
 	}
-	my $class = 'filter';
-	$class .= ' search' if @$values >= 10;
-	return $self->get_filter( $att->{'name'}, $values, { labels => $desc, class => $class } );
+	return $self->get_filter( $att->{'name'}, $values, { labels => $desc, grid => 1 } );
 }
 
 sub _get_user_table_values {
@@ -1501,26 +1504,24 @@ sub _print_modify_search_fieldset {
 	my $q      = $self->{'cgi'};
 	my $table  = $q->param('table');
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p>)
-	  . q(<ul style="list-style:none;margin-left:-2em">);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>) . q(<ul class="toggle">);
 	my $list_fieldset_display = $self->{'prefs'}->{"${table}_list_fieldset"}
-	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
+	  || $q->param('list') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_list">$list_fieldset_display);
 	say q(Attribute values list</li>);
 
 	if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		my $allele_properties_fieldset_display = $self->{'prefs'}->{'allele_properties_fieldset'}
-		  || $self->_highest_entered_fields('allele_properties') ? HIDE : SHOW;
-		say q(<li><a href="" class="button fieldset_trigger" id="show_allele_properties">)
-		  . qq($allele_properties_fieldset_display</a>);
+		  || $self->_highest_entered_fields('allele_properties') ? ON : OFF;
+		say qq(<li class="fieldset_trigger" id="show_allele_properties">$allele_properties_fieldset_display);
 		say q(Allele properties</li>);
 	}
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=tableQuery&amp;table=$table&amp;save_options=1" style="display:none">$save</a> <span id="saving">)
+	  . qq(page=tableQuery&amp;table=$table&amp;save_options=1" style="display:none">$save Save options</a> <span id="saving">)
 	  . q(</span><br />);
 	say q(</div>);
 	return;
@@ -1533,7 +1534,8 @@ sub print_panel_buttons {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
+		say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="panel_trigger" )
+		  . q(style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><span class="icon_label">Modify form</span></a></span>);
 	}
 	return;
@@ -1551,16 +1553,16 @@ sub _print_filter_fieldset {
 			push @filters, $dropdown_filter if $dropdown_filter;
 		} elsif ( $att->{'optlist'} ) {
 			my @options = split /;/x, $att->{'optlist'};
-			push @filters, $self->get_filter( $att->{'name'}, \@options );
+			push @filters, $self->get_filter( $att->{'name'}, \@options, { grid => 1 } );
 		} elsif ( $att->{'type'} eq 'bool' ) {
-			push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip } );
+			push @filters, $self->get_filter( $att->{'name'}, [qw(true false)], { tooltip => $tooltip, grid => 1 } );
 		}
 	}
 	my $filter_method = {
-		loci                => sub { return $self->get_scheme_filter },
-		allele_designations => sub { return $self->get_scheme_filter },
-		schemes             => sub { return $self->get_scheme_filter },
-		isolate_aliases     => sub { return $self->get_project_filter },
+		loci                => sub { return $self->get_scheme_filter( { grid => 1 } ) },
+		allele_designations => sub { return $self->get_scheme_filter( { grid => 1 } ) },
+		schemes             => sub { return $self->get_scheme_filter( { grid => 1 } ) },
+		isolate_aliases     => sub { return $self->get_project_filter( { grid => 1 } ) },
 		sequences           => sub { return $self->_get_sequence_filters },
 		locus_descriptions  => sub { return $self->_get_locus_description_filter },
 		allele_sequences    => sub { return $self->_get_allele_sequences_filters }
@@ -1578,9 +1580,9 @@ sub _print_filter_fieldset {
 		} else {
 			say q(<fieldset style="float:left"><legend>Filter query by</legend>);
 		}
-		say q(<div><ul>);
-		say qq(<li>$_</li>) foreach @filters;
-		say q(</ul></div></fieldset>);
+		say q(<div class="form_container">);
+		say $_ foreach @filters;
+		say q(</div></fieldset>);
 	}
 	return;
 }
@@ -1599,15 +1601,15 @@ sub _print_list_fieldset {
 	say qq(<fieldset id="list_fieldset" style="float:left;display:$display"><legend>Attribute values list</legend>);
 	say q(Field:);
 	say $q->popup_menu( -name => 'attribute', -values => $field_list );
-	say q(<br />);
+	say q(<div>);
 	say $q->textarea(
 		-name        => 'list',
 		-id          => 'list',
 		-rows        => 6,
-		-style       => 'width:100%',
+		-style       => 'width:100%; margin-top:2px',
 		-placeholder => 'Enter list of values (one per line)...'
 	);
-	say q(</fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 

@@ -1,6 +1,6 @@
 #GeneScanner.pm - GeneScanner plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2024-2025, University of Oxford
+#Copyright (c) 2024-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -85,7 +85,7 @@ sub get_attributes {
 		help                => 'tooltips',
 		requires            => 'aligner,mafft,offline_jobs,genescanner,seqbin',
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/genescanner.html",
-		order               => 19,
+		order               => 50,
 		min                 => 2,
 		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,
@@ -580,8 +580,8 @@ sub _print_info_panel {
 	  . q(performed.</p>);
 	say q(<p>GeneScanner was developed by Carolin Kobras, Seungwon Ko, Priyanshu Singh Raikwar, )
 	  . q(Broncio Aguilar-Sanjuan, Keith Jolley, and Samuel Sheppard at the University of Oxford, UK. )
-	  . q(It is described in <a href="https://www.biorxiv.org/content/10.1101/2025.11.02.685864v1" target="_blank">)
-	  . q(Kobras <i>et al.</i> 2025 bioRxiv 2025.11.02.685864</a>.</p> )
+	  . q(It is described in <a href="https://pubmed.ncbi.nlm.nih.gov/42228609/" target="_blank">)
+	  . q(Kobras <i>et al.</i> 2026 Microb Gen. 12(6):001714</a>.</p> )
 	  . q(<p>The mutation analysis code can be found at )
 	  . q(<a href="https://github.com/jeju2486/GeneScanner" target="_blank">)
 	  . q(https://github.com/jeju2486/GeneScanner</a>.</p>);
@@ -733,20 +733,24 @@ TOOLTIP
 sub _print_options_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset style="float:left;height:12em"><legend>Options</legend><ul>);
+	say q(<fieldset style="float:left;height:12em"><legend>Options</legend>);
+	say q(<div class="form_container">);
 	my $aligners = [];
 	foreach my $aligner (qw(mafft muscle)) {
 		push @$aligners, uc($aligner) if $self->{'config'}->{"${aligner}_path"};
 	}
 	if (@$aligners) {
-		say q(<li><label for="aligner" class="aligned width7">Aligner: </label>);
+		say q(<div class="form_label"><label for="aligner">Aligner:</label></div>);
+		say q(<div class="form_value">);
 		say $q->popup_menu( -name => 'aligner', -id => 'aligner', -values => $aligners );
-		say q(</li>);
+		say q(</div>);
 	}
-	say q(<li><label for="aligner" class="aligned width7">Reading frame: </label>);
+	say q(<div class="form_label"><label for="aligner">Reading frame:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'frame', -id => 'frame', -values => [ 1 .. 3 ] );
-	say q(</li></li>);
-	say q(<li><label for="reference" class="aligned width7">Reference id: </label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="reference">Reference id:</label></div>);
+	say q(<div class="form_value">);
 	my $max = $self->{'datastore'}->run_query("SELECT MAX(id) FROM $self->{'system'}->{'view'}");
 	say $self->textfield(
 		-name  => 'reference',
@@ -761,13 +765,16 @@ sub _print_options_fieldset {
 	  $self->get_tooltip( 'Reference id - Id of sequence to treat as the reference (otherwise the first '
 		  . 'sequence in the alignment is used by default)' );
 	say $tooltip;
+	say q(</div>);
 
 	if ( $self->{'config'}->{'snp_sites_path'} ) {
-		say q(</li><li>);
-		say $q->checkbox( -name => 'snp_sites', -id => 'snp_sites', -label => 'Run SNP-sites' );
+		say q(<div class="form_label"><label for="snp_sites">Run SNP-sites:</label></div>);
+		say q(<div class="form_value">);
+		say $q->checkbox( -name => 'snp_sites', -id => 'snp_sites', -label => '' );
+		say q(</div>);
 	}
-	say q(</li>);
-	say q(</ul></fieldset>);
+	
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -792,10 +799,6 @@ sub get_plugin_javascript {
 	\$("a#clear_group_csv_upload").on("click", function(){
   		\$("input#group_csv_upload").val("");
   	});
-  	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
-	\$(document).on('select2:open', () => {
-   	   document.querySelector('.select2-search__field').focus();
-	});
 });	
 
 END

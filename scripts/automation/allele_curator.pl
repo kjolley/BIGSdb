@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Automatically curate the 'easy' allele submissions
 #Written by Keith Jolley
-#Copyright (c) 2016-2022, University of Oxford
+#Copyright (c) 2016-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20220823
+#Version: 20260625
 use strict;
 use warnings;
 use 5.010;
@@ -128,10 +128,13 @@ sub main {
 				{ cache => 'allele_curator::get_allele_id' }
 			);
 			if ($seq_exists) {
+				say "$seq->{'seq_id'}: Already exists - $allele_submission->{'locus'}-$seq_exists";
+				$script->{'submissionHandler'}
+				  ->set_allele_status( $submission_id, $seq->{'seq_id'}, 'assigned', $seq_exists );
 				next SEQS;
 			}
 			my $type_allele_clause = $opts{'type_alleles'} ? q( AND type_allele) : q();
-			my $ref_seqs = $script->{'datastore'}->run_query(
+			my $ref_seqs           = $script->{'datastore'}->run_query(
 				"SELECT sequence FROM sequences WHERE (locus,length(sequence))=(?,?)$type_allele_clause",
 				[ $allele_submission->{'locus'}, length $seq->{'sequence'} ],
 				{ fetch => 'col_arrayref', cache => 'allele_curator::get_ref_seqs' }
@@ -297,7 +300,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
 	say << "HELP";
 ${bold}NAME$norm

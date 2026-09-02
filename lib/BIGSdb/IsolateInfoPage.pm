@@ -34,6 +34,7 @@ my $logger = get_logger('BIGSdb.Page');
 use constant ISOLATE_SUMMARY     => 1;
 use constant LOCUS_SUMMARY       => 2;
 use constant MAX_DISPLAY         => 1000;
+use constant HIDE_PROJECTS       => 3;
 use constant HIDE_PMIDS          => 4;
 use constant HIDE_PROJECT_LENGTH => 50;
 
@@ -56,7 +57,7 @@ sub initiate {
 		$self->{'noCache'} = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer allowExpand);
+	$self->{$_} = 1 foreach qw(jQuery jQuery.jstree jQuery.columnizer allowExpand lightbox);
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
 	foreach my $field ( keys %$field_attributes ) {
 		if ( $field_attributes->{$field}->{'type'} eq 'geography_point'
@@ -71,75 +72,121 @@ sub initiate {
 }
 
 sub get_javascript {
-	my ($self)       = @_;
-	my $show_aliases = $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
-	my $hide_aliases = $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
-	my $buffer       = << "END";
+	my ($self)          = @_;
+	my $show_aliases    = $self->{'prefs'}->{'locus_alias'} ? 1 : 0;
+	my $q               = $self->{'cgi'};
+	my $separate_scheme = ( $q->param('function') // q() ) eq 'scheme_display' ? 1 : 0;
+	my $buffer          = << "END";
 \$(function () {
-	\$(document).ajaxComplete(function() {
+	
+	\$("a#expand_profile").on('click', function(){	
+		\$("#profile").switchClass('expandable_retracted','expandable_expanded',250, "easeInOutQuad", function(){
+	  	\$("a#expand_profile").hide();
+	  	\$("a#retract_profile").show();
+		});
+	});	
+	\$("a#retract_profile").on('click', function(){	
+		\$("#profile").switchClass('expandable_expanded','expandable_retracted',250, "easeInOutQuad", function(){
+	  	\$("a#expand_profile").show();
+	  	\$("a#retract_profile").hide();
+		});
+	});	
+	\$("a#expand_eav").on('click', function(){	
+		\$("#sparse").switchClass('expandable_retracted','expandable_expanded',250, "easeInOutQuad", function(){
+	  	\$("a#expand_eav").hide();
+	  	\$("a#retract_eav").show();
+		});
+	});	
+	\$("a#retract_eav").on('click', function(){	
+		\$("#sparse").switchClass('expandable_expanded','expandable_retracted',250, "easeInOutQuad", function(){
+	  	\$("a#expand_eav").show();
+	  	\$("a#retract_eav").hide();
+		});
+	});	
+	
+	\$(document).ajaxComplete(function(event, xhr, settings) {
+		// Ignore expand page preference update AJAX call
+	    if (settings.url.includes('expandPage')) {
+	        return;
+	    }
+	    console.log ('ajaxComplete');
 		reloadTooltips();
-		\$("span#show_aliases_text").css('display', '$show_aliases');
-		\$("span#hide_aliases_text").css('display', '$hide_aliases');
-		\$("span#show_common_names_text").css('display', 'inline');
-		\$("span#hide_common_names_text").css('display', 'none');
-		\$("span#tree_button").css('display', 'inline');
+		\$("a#hide_tree").css('display', 'inline');
 		if (\$("span").hasClass('aliases')){
-			\$("span#aliases_button").css('display', 'inline');
-		} else {
-			\$("span#aliases_button").css('display', 'none');
-		}
+			if ($show_aliases){
+				\$("span.aliases").show();
+				\$("a#hide_aliases").show();
+				\$("a#show_aliases").hide();
+			} else {
+				\$("a#hide_aliases").hide();
+				\$("a#show_aliases").show();
+			}
+		} 
 		if (\$("span").hasClass('locus_common_name')){
-			\$("span#common_names_button").css('display', 'inline');
-		} else {
-			\$("span#common_names_button").css('display', 'none');
-		}
+			\$("a#show_common_names").show();
+		} 
 		set_profile_widths();
 	});
-
-	\$('.expand_link').on('click', function(){	
-		var field = this.id.replace('expand_','');
-	  	if (\$('#' + field).hasClass('expandable_expanded')) {
-		  	\$('#' + field).switchClass('expandable_expanded','expandable_retracted',1000, "easeInOutQuad", function(){
-		  		\$('#expand_' + field).html('<span class="fas fa-chevron-down"></span>');
-		  	});	    
-	    } else {
-		  	\$('#' + field).switchClass('expandable_retracted','expandable_expanded',1000, "easeInOutQuad", function(){
-		  		\$('#expand_' + field).html('<span class="fas fa-chevron-up"></span>');
-		  	});	    
-	  }
-	});	
-	\$( "#show_common_names" ).click(function() {
-		if (\$("span#show_common_names_text").css('display') == 'none'){
-			\$("span#show_common_names_text").css('display', 'inline');
-			\$("span#hide_common_names_text").css('display', 'none');
-		} else {
-			\$("span#show_common_names_text").css('display', 'none');
-			\$("span#hide_common_names_text").css('display', 'inline');
-		}
+	
+	\$("#show_projects").on("click", function(){
+		\$("div.hide_project").slideDown("fast");
+		\$("div.projects").removeClass("bottom_fade");
+		\$("a#show_projects").hide();
+		\$("a#hide_projects").show();
+	});
+	\$("#hide_projects").on("click", function(){
+		\$("div.hide_project").slideUp("fast");
+		\$("div.projects").addClass("bottom_fade");
+		\$("a#show_projects").show();
+		\$("a#hide_projects").hide();
+	});
+	\$("#show_refs").on("click", function(){
+		\$("li.hide_ref").slideDown("fast");
+		\$("div.references").removeClass("bottom_fade");
+		\$("a#show_refs").hide();
+		\$("a#hide_refs").show();
+	});
+	\$("#hide_refs").on("click", function(){
+		\$("li.hide_ref").slideUp("fast");
+		\$("div.references").addClass("bottom_fade");
+		\$("a#show_refs").show();
+		\$("a#hide_refs").hide();
+	});
+	\$("a#show_common_names").on("click", function(){
 		\$("span.locus_common_name").toggle();
 		set_profile_widths();
+		\$("a#show_common_names").hide();
+		\$("a#hide_common_names").show();
 	});
-	\$( "#show_aliases" ).click(function() {
-		if (\$("span#show_aliases_text").css('display') == 'none'){
-			\$("span#show_aliases_text").css('display', 'inline');
-			\$("span#hide_aliases_text").css('display', 'none');
-		} else {
-			\$("span#show_aliases_text").css('display', 'none');
-			\$("span#hide_aliases_text").css('display', 'inline');		
-		}
-		\$( "span.aliases" ).toggle();
+	\$("a#hide_common_names").on("click", function(){
+		\$("span.locus_common_name").toggle();
 		set_profile_widths();
+		\$("a#show_common_names").show();
+		\$("a#hide_common_names").hide();
+	});
+	\$("a#show_aliases").on("click", function(){
+		\$("span.aliases").toggle();
+		set_profile_widths();
+		\$("a#show_aliases").hide();
+		\$("a#hide_aliases").show();
+	});
+	\$("a#hide_aliases").on("click", function(){
+		\$("span.aliases").toggle();
+		set_profile_widths();
+		\$("a#show_aliases").show();
+		\$("a#hide_aliases").hide();
+	});
+	
+	\$( "a#show_tree" ).click(function() {
+		\$("a#show_tree").hide();
+		\$("a#hide_tree").show();
+		\$("div#tree").show( 'highlight', {} , 500 );
 		return false;
 	});
-	\$( "#show_tree" ).click(function() {		
-		if (\$("span#show_tree_text").css('display') == 'none'){
-			\$("span#show_tree_text").css('display', 'inline');
-			\$("span#hide_tree_text").css('display', 'none');
-		} else {
-			\$("span#show_tree_text").css('display', 'none');
-			\$("span#hide_tree_text").css('display', 'inline');
-		}
-		\$( "div#tree" ).toggle( 'highlight', {} , 500 );
+	\$( "a#hide_tree" ).click(function() {
+		\$("a#show_tree").show();
+		\$("a#hide_tree").hide();
+		\$("div#tree").hide( 'highlight', {} , 500 );
 		return false;
 	});
 	\$( ".show_lincode" ).click(function() {
@@ -191,6 +238,19 @@ sub get_javascript {
 		\$("#hide_metric_fields").hide();
 		\$("#metric_fields").hide();
 	})
+	if ($separate_scheme && \$("span").hasClass('aliases')){
+		if ($show_aliases){
+			\$("span.aliases").show();
+			\$("a#hide_aliases").show();
+			\$("a#show_aliases").hide();
+		} else {
+			\$("a#hide_aliases").hide();
+			\$("a#show_aliases").show();
+		}
+	}
+	if (\$("span").hasClass('locus_common_name')){
+		\$("a#show_common_names").show();
+	} 
 	set_profile_widths();
 });
 
@@ -241,6 +301,7 @@ sub _get_child_group_scheme_tables {
 	);
 	my $parent_buffer;
 	my $parent_group_info = $self->{'datastore'}->get_scheme_group_info($group_id);
+
 	if ( $self->{'groups_with_data'}->{$group_id} ) {
 		my $parent_level = $level - 1;
 		if ( $self->{'open_divs'} > $parent_level ) {
@@ -251,14 +312,15 @@ sub _get_child_group_scheme_tables {
 			}
 		}
 		my $style = $options->{'no_render'} ? q() : q( style="float:left;padding-right:0.5em");
-		$parent_buffer .=
-		  qq(<div$style>\n) . qq(<h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>\n);
+		$parent_buffer .= qq(<div$style>\n<h3 class="group group$parent_level">$parent_group_info->{'name'}</h3>\n);
 		$self->{'open_divs'}++;
 	}
 	my $group_buffer = q();
 	if (@$child_groups) {
+		my $child_group_with_data;
 		foreach my $child_group (@$child_groups) {
 			if ( $self->{'groups_with_data'}->{$child_group} ) {
+				$child_group_with_data = 1;
 				my $group_info = $self->{'datastore'}->get_scheme_group_info($child_group);
 				my $new_level  = $level;
 				last if $new_level == 10;    #prevent runaway if child is set as the parent of a parental group
@@ -275,6 +337,11 @@ sub _get_child_group_scheme_tables {
 					$group_buffer .= $buffer;
 				}
 			}
+		}
+		if ( !$child_group_with_data ) {
+
+			#discarding unopened div.
+			$self->{'open_divs'}--;
 		}
 	} else {
 		my $buffer = $self->_get_group_scheme_tables( $group_id, $isolate_id, $options );
@@ -459,20 +526,26 @@ sub _print_separate_scheme_data {
 	if ( BIGSdb::Utils::is_int( scalar $q->param('group_id') ) ) {
 		say q(<div class="box resultspanel">);
 		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
-		say $self->get_show_aliases_button( 'inline', { show_aliases => 0 } );
-		say $self->get_show_common_names_button('inline');
+		say $self->get_show_aliases_button;
+		say $self->get_show_common_names_button;
 		$self->_print_group_data( $isolate_id, scalar $q->param('group_id'), { show_aliases => 0, no_render => 1 } );
 		say q(</div>);
-		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
+		say q(<div style="margin-top:1.5em">)
+		  . q(<a class="button" id="expand_profile"><span class="fas fa-chevron-down"></span> Expand</a>)
+		  . q(<a class="button" id="retract_profile" style="display:none">)
+		  . q(<span class="fas fa-chevron-up"></span> Retract</a></div>);
 		say q(</div>);
 	} elsif ( BIGSdb::Utils::is_int( scalar $q->param('scheme_id') ) ) {
 		say q(<div class="box resultspanel">);
 		say q(<div id="profile" style="overflow:hidden;min-height:30em" class="expandable_retracted">);
-		say $self->get_show_aliases_button( 'inline', { show_aliases => 0 } );
-		say $self->get_show_common_names_button('inline');
+		say $self->get_show_aliases_button;
+		say $self->get_show_common_names_button;
 		$self->_print_scheme_data( $isolate_id, scalar $q->param('scheme_id'), { show_aliases => 0, no_render => 0 } );
 		say q(</div>);
-		say q(<div class="expand_link" id="expand_profile"><span class="fas fa-chevron-down"></span></div>);
+		say q(<div style="margin-top:1.5em">)
+		  . q(<a class="button" id="expand_profile"><span class="fas fa-chevron-down"></span> Expand</a>)
+		  . q(<a class="button" id="retract_profile" style="display:none">)
+		  . q(<span class="fas fa-chevron-up"></span> Retract</a></div>);
 		say q(</div>);
 	} else {
 		$self->print_bad_status(
@@ -549,21 +622,22 @@ sub print_content {
 	say qq(<h1>Full information on $identifier</h1>);
 	$self->_print_action_panel($isolate_id) if $self->{'curate'};
 	$self->_print_projects($isolate_id);
+	$self->_show_private_owner($isolate_id);
 	say q(<div class="box" id="resultspanel">);
 	my $default_codon_table = $self->{'system'}->{'codon_table'} // DEFAULT_CODON_TABLE;
 	my $codon_table         = $self->{'datastore'}->get_codon_table($isolate_id);
+
 	if ( $codon_table != $default_codon_table ) {
 		my $tables = Bio::Tools::CodonTable->tables;
 		say q(<p>This isolate uses a different codon table than normal: )
 		  . qq(<span class="highlightvalue">$tables->{$codon_table}</span>.</p>);
 	}
+
 	say $self->get_isolate_record($isolate_id);
+	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 	my $tree_button =
-		q( <span id="tree_button" style="margin-left:1em;display:none">)
-	  . q(<a id="show_tree" class="small_submit" style="cursor:pointer">)
-	  . q(<span id="show_tree_text" style="display:none"><span class="fa fas fa-eye"></span> Show</span>)
-	  . q(<span id="hide_tree_text" style="display:inline">)
-	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> tree</a></span>);
+		qq(<a id="show_tree" class="button" style="margin-left:1em;display:none">$show Show scheme tree</a>)
+	  . qq(<a id="hide_tree" class="button" style="margin-left:1em;display:none">$hide Hide scheme tree</a>);
 	my $common_names_button = $self->get_show_common_names_button;
 	my $aliases_button      = $self->get_show_aliases_button;
 	my $loci                = $self->{'datastore'}->get_loci( { set_id => $set_id } );
@@ -612,29 +686,21 @@ sub _should_show_schemes {
 }
 
 sub get_show_aliases_button {
-	my ( $self, $display, $options ) = @_;
-	$display //= 'none';
-	my $show_aliases = $options->{'show_aliases'} // $self->{'prefs'}->{'locus_alias'} ? 'none'   : 'inline';
-	my $hide_aliases = $options->{'show_aliases'} // $self->{'prefs'}->{'locus_alias'} ? 'inline' : 'none';
+	my ($self) = @_;
+	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 	return
-		qq(<span id="aliases_button" style="margin-left:1em;display:$display">)
-	  . q(<a id="show_aliases" class="small_submit" style="cursor:pointer">)
-	  . qq(<span id="show_aliases_text" style="display:$show_aliases"><span class="fa fas fa-eye"></span> )
-	  . qq(Show</span><span id="hide_aliases_text" style="display:$hide_aliases">)
-	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> )
-	  . q(aliases</a></span>);
+		q(<a id="show_aliases" class="button" style="margin-left:1em;display:none">)
+	  . qq($show Show aliases</a><a id="hide_aliases" class="button" style="margin-left:1em;display:none">)
+	  . qq($hide Hide aliases</a>);
+
 }
 
 sub get_show_common_names_button {
-	my ( $self, $display ) = @_;
-	$display //= 'none';
+	my ($self) = @_;
+	my ( $show, $hide ) = ( EYE_SHOW, EYE_HIDE );
 	return
-		qq(<span id="common_names_button" style="margin-left:1em;display:$display">)
-	  . q(<a id="show_common_names" class="small_submit" style="cursor:pointer">)
-	  . q(<span id="show_common_names_text" style="display:inline"><span class="fa fas fa-eye"></span> )
-	  . q(Show</span><span id="hide_common_names_text" style="display:none">)
-	  . q(<span class="fa fas fa-eye-slash"></span> Hide</span> )
-	  . q(common names</a></span>);
+		qq(<a id="show_common_names" class="button" style="margin-left:1em;display:none">$show Show common names</a>)
+	  . qq(<a id="hide_common_names" class="button" style="margin-left:1em;display:none">$hide Hide common names</a>);
 }
 
 sub _print_plugin_buttons {
@@ -647,7 +713,7 @@ sub _print_plugin_buttons {
 		Breakdown     => 'fas fa-chart-pie',
 		Export        => 'far fa-save',
 		Analysis      => 'fas fa-chart-line',
-		'Third party' => 'fas fa-external-link-alt',
+		External      => 'fas fa-external-link-alt',
 		Miscellaneous => 'far fa-file-alt'
 	);
 	my $set_id = $self->get_set_id;
@@ -680,7 +746,7 @@ sub _print_plugin_buttons {
 				$cat_buffer .=
 					q(<div><span style="float:left;text-align:right;width:8em;)
 				  . q(white-space:nowrap;margin-right:0.5em">)
-				  . qq(<span class="fa-fw fa-lg $icon{$category} info_plugin_icon" style="margin-right:0.2em">)
+				  . qq(<span class="fa-fw fa-lg $icon{$category} plugin_icon" style="margin-right:0.2em">)
 				  . qq(</span>$category:</span>)
 				  . q(<div style="margin-left:8.5em;margin-bottom:0.2em">);
 				$cat_buffer .= $plugin_buffer;
@@ -693,8 +759,9 @@ sub _print_plugin_buttons {
 		say q(<div><span class="info_icon fas fa-2x fa-fw fa-chart-column fa-pull-left" style="margin-top:-0.2em">)
 		  . q(</span>);
 		say q(<h2>Tools</h2>);
+		say q(<div class="scrollable">);
 		say $buffer;
-		say q(</div>);
+		say q(</div></div>);
 	}
 	return;
 }
@@ -703,6 +770,7 @@ sub _close_divs {
 	my ($self) = @_;
 	if ( $self->{'open_divs'} ) {
 		for ( 0 .. $self->{'open_divs'} - 1 ) {
+			$self->{'open_divs'}--;
 			say q(</div>);
 		}
 		$self->{'open_divs'} = 0;
@@ -793,11 +861,12 @@ sub _show_lincode_matches {
 		my $hide_table_class = @filtered ? ''      : "lc_table_$scheme->{'id'}";
 		local $" = q( );
 		if ( @unfiltered > @filtered ) {
+			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 			$buffer .=
-				qq(<p><a id="show_lcgroups_$scheme->{'id'}" class="show_lincode small_submit" )
-			  . q(style="display:inline"><span class="fa fas fa-eye"></span> Show all thresholds</a>)
-			  . qq(<a id="hide_lcgroups_$scheme->{'id'}" class="hide_lincode small_submit" style="display:none">)
-			  . q(<span class="fa fas fa-eye-slash"></span> Hide larger thresholds</a></p>);
+				qq(<p><a id="show_lcgroups_$scheme->{'id'}" class="show_lincode button" )
+			  . qq(style="display:inline">$eye_show Show all thresholds</a>)
+			  . qq(<a id="hide_lcgroups_$scheme->{'id'}" class="hide_lincode button" style="display:none">)
+			  . qq($eye_hide Hide larger thresholds</a></p>);
 		}
 		$buffer .=
 			q(<div class="scrollable">)
@@ -941,12 +1010,13 @@ sub _format_classification_data {
 		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">)
 		  . q(<span class="fa fas fa-eye-slash"></span> Hide groups</a></p>);
 	} elsif ( @unfiltered > @filtered ) {
+		my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
 		$buffer .=
 			q(<p>Some groups only contain this isolate. )
-		  . q(<a id="show_csgroups" class="small_submit" style="display:inline">)
-		  . q(<span class="fa fas fa-eye"></span> Show single groups</a>)
-		  . q(<a id="hide_csgroups" class="small_submit" style="display:none">)
-		  . q(<span class="fa fas fa-eye-slash"></span> Hide single groups</a></p>);
+		  . q(<a id="show_csgroups" class="button">)
+		  . qq($eye_show Show single groups</a>)
+		  . q(<a id="hide_csgroups" class="button" style="display:none">)
+		  . qq($eye_hide Hide single groups</a></p>);
 	}
 	$buffer .=
 	  qq(<p class="$hide_table_class" style="display:$filtered_display">Experimental schemes are subject to change and )
@@ -1237,18 +1307,18 @@ sub _show_private_owner {
 		my $user_string    = $self->{'datastore'}->get_user_string($private_owner);
 		my $request_string = $request_publish ? q( - publication requested.) : q(.);
 		my $message =
-			q(<div class="private_record">)
-		  . q(<div style="display:inline-block;vertical-align:top">)
-		  . q(<span class="main_icon fas fa-2x fa-user-secret"></span></div>)
-		  . q(<div style="display:inline-block;margin-left:0.5em">Private record owned )
-		  . qq(by $user_string$request_string);
+			q(<div class="box private_record">)
+		  . q(<p><span class="fas fa-lock fa-2x fa-pull-left"></span></p>)
+		  . qq(<p><strong>Private record</strong> owned by $user_string$request_string);
 		if ( defined $embargo ) {
 			$message .= qq(<br /><strong>Embargoed until $embargo.</strong>);
 			$self->{'embargo'} = $embargo;
 		}
-		$message .= q(</div></div>);
-		return $message;
+		$message .= q(</p></div>);
+		say $message;
 	}
+	return;
+
 }
 
 sub _get_provenance_fields {
@@ -1260,7 +1330,7 @@ sub _get_provenance_fields {
 		$heading = $group;
 		$div_id  = $group;
 	} else {
-		$buffer .= $self->_show_private_owner($isolate_id);
+
 		$icon    = 'fas fa-globe';
 		$heading = 'Provenance/primary metadata';
 		$div_id  = 'provenance';
@@ -1806,8 +1876,11 @@ sub _get_secondary_metadata_fields {
 		$buffer .= q(<p class="feint">Click to close</p>);
 		$buffer .= qq(</div>\n);
 	}
+
 	if ($hide) {
-		$buffer .= q(<div class="expand_link" id="expand_sparse"><span class="fas fa-chevron-down"></span></div>);
+		my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
+		$buffer .= qq(<div style="margin-bottom:24px"><a class="button" id="expand_eav">$eye_show Show more fields</a>)
+		  . qq(<a class="button" id="retract_eav" style="display:none">$eye_hide Show fewer fields</a></div>);
 	}
 	return $buffer;
 }
@@ -2452,9 +2525,13 @@ sub get_refs {
 		my $count  = @$pmids;
 		my $plural = $count > 1 ? 's' : '';
 		$buffer .= qq(<h2 style="display:inline">Publication$plural ($count)</h2>);
-		my $hide  = @$pmids > HIDE_PMIDS;
-		my $class = $hide ? q(expandable_retracted) : q();
-		$buffer .= qq(<div id="references" style="overflow:hidden" class="$class"><ul>);
+
+		$buffer .=
+		  @$pmids > HIDE_PMIDS
+		  ? q(<div class="references bottom_fade">)
+		  : q(<div class="references">);
+		my $i = 0;
+		$buffer .= q(<ul>);
 		my $citations = $self->{'datastore'}->get_citation_hash(
 			$pmids,
 			{
@@ -2466,17 +2543,27 @@ sub get_refs {
 		);
 
 		foreach my $pmid ( sort { $citations->{$a} cmp $citations->{$b} } @$pmids ) {
-			$buffer .= qq(<li style="padding-bottom:1em">$citations->{$pmid});
+			$i++;
+			my $class =
+			  $i > HIDE_PMIDS
+			  ? q( class="hide_ref" style="display:none")
+			  : q();
+			$buffer .= qq(<li$class>$citations->{$pmid} );
 			$buffer .= $self->get_link_button_to_ref($pmid);
 			$buffer .= qq(</li>\n);
 		}
 		$buffer .= qq(</ul></div>\n);
-		if ($hide) {
-			$buffer .=
-			  q(<div class="expand_link" id="expand_references"><span class="fas fa-chevron-down"></span></div>);
+		if ( $i > HIDE_PMIDS ) {
+			my $missing = $i - HIDE_PMIDS;
+			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
+			$plural = $missing == 1 ? q() : q(s);
+			$buffer .= qq(<a id="show_refs" class="button">$eye_show Show $missing more publication$plural</a>);
+			$buffer .= q(<a id="hide_refs" class="button" style="display:none">)
+			  . qq($eye_hide Hide extra publication$plural</a>);
 		}
 		$buffer .= q(</div>);
 	}
+
 	return $buffer;
 }
 
@@ -2591,7 +2678,7 @@ sub _get_seqbin_link {
 		$buffer .=
 			q(<p style="margin-left:3em"><a class="small_submit" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-		  . qq(page=seqbin&amp;isolate_id=$isolate_id">Show sequence bin</a></p>);
+		  . qq(page=seqbin&amp;isolate_id=$isolate_id">Explore sequence bin <span class="fas fa-arrow-right"></span></a></p>);
 		$buffer .= q(</div>);
 	}
 	return $buffer;
@@ -2697,6 +2784,8 @@ sub _get_min_max_check_results {
 					status  => $results->{$check}->{'status'} // 'passed'
 				};
 			}
+		} else {
+			return;
 		}
 	}
 	return {
@@ -2754,11 +2843,10 @@ sub _get_annotation_metrics {
 		  . q(class="fa-regular fa-eye-slash"></span></a>)
 		  . qq(<ul id="metric_fields" style="display:none;text-align:left"><li>@field_list</li></ul></td>);
 		$prov_buffer .=
-			qq(<td>$prov_metrics->{'annotated'}</td></td>)
-		  . q(<td style="position:relative"><span )
-		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$score</span>)
-		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
-		  . qq(border:1px solid #ccc;height:0.8em;width:$score%"></div></td><td>$quality</td></tr>);
+			qq(<td>$prov_metrics->{'annotated'}</td>)
+		  . qq(<td class="support"><span class="support_label">$score</span>)
+		  . qq(<div class="support_bar" style="background-color:\#$colour;width:$score%"></div>)
+		  . qq(</td><td>$quality</td></tr>);
 		$prov_buffer .= qq(</table></div>\n);
 		if (@missing) {
 			local $" = q(, );
@@ -2796,10 +2884,8 @@ sub _get_annotation_metrics {
 		my $middle = ( $min + $max ) / 2;
 		my $colour = BIGSdb::Utils::get_percent_colour( $percent, { min => $min, max => $max, middle => $middle } );
 		$scheme_buffer .=
-			q(<td style="position:relative"><span )
-		  . qq(style="position:absolute;font-size:0.8em;margin-left:-0.5em">$percent</span>)
-		  . qq(<div style="margin-top:0.2em;background-color:\#$colour;)
-		  . qq(border:1px solid #ccc;height:0.8em;width:$percent%"></div></td>);
+			qq(<td class="support"><span class="support_label">$percent</span>)
+		  . qq(<div class="support_bar" style="background-color:\#$colour;width:$percent%"></div></td>);
 		my $quality;
 		$min_threshold = $scheme->{'min_threshold'} // $max_threshold;
 
@@ -2898,7 +2984,8 @@ sub _get_scheme_annotation_metrics {
 sub _print_projects {
 	my ( $self, $isolate_id ) = @_;
 	my $projects = $self->{'datastore'}->run_query(
-		q[SELECT short_description,full_description FROM projects WHERE full_description IS NOT NULL AND ]
+		q[SELECT id,short_description || ' <span class="public">public</span>' AS short_description,]
+		  . q[full_description FROM projects WHERE full_description IS NOT NULL AND ]
 		  . q[isolate_display AND NOT private AND id IN (SELECT project_id FROM project_members WHERE isolate_id=?) ]
 		  . q[ORDER BY id],
 		$isolate_id,
@@ -2907,7 +2994,8 @@ sub _print_projects {
 	if ( $self->{'username'} ) {
 		my $user_info        = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 		my $private_projects = $self->{'datastore'}->run_query(
-			q[SELECT short_description||' (private)' AS short_description,full_description FROM projects WHERE ]
+			q[SELECT id,short_description||' <span class="private">private</span>' AS short_description,]
+			  . q[full_description FROM projects WHERE ]
 			  . q[length(full_description)>0 AND private AND id IN (SELECT project_id FROM project_members WHERE ]
 			  . q[isolate_id=?) AND id IN (SELECT project_id FROM merged_project_users WHERE user_id=?) ORDER BY id],
 			[ $isolate_id, $user_info->{'id'} ],
@@ -2918,22 +3006,48 @@ sub _print_projects {
 	if (@$projects) {
 		say q(<div class="box" id="projects">);
 		say q(<span class="info_icon fas fa-2x fa-fw fa-list-alt fa-pull-left" style="margin-top:0.3em"></span>);
-		say q(<h2>Projects</h2>);
-		my $hide  = @$projects > 1;
-		my $class = $hide ? q(expandable_retracted) : q();
-		say qq(<div id="project_list" style="overflow:hidden" class="$class">);
+		my $project_count = @$projects;
+		say qq(<h2>Projects ($project_count)</h2>);
+		my $hide = @$projects > 3;
+
 		my $plural = @$projects == 1 ? '' : 's';
 		say qq(<p>This isolate is a member of the following project$plural:</p>);
-		say q(<dl class="projects">);
+		say @$projects > HIDE_PROJECTS
+		  ? q(<div class="projects bottom_fade">)
+		  : q(<div class="projects">);
+		my $i = 0;
 
 		foreach my $project (@$projects) {
-			say qq(<dt>$project->{'short_description'}</dt>);
-			say qq(<dd>$project->{'full_description'}</dd>);
+			$i++;
+			my $class =
+			  $i > HIDE_PROJECTS
+			  ? q(class="project hide_project" style="display:none")
+			  : q(class="project");
+
+			say qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
+			  . qq(page=query&amp;project_list=$project->{'id'}&amp;submit=1"><div $class>);
+			say qq(<h3>$project->{'short_description'}</h3>);
+			say qq(<p class="description">$project->{'full_description'}</p>);
+			my $count = $self->{'datastore'}->run_query(
+				"SELECT COUNT(*) FROM project_members pm JOIN $self->{'system'}->{'view'} v "
+				  . 'ON pm.isolate_id=v.id WHERE project_id=? AND new_version IS NULL',
+				$project->{'id'},
+				{ cache => 'IsolateInfoPage::get_project_isolate_count' }
+			);
+			$plural = $count == 1 ? q() : q(s);
+			my $nice_count = BIGSdb::Utils::commify($count);
+			say qq(<p class="count">$nice_count isolate$plural</p>);
+			say q(</div></a>);
 		}
-		say q(</dl>);
 		say q(</div>);
-		if ($hide) {
-			say q(<div class="expand_link" id="expand_project_list"><span class="fas fa-chevron-down"></span></div>);
+		if ( $i > HIDE_PROJECTS ) {
+			my $missing = $i - HIDE_PROJECTS;
+			my ( $eye_show, $eye_hide ) = ( EYE_SHOW, EYE_HIDE );
+			$plural = $missing == 1 ? q() : q(s);
+			say q(<div style="margin-top:1em"><a id="show_projects" class="button">)
+			  . qq($eye_show Show $missing more project$plural</a>);
+			say q(<a id="hide_projects" class="button" style="display:none">)
+			  . qq($eye_hide Hide extra project$plural</a></div>);
 		}
 		say q(</div>);
 	}

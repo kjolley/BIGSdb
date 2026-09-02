@@ -1,6 +1,6 @@
 #RMLSTSpecies.pm - rMLST species identification plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2025, University of Oxford
+#Copyright (c) 2018-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,12 +21,12 @@ package BIGSdb::Plugins::RMLSTSpecies;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent            qw(BIGSdb::Plugin);
 use BIGSdb::Constants qw(:interface);
 use BIGSdb::Plugins::Helpers::SpeciesIDFork;
 use BIGSdb::Exceptions;
 use BIGSdb::OAuth;
-use List::Util qw(max);
+use List::Util      qw(max);
 use List::MoreUtils qw(uniq);
 use Try::Tiny;
 use JSON;
@@ -56,7 +56,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.3.0',
+		version     => '2.3.2',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -64,7 +64,7 @@ sub get_attributes {
 		system_flag => 'rMLSTSpecies',
 		requires    => 'offline_jobs,seqbin,rmlst_oauth',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/rMLST.html",
-		order       => 40,
+		order       => 50,
 		priority    => 0,
 		image       => '/images/plugins/RMLSTSpecies/screenshot.png'
 	);
@@ -154,10 +154,10 @@ sub run {
 
 sub run_job {
 	my ( $self, $job_id, $params ) = @_;
-	if ($self->_check_oauth){
+	if ( $self->_check_oauth ) {
 		BIGSdb::Exception::Plugin->throw('OAuth authentication to rMLST database has failed.');
 	}
-	
+
 	$self->{'exit'} = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $self->{'exit'} = 1 } ) x 3;
 	my $isolate_ids  = $self->{'jobManager'}->get_job_isolates($job_id);
@@ -287,15 +287,16 @@ sub _format_row_html {
 			$buffer .= qq(<td colspan="4" style="text-align:left">$message</td>);
 		} else {
 			foreach my $col ( 2 .. 5 ) {
-				$buffer .= $left_align{$col} ? q(<td style="position:relative;text-align:left">) : q(<td>);
+				my $class = $col == 5 ? q( class="support") : q();
+				$buffer .= $left_align{$col} ? qq(<td style="position:relative;text-align:left"$class>) : q(<td>);
 				$buffer .= q(<i>) if $italicised{$col};
 				if ( $col == 5 ) {
 					my $colour = BIGSdb::Utils::get_percent_colour( $values->[$col]->[$row] );
 					$buffer .=
-						q(<span style="position:absolute;margin-left:1em;font-size:0.8em">)
+						q(<span class="support_label">)
 					  . qq($values->[$col]->[$row]%</span>)
-					  . qq(<div style="display:block-inline;margin-top:0.2em;background-color:\#$colour;)
-					  . qq(border:1px solid #ccc;height:0.8em;width:$values->[$col]->[$row]%"></div>);
+					  . qq(<div class="support_bar" style="background-color:\#$colour;width:$values->[$col]->[$row]%">)
+					  . q(</div>);
 				} else {
 					$buffer .= $values->[$col]->[$row] // q();
 				}

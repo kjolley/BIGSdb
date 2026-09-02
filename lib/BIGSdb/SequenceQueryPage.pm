@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -85,26 +85,18 @@ sub get_javascript {
 		initiate();
 	});
 	initiate();
-	
-	\$("select#locus").select2({
-		width: '240px',
-		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
-	});
-	\$("select#order").select2({
-		minimumResultsForSearch: -1
-	});
-	
-
 	\$("#options_trigger").click(function(){
 		\$("fieldset#options").css("display", \$("#options_off").is(":visible") ? "block" : "none");
 		\$("#options_off").toggle();
 		\$("#options_on").toggle();
 	});
-	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
-	\$(document).on('select2:open', () => {
-   	   document.querySelector('.select2-search__field').focus();
-	});
+	\$("#hide_alignment_link").click(function(){
+		\$("#alignment").slideUp("fast", function(){
+			\$("#alignment").empty();
+		});
+		\$("#alignment_link").show();
+		\$("#hide_alignment_link").hide();
+	})
 });
 
 function initiate() {
@@ -160,8 +152,10 @@ function initiate() {
 }
 
 function loadContent(url) {
+	\$("#alignment").show();
 	\$("#alignment").html('<img src=\"/javascript/themes/default/throbber.gif\" /> Loading ...').load(url);
 	\$("#alignment_link").hide();
+	\$("#hide_alignment_link").show();
 }
 
 END
@@ -717,8 +711,8 @@ sub print_panel_buttons {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if ( $self->{'system'}->{'kiosk_simple'} // q() ) eq 'yes' || $q->param('simple');
-	say q(<span class="icon_button"><a class="trigger_button" id="options_trigger" title="Toggle options">)
-	  . q(<span id="options_off" class="fas fa-lg fa-toggle-off"></span>)
+	say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="options_trigger" )
+	  . q(title="Toggle options"><span id="options_off" class="fas fa-lg fa-toggle-off"></span>)
 	  . q(<span id="options_on" class="fas fa-lg fa-toggle-on" style="display:none"></span>)
 	  . q(<span class="icon_label">Options</span></a></span>);
 	return;

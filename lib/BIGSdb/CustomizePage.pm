@@ -27,7 +27,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery tooltips noCache);
+	$self->{$_} = 1 foreach qw (jQuery tooltips noCache select2);
 	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
 	foreach my $param (
@@ -148,17 +148,21 @@ sub print_content {
 		say q(</tr>);
 		$td = $td == 2 ? 1 : 2;
 	}
-	say q(</table></div><p>);
-	say q( <span class="highlight">* Value updated</span>) if $updated;
-	say q( <span class="non-default">&#134; Non-default value (overridden by user selection)</span>)
-	  if $not_default;
-	say q(</p>);
-	say qq(<input type="button" value="Select all" onclick='@js' class="button" />);
-	say qq(<input type="button" value="Select none" onclick='@js2' class="button" />);
+	say q(</table></div>);
+	if ( $updated || $not_default ) {
+		say q(<p>);
+		say q( <span class="highlight">* Value updated</span>) if $updated;
+		say q( <span class="non-default">&#134; Non-default value (overridden by user selection)</span>)
+		  if $not_default;
+		say q(</p>);
+	}
+	say qq(<input type="button" value="Select all" onclick='@js' class="button" style="margin:0.5em 0 0 0" />);
+	say qq(<input type="button" value="Select none" onclick='@js2' class="button" style="margin:0.5em 0 0 0" />);
 	say q(<noscript><span class="comment"> Enable javascript for select buttons to work!</span></noscript>);
 	say q(</div>);
 	say q(<div class="box" id="resultsheader"><div class="scrollable">);
-	say q(<fieldset><legend>Modify options</legend><ul>);
+	say q(<fieldset><legend>Modify options</legend>);
+	say q(<div class="form_container">);
 	my %action = map { $_ => 1 } qw (main_display isolate_display query_field analysis disable);
 
 	foreach my $att (@$attributes) {
@@ -167,25 +171,39 @@ sub print_content {
 		  || ( !$action{ $att->{'name'} } && !( $att->{'name'} eq 'dropdown' && $table eq 'scheme_fields' ) );
 		( my $cleaned = $att->{'name'} ) =~ tr/_/ /;
 		my $tooltip = $self->_get_tooltip( $att->{'name'} );
-		say qq(<li style="white-space:nowrap"><label for="$att->{'name'}" class="parameter" )
-		  . qq(style="padding-top:0.7em">$cleaned);
+		say qq(<div class="form_label"><label for="$att->{'name'} style="padding-top:0.7em">$cleaned:);
 		say $self->get_tooltip($tooltip);
-		say q(</label>);
+		say q(</label></div>);
+		say q(<div class="form_value">);
 		if ( $att->{'type'} eq 'bool' ) {
 			say $q->popup_menu( -name => $att->{'name'}, -id => $att->{'name'}, -values => [qw(true false)] );
 		} elsif ( $att->{'optlist'} ) {
 			my @values = split /;/x, $att->{'optlist'};
 			say $q->popup_menu( -name => $att->{'name'}, -id => $att->{'name'}, -values => [@values] );
 		}
-		say $q->submit( -name => "$att->{'name'}_change",  -label => 'Change',           -class => 'button' );
-		say $q->submit( -name => "$att->{'name'}_default", -label => 'Restore defaults', -class => 'button' );
-		say q(</li>);
+		say $q->submit( -name => "$att->{'name'}_change",  -label => 'Change',           -class => 'small_submit' );
+		say $q->submit( -name => "$att->{'name'}_default", -label => 'Restore defaults', -class => 'small_submit' );
+		say q(</div>);
 	}
-	say q(</ul></fieldset></div></div>);
+	say q(</div></fieldset></div></div>);
 	print $q->hidden($_) foreach qw (db page filename table);
 	print $q->hidden( set => 1 );
 	print $q->end_form;
 	return;
+}
+
+sub get_javascript {
+	my ($self) = @_;
+	my $buffer = << "END";
+\$(function () {
+  \$("select#isolate_display,select#main_display,select#query_field,select#analysis").select2({
+		width: '120px',
+		dropdownAutoWidth: true,
+		minimumResultsForSearch: 20
+	});
+});
+END
+	return $buffer;
 }
 
 sub _process_loci {

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -36,7 +36,7 @@ sub set_pref_requirements {
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	$self->{$_} = 1 foreach qw(jQuery cookieconsent noCache);
+	$self->{$_} = 1 foreach qw(jQuery cookieconsent noCache select2);
 	$self->choose_set;
 	$self->{'breadcrumbs'} = [];
 	if ( $self->{'system'}->{'webroot'} ) {
@@ -106,7 +106,7 @@ sub print_panel_buttons {
 	my ($self) = @_;
 	return if !$self->{'config'}->{'enable_dashboard'} && ( $self->{'system'}->{'enable_dashboard'} // q() ) ne 'yes';
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
-	say q(<span class="icon_button"><a class="trigger_button" id="dashboard_toggle">)
+	say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="dashboard_toggle">)
 	  . q(<span class="fas fa-lg fa-th"></span><span class="icon_label">Dashboard</span></a></span>);
 	return;
 }
@@ -125,7 +125,7 @@ sub _print_plugin_menu_items {
 	);
 	$self->_print_plugin_menu_item(
 		{
-			sections => [qw(breakdown analysis third_party)],
+			sections => [qw(breakdown analysis external)],
 			label    => 'ANALYSIS',
 			icon     => 'fas fa-chart-line',
 			href     => "${url_root}page=pluginSummary&amp;category=analysis"

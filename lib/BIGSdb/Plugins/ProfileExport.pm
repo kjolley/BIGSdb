@@ -1,6 +1,6 @@
 #ProfileExport.pm - Plugin for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2018-2024, University of Oxford
+#Copyright (c) 2018-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -21,9 +21,9 @@ package BIGSdb::Plugins::ProfileExport;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Plugin);
+use parent          qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
 
 sub get_attributes {
@@ -49,13 +49,17 @@ sub get_attributes {
 		section            => 'profile_info,export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/profile_export.html",
 		requires           => 'offline_jobs',
-		order              => 15,
+		order              => 50,
 		image              => '/images/plugins/ProfileExport/screenshot.png',
 		system_flag        => 'ProfileExport',
 		profile_download   => 1,
 		enabled_by_default => 1
 	);
 	return \%att;
+}
+
+sub get_initiation_values {
+	return { jQuery => 1, select2 => 1 };
 }
 
 sub run {
@@ -355,13 +359,13 @@ sub _get_lincode_values {
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)', [ $scheme_id, $field ] );
 		}
-		my $order =
+		my $typed_value =
 		  $self->{'cache'}->{'lincode_field_type'}->{$field} eq 'integer'
 		  ? 'CAST(value AS integer)'
 		  : 'value';
 		my $field_values = $self->{'datastore'}->run_query(
-			"SELECT DISTINCT(value) FROM $join_table WHERE "
-			  . "(lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)=(?,?,?) ORDER BY $order",
+			"SELECT DISTINCT($typed_value) FROM $join_table WHERE "
+			  . "(lincodes.scheme_id,lincode_prefixes.field,lincodes.lincode)=(?,?,?) ORDER BY $typed_value",
 			[ $scheme_id, $field, $lincode ],
 			{ fetch => 'col_arrayref' }
 		);

@@ -51,37 +51,40 @@ sub get_javascript_panel {
 	my $button_text_js;
 	my $new_url    = 'this.href';
 	my %clear_form = (
-		list       => q[$("#list").val('')],
-		filters    => qq[\$('.multiselect').multiselect("uncheckAll")\n] . q[          $('[id$="_list"]').val('')],
-		provenance => q[$('[id^="prov_value"]').val('')],
-		phenotypic => q[$('[id^="phenotypic_value"]').val('')],
-		allele     => q[$('[id^="value"]').val('')],
-		mutations  => q[$('[id^="mutation_value"]').val('')],
-		scheme     => q[$('[id^="value"]').val('')],
+		list    => q[$("#list").val('').trigger],
+		filters => qq[\$('.multiselect').multiselect("uncheckAll")\n]
+		  . q[          $('[id$="_list"]').val('').change(),$('[id$="new_filter"]').val('').change()],
+		provenance          => q[$('[id^="prov_value"]').val('')],
+		phenotypic          => q[$('[id^="phenotypic_value"]').val('')],
+		allele              => q[$('[id^="value"]').val('')],
+		mutations           => q[$('[id^="mutation_value"]').val('')],
+		scheme              => q[$('[id^="value"]').val('')],
 		allele_designations => q[$('select[id^="designation_field"]').val('').change(),]
-		  . q[$('[id^="designation_operator"]').val(''),]
+		  . q[$('[id^="designation_operator"]').val('=').change(),]
 		  . q[$('[id^="designation_value"]').val('')],
-		sequence_variation => q[$('[id^="sequence_variation"]').val('')],
+		sequence_variation => q[$('[id^="sequence_variation"]').val('').change()],
 		allele_count       => q[$('select[id^="allele_count_field"]').val('').change(),]
-		  . q[$('[id^="allele_count_operator"]').val(''),]
+		  . q[$('[id^="allele_count_operator"]').val('>').change(),]
 		  . q[$('[id^="allele_count_value"]').val('')],
 		allele_status => q[$('select[id^="allele_status_field"]').val('').change(),]
-		  . q[$('[id^="allele_status_value"]').val('')],
-		tags      => q[$('select[id^="tag_field"]').val('').change(),] . q[$('[id^="tag_value"]').val('')],
+		  . q[$('[id^="allele_status_value"]').val('').change()],
+		tags      => q[$('select[id^="tag_field"]').val('').change(),$('[id^="tag_value"]').val('').change()],
 		tag_count => q[$('select[id^="tag_count_field"]').val('').change(),]
-		  . q[$('[id^="tag_count_operator"]').val(''),]
+		  . q[$('[id^="tag_count_operator"]').val('>').change(),]
 		  . q[$('[id^="tag_count_value"]').val('')],
 		,
-		analysis => q[$('select[id^="analysis_field"]').val(''),]
-		  . q[$('[id^="analysis_operator"]').val(''),]
+		analysis => q[$('select[id^="analysis_field"]').val('').change(),]
+		  . q[$('select[id^="analysis_operator"]').val('=').change(),]
 		  . q[$('[id^="analysis_value"]').val('')],
-		seqbin            => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('')],
-		assembly_checks   => q[$('[id^="assembly_checks_value"]').val('');$('[id^="assembly_checks_field"]').val('')],
-		annotation_status =>
-		  q[$('[id^="annotation_status_value"]').val('');$('[id^="annotation_status_field"]').val('')],
-		scheme            => q[$('[id^="t"]').val('')],
+		seqbin => q[$('[id^="seqbin_value"]').val('');$('[id^="seqbin_field"]').val('').change();]
+		  . q[$('[id^="seqbin_operator"]').val('>').change()],
+		assembly_checks => q[$('[id^="assembly_checks_value"]').val('').change();]
+		  . q[$('[id^="assembly_checks_field"]').val('').change()],
+		annotation_status => q[$('[id^="annotation_status_value"]').val('').change();]
+		  . q[$('[id^="annotation_status_field"]').val('').change()],
+		scheme            => q[$('[id^="t"]').val('');$('[id^="y"]').val('=').change()],
 		allele_properties => q[$('select[id^="ap_field"]').val('').change(),]
-		  . q[$('[id^="ap_operator"]').val(''),]
+		  . q[$('[id^="ap_operator"]').val('=').change(),]
 		  . q[$('[id^="ap_value"]').val('')],
 	);
 	my @clear_form_directives;
@@ -91,14 +94,16 @@ sub get_javascript_panel {
 	}
 	local $" = qq(,\n);
 	my $clear_form_values = qq(@clear_form_directives);
-	my ( $show, $hide, $save, $saving ) = ( SHOW, HIDE, SAVE, SAVING );
+	my ( $on, $off, $save ) = ( ON, OFF, SAVE );
 	foreach my $fieldset (@fieldsets) {
-		$button_text_js .= qq(        var $fieldset = \$("#show_$fieldset").html() == show ? 0 : 1;\n);
-		$new_url        .= qq( + "\&$fieldset=" + $fieldset);
+		$button_text_js .=
+			qq(        let $fieldset; if (\$("#show_$fieldset").length){$fieldset = )
+		  . qq(\$("#show_$fieldset").html().includes(show) ? 0 : 1;}\n);
+		$new_url .= qq( + "\&$fieldset=" + $fieldset);
 	}
 	my $buffer = <<"END";
-	var show = '$show';
-	var hide = '$hide';
+	var show = '$off';
+	var hide = '$on';
 	var fieldsets = [$fieldset_string];
 	var clear_form = {
 $clear_form_values
@@ -106,17 +111,29 @@ $clear_form_values
 	\$(".fieldset_trigger").click(function(event) {
 		let fieldset = this.id.replace('show_','');
 		event.preventDefault();
-		if(\$(this).html() == hide){
+		let value = \$(this).html();
+		if(value.includes(show)){
 			clear_form[fieldset]();
 		}
 		\$("#" + fieldset + "_fieldset").toggle(100);
-		\$(this).html(\$(this).html() == show ? hide : show);
+		
+		if (value.includes(hide)){
+			\$(this).html(value.replace(hide,show));
+		} else if (value.includes(show)){
+			\$(this).html(value.replace(show,hide));
+		}		
 		\$("a#save_options").fadeIn();
 		return false;
 	});
 	
 	\$("#panel_trigger,#close_trigger").click(function(){			
-		\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
+		\$("#modify_panel").toggle("slide",{direction:"right"},"fast", function(){
+			if (\$("#modify_panel").is(":visible")){
+				\$("#modal_overlay").addClass("open");
+			} else {
+				\$("#modal_overlay").removeClass("open");
+			}
+		});		
 		return false;
 	});
 	\$("#panel_trigger").show();
@@ -124,7 +141,6 @@ $clear_form_values
 		event.preventDefault();
 $button_text_js
 	  	\$(this).attr('href', function(){  	
-	  		\$("a#save_options").html('$saving').animate({backgroundColor: "#99d"},100).animate({backgroundColor: "#f0f0f0"},100);
 	  		\$("span#saving").text('Saving...');
 	  		var new_url = $new_url;
 		  	\$.ajax({
@@ -132,7 +148,8 @@ $button_text_js
 	  			success: function () {	  				
 	  				\$("a#save_options").hide();
 	  				\$("span#saving").text('');
-	  				\$("a#save_options").html('$save');
+	  				\$("a#save_options").html('$save Save options');
+	  				\$("#modal_overlay").removeClass("open");
 	  				\$("#modify_panel").toggle("slide",{direction:"right"},"fast");
 	  			}
 	  		});
@@ -161,15 +178,21 @@ sub get_javascript {
 		var trigger = \$("#panel_trigger");
  		var container = \$("#modify_panel");
 		if (!container.is(e.target) && container.has(e.target).length === 0 && 
-		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+		!trigger.is(e.target) && trigger.has(e.target).length === 0 && container.is(':visible')) {
 			container.hide();
+			\$("#modal_overlay").removeClass("open");
 		}
 		trigger = \$("#bookmark_trigger");
  		container = \$("#bookmark_panel");
 		if (!container.is(e.target) && container.has(e.target).length === 0 && 
-		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+		!trigger.is(e.target) && trigger.has(e.target).length === 0 && container.is(':visible')) {
 			container.hide();
+			\$("#modal_overlay").removeClass("open");
 		}
+	});
+	
+	\$(document).on("ajaxComplete", function(event, xhr, settings) {
+		apply_select2();	
 	});
  });
  

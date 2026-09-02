@@ -47,13 +47,13 @@ sub get_attributes {
 		full_description => 'PlasmidFinder is an in silico detection and typing tool for plasmids '
 		  . '(<a href="https://pubmed.ncbi.nlm.nih.gov/24777092/">'
 		  . 'Carattoli <i>et al.</i> 2014 <i>Antimicrob Agents Chemothe</i> <b>58:</b>3895-903</a>).',
-		category            => 'Third party',
+		category            => 'Analysis',
 		buttontext          => 'PlasmidFinder',
 		menutext            => 'PlasmidFinder',
 		module              => 'PlasmidFinder',
-		version             => '1.1.0',
+		version             => '1.1.1',
 		dbtype              => 'isolates',
-		section             => 'third_party,isolate_info,postquery',
+		section             => 'analysis,isolate_info,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'offline_jobs,PlasmidFinder,seqbin',

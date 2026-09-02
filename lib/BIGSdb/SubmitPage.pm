@@ -88,17 +88,19 @@ END
 		check_technology();
 	});
 	check_technology();
-	\$( "#show_closed" ).click(function() {
-		if (\$("span#show_closed_text").css('display') == 'none'){
-			\$("span#show_closed_text").css('display', 'inline');
-			\$("span#hide_closed_text").css('display', 'none');
-		} else {
-			\$("span#show_closed_text").css('display', 'none');
-			\$("span#hide_closed_text").css('display', 'inline');
-		}
-		\$( "#closed" ).toggle( 'blind', {} , 500 );
+	\$( "#show_closed").click(function() {
+		\$("a#show_closed").hide();
+		\$("a#hide_closed").show();
+		\$("#closed").slideDown(500,"easeInOutQuad");
 		return false;
 	});
+	\$( "#hide_closed").click(function()  {
+		\$("a#show_closed").show();
+		\$("a#hide_closed").hide();
+		\$("#closed").slideUp(500,"easeInOutQuad");
+		return false;
+	});
+	
 	\$("form#file_upload_form").dropzone({ 
 		paramName: function() { return 'file_upload'; },
 		parallelUploads: 6,
@@ -131,13 +133,6 @@ END
 	\$("form#file_upload_form").addClass("dropzone");
 	$db_trigger
 	resize_rmlst_cell();
-	\$('#locus').multiselect({
-	  	classes: 'filter',
-	 	menuHeight: 250,
-	 	menuWidth: 400,
-	 	noneSelectedText: '',
-	 	selectedList: 1,
-	  }).multiselectfilter();
 	\$("form").on("keydown", function(e) {
 	    if ((e.key === "Enter" || e.which === 13) &&
 	        !\$(e.target).is("textarea, input[type=submit], button")) {
@@ -158,7 +153,7 @@ function resize_rmlst_cell(){
 }
 
 function status_markall(status){
-	\$("select[name^='status_']").val(status);
+	\$("select[name^='status_']").val(status).trigger("change");
 }
 
 function check_technology() {
@@ -166,10 +161,10 @@ function check_technology() {
 	for (i=0; i<fields.length; i++){
 		if (\$("#technology").val() == 'Illumina'){			
 			\$("#" + fields[i]).prop("required",true);
-			\$("#" + fields[i] + "_label").text((fields[i]+":!").replace("_", " "));	
+			\$("#" + fields[i] + "_label").addClass("required");	
 		} else {
 			\$("#" + fields[i]).prop("required",false);
-			\$("#" + fields[i] + "_label").text((fields[i]+":").replace("_", " "));
+			\$("#" + fields[i] + "_label").removeClass("required");
 		}
 	}	
 }
@@ -188,7 +183,7 @@ sub initiate {
 		$self->{'noCache'}    = 1;
 		return;
 	}
-	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone allowExpand jQuery.multiselect);
+	$self->{$_} = 1 foreach qw (jQuery jQuery.jstree noCache tooltips dropzone allowExpand select2);
 	if ( $q->param('curate') ) {
 		$self->set_level2_breadcrumbs('Curate submission');
 	} elsif ( $q->param('alleles') || $q->param('profiles') || $q->param('isolate') || $q->param('genomes') ) {
@@ -276,22 +271,28 @@ sub print_content {
 		$self->print_related_database_panel;
 		say q(</div>);
 	}
-	if ($submissions_to_show) {
-		say q(<div class="box resultstable">);
-		$self->_print_pending_submissions;
-		$self->print_submissions_for_curation;
-		$self->_print_closed_submissions;
-		$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
-		say q(</div>);
-	}
-	if ($closed_buffer) {
-		say q(<div class="box resultstable" id="closed" style="display:none"><div class="scrollable">);
-		say q(<h2>Closed submissions for which you had curator rights</h2>);
-		my $days = $self->get_submission_days;
-		say q(<p>The following submissions are now closed - they will remain here until removed by the submitter or )
-		  . qq(for $days days.);
-		say $closed_buffer;
-		say q(</div></div>);
+	if ( $submissions_to_show || $closed_buffer ) {
+
+		if ($submissions_to_show) {
+			say q(<div class="box resultstable">);
+			$self->_print_pending_submissions;
+			$self->print_submissions_for_curation;
+			$self->_print_closed_submissions;
+			$self->print_navigation_bar( { closed_submissions => $closed_buffer ? 1 : 0 } );
+
+		}
+		if ($closed_buffer) {
+			my $class = $submissions_to_show ? q() : q( class="box resultstable");
+			say qq(<div id="closed"$class style="display:none"><div class="scrollable">);
+			say q(<h2>Closed submissions for which you had curator rights</h2>);
+			my $days = $self->get_submission_days;
+			say
+			  q(<p>The following submissions are now closed - they will remain here until removed by the submitter or )
+			  . qq(for $days days.);
+			say $closed_buffer;
+			say q(</div>);
+		}
+		say q(</div>) if $submissions_to_show;
 	}
 	return;
 }
@@ -746,6 +747,7 @@ sub _get_profile_submissions_for_curation {
 		next if $submission->{'type'} ne 'profiles';
 		my $profile_submission =
 		  $self->{'submissionHandler'}->get_profile_submission( $submission->{'id'}, { count_only => 1 } );
+		next if !defined $profile_submission;
 		next
 		  if !($self->is_admin
 			|| $self->{'datastore'}->is_scheme_curator( $profile_submission->{'scheme_id'}, $user_info->{'id'} ) );
@@ -1066,12 +1068,13 @@ sub _submit_alleles {
 		( $loci, $labels ) = $self->{'datastore'}->get_locus_list( { set_id => $set_id, submissions => 1 } );
 	}
 	say q(<fieldset style="float:left;"><legend>Select locus</legend>);
+	unshift @$loci, q();
 	say $q->popup_menu(
 		-name     => 'locus',
 		-id       => 'locus',
 		-values   => $loci,
 		-labels   => $labels,
-		-size     => 7,
+		-style    => 'width: 12em',
 		-required => 'required'
 	);
 	say q(</fieldset>);
@@ -1463,10 +1466,12 @@ sub _print_sequence_details_fieldset {
 	my ( $self, $submission_id ) = @_;
 	my $q = $self->{'cgi'};
 	say q(<fieldset style="float:left;min-height:12em"><legend>Sequence details</legend>);
-	say q(<ul><li><label for="technology" class="parameter">technology:!</label>);
+	say q(<div class="form_container"><div class="form_label">)
+	  . q(<label for="technology" class="required">technology:</label></div>);
 	my $allele_submission =
 	  $submission_id ? $self->{'submissionHandler'}->get_allele_submission($submission_id) : undef;
 	my $att_labels = { '' => ' ' };    #Required for HTML5 validation
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'technology',
 		-id       => 'technology',
@@ -1475,7 +1480,9 @@ sub _print_sequence_details_fieldset {
 		-required => 'required',
 		-default  => $allele_submission->{'technology'} // $self->{'prefs'}->{'submit_allele_technology'}
 	);
-	say q(<li><label for="read_length" id="read_length_label" class="parameter">read length:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="read_length" id="read_length_label">read length:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'read_length',
 		-id      => 'read_length',
@@ -1483,7 +1490,9 @@ sub _print_sequence_details_fieldset {
 		-labels  => $att_labels,
 		-default => $allele_submission->{'read_length'} // $self->{'prefs'}->{'submit_allele_read_length'}
 	);
-	say q(</li><li><label for="coverage" id="coverage_label" class="parameter">coverage:</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="coverage" id="coverage_label">coverage:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name    => 'coverage',
 		-id      => 'coverage',
@@ -1491,7 +1500,9 @@ sub _print_sequence_details_fieldset {
 		-labels  => $att_labels,
 		-default => $allele_submission->{'coverage'} // $self->{'prefs'}->{'submit_allele_coverage'}
 	);
-	say q(</li><li><label for="assembly" class="parameter">assembly:!</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="assembly" class="required">assembly:</label></div>);
+	say q(<div class="form_value">);
 	say $q->popup_menu(
 		-name     => 'assembly',
 		-id       => 'assembly',
@@ -1500,7 +1511,9 @@ sub _print_sequence_details_fieldset {
 		-required => 'required',
 		-default  => $allele_submission->{'assembly'} // $self->{'prefs'}->{'submit_allele_assembly'}
 	);
-	say q(</li><li><label for="software" class="parameter">assembly software:!</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="software" class="required">assembly software:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield(
 		-name      => 'software',
 		-id        => 'software',
@@ -1508,11 +1521,13 @@ sub _print_sequence_details_fieldset {
 		-maxlength => 50,
 		-default   => $allele_submission->{'software'} // $self->{'prefs'}->{'submit_allele_software'}
 	);
-	say q(</li><li>);
-	say $q->checkbox( -name => 'ignore_length', -label => 'Sequence length outside usual range' );
+	say q(</div>);
+	say q(<div class="form_label"><label for="ignore_length">Sequence length outside usual range:</label></div>);
+	say q(<div class="form_value">);
+	say $q->checkbox( -name => 'ignore_length', -label => '' );
 	say $self->get_tooltip( q(Length check - If you select this checkbox your sequence must still be )
 		  . q(trimmed to the standard start and end sites or it will be rejected by the curator.) );
-	say q(</li></ul>);
+	say q(</div></div>);
 	say q(</fieldset>);
 	return;
 }
@@ -2808,12 +2823,10 @@ sub _print_rmlst_analysis {
 			say q(<td><table style="width:100%;height:100%">);
 			foreach my $result (@$values) {
 				my $colour = BIGSdb::Utils::get_percent_colour( $result->{'support'} );
-				say q(<tr>);
-				say q(<td class="rmlst_cell" style="position:relative;text-align:left">)
-				  . q(<span class="rmlst_result" style="position:absolute;margin-left:1em;font-size:0.8em;white-space:nowrap">)
-				  . qq(<em>$result->{'taxon'}</em></span>)
-				  . qq(<div style="margin-top:0.2em;background-color:#$colour;border:1px solid #ccc;)
-				  . qq(height:0.9em;width:$result->{'support'}%"></div></td></tr>);
+				say q(<tr><td class="rmlst_cell support">)
+				  . qq(<span class="support_label rmlst_result"><em>$result->{'taxon'}</em></span>)
+				  . qq(<div class="support_bar" style="background-color:#$colour;width:$result->{'support'}%"></div>)
+				  . q(</td></tr>);
 			}
 			say q(</table></td>);
 		} elsif ( ref $values eq 'HASH' && defined $values->{'failed'} ) {
@@ -2899,16 +2912,16 @@ sub _print_update_button {
 	$options = {} if ref $options ne 'HASH';
 	my $q = $self->{'cgi'};
 	say q(<div style="float:right">);
+	say q(<span class="query_block">);
 	if ( $options->{'mark_all'} ) {
-		say q(<span style="margin-right:1em">)
-		  . q(Mark all: <input type="button" onclick='status_markall("pending")' )
+		say q(<span class="label">Mark all:</span><input type="button" onclick='status_markall("pending")' )
 		  . q(value="Pending" class="small_reset" /><input type="button" )
-		  . q(onclick='status_markall("rejected")' value="Rejected" class="small_reset" />)
-		  . q(</span>);
+		  . q(onclick='status_markall("rejected")' value="Rejected" class="small_reset" />);
 	}
-	my $values = $options->{'no_accepted'} ? [qw(pending rejected)] : [qw(pending accepted rejected)];
+
 	if ( $options->{'record_status'} ) {
-		say q(<label for="record_status">Record status:</label>);
+		my $values = $options->{'no_accepted'} ? [qw(pending rejected)] : [qw(pending accepted rejected)];
+		say q(<label for="record_status" class="label">Record status:</label>);
 		say $q->popup_menu(
 			-name  => 'record_status',
 			id     => 'record_status',
@@ -2916,6 +2929,7 @@ sub _print_update_button {
 		);
 	}
 	say $q->submit( -name => 'update', -label => 'Update', -class => 'small_submit' );
+	say q(</span>);
 	say q(</div>);
 	return;
 }

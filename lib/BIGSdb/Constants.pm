@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2015-2025, University of Oxford
+#Copyright (c) 2015-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -70,25 +70,26 @@ $EXPORT_TAGS{'embargo'} = [@values];
 
 #Interface
 use constant FACE_STYLE => (
-	good  => q(class="far fa-lg fa-smile" style="color:green"),
-	mixed => q(class="far fa-lg fa-meh" style="color:blue"),
-	bad   => q(class="far fa-lg fa-frown" style="color:red")
+	good  => q(class="far fa-lg fa-smile statusgood"),
+	mixed => q(class="far fa-lg fa-meh statusmeh"),
+	bad   => q(class="far fa-lg fa-frown statusbad")
 );
 use constant SHOW                 => q(<span class="fas fa-plus-circle" style="color:green"></span>);
 use constant HIDE                 => q(<span class="fas fa-minus-circle" style="color:red"></span>);
-use constant SAVE                 => q(<span class="fas fa-save" style="color:green"></span>);
-use constant SAVING               => q(<span class="fas fa-save" style="color:blue"></span>);
-use constant UP                   => q(<span class="fas fa-arrow-up" style="color:blue"></span>);
-use constant DOWN                 => q(<span class="fas fa-arrow-down" style="color:blue"></span>);
-use constant LEFT                 => q(<span class="fas fa-lg fa-arrow-left" style="color:blue"></span>);
-use constant RIGHT                => q(<span class="fas fa-lg fa-arrow-right" style="color:blue"></span>);
-use constant EDIT                 => q(<span class="fas fa-pencil-alt" style="color:#44a"></span>);
-use constant DELETE               => q(<span class="fas fa-times" style="color:#a44"></span>);
-use constant ADD                  => q(<span class="fas fa-plus" style="color:#080"></span>);
+use constant ON                   => q(<span class="fas fa-toggle-on fa-xl"></span>);
+use constant OFF                  => q(<span class="fas fa-toggle-off fa-xl"></span>);
+use constant SAVE                 => q(<span class="fas fa-save"></span>);
+use constant UP                   => q(<span class="fas fa-arrow-up"></span>);
+use constant DOWN                 => q(<span class="fas fa-arrow-down"></span>);
+use constant LEFT                 => q(<span class="fas fa-lg fa-arrow-left"></span>);
+use constant RIGHT                => q(<span class="fas fa-lg fa-arrow-right"></span>);
+use constant EDIT                 => q(<span class="fas fa-pencil-alt icon_query"></span>);
+use constant DELETE               => q(<span class="fas fa-times icon_delete"></span>);
+use constant ADD                  => q(<span class="fas fa-plus icon_add" ></span>);
 use constant COMPARE              => q(<span class="fas fa-balance-scale" style="color:#44a"></span>);
-use constant UPLOAD               => q(<span class="fas fa-upload" style="color:#080"></span>);
+use constant UPLOAD               => q(<span class="fas fa-upload icon_add"></span>);
 use constant UPLOAD_CHANGE_CONFIG => q(<span class="fas fa-upload" style="color:#800"></span>);
-use constant QUERY                => q(<span class="fas fa-search" style="color:#44a"></span>);
+use constant QUERY                => q(<span class="fas fa-search icon_query"></span>);
 use constant USERS                => q(<span class="fas fa-users" style="color:#a4a"></span>);
 use constant PENDING              => q(<span class="fa fa-hourglass-half" style="color:#888"></span>);
 use constant GOOD                 => q(<span class="statusgood fas fa-check"></span>);
@@ -96,22 +97,25 @@ use constant BAD                  => q(<span class="statusbad fas fa-times"></sp
 use constant MEH                  => q(<span class="statusmeh fas fa-minus"></span>);
 use constant TRUE                 => q(<span class="far fa-lg fa-check-square" style="font-size:0.95em"></span>);
 use constant FALSE                => q(<span class="far fa-lg fa-square" style="font-size:0.95em"></span>);
-use constant BAN                  => q(<span class="fas fa-ban" style="color:#a44"></span>);
-use constant DOWNLOAD             => q(<span class="fas fa-download" style="color:#44a"></span>);
-use constant LOCK                 => q(<span class="fas fa-lock" style="color:#a44"></span>);
-use constant UNLOCK               => q(<span class="fas fa-lock-open" style="color:#4a4"></span>);
-use constant BACK                 => q(<span class="nav_icon fas fa-2x fa-arrow-circle-left"></span>);
-use constant QUERY_MORE           => q(<span class="nav_icon fas fa-2x fa-search"></span>);
-use constant EDIT_MORE            => q(<span class="nav_icon fas fa-2x fa-pencil-alt"></span>);
-use constant UPLOAD_CONTIGS       => q(<span class="nav_icon fas fa-2x fa-dna"></span>);
-use constant LINK_CONTIGS         => q(<span class="nav_icon fas fa-2x fa-link"></span>);
-use constant MORE                 => q(<span class="nav_icon fas fa-2x fa-plus"></span>);
+use constant BAN                  => q(<span class="fas fa-ban icon_delete"></span>);
+use constant DOWNLOAD             => q(<span class="fas fa-download" style="color:#44a;opacity:0.8"></span>);
+use constant LOCK                 => q(<span class="fas fa-lock" style="color:#8c2f2f;opacity:0.8"></span>);
+use constant UNLOCK               => q(<span class="fas fa-lock-open" style="color:#2d6b3f"></span>);
+use constant BACK                 => q(<span class="nav_icon fas fa-arrow-circle-left"></span>);
+use constant QUERY_MORE           => q(<span class="nav_icon fas fa-search"></span>);
+use constant EDIT_MORE            => q(<span class="nav_icon fas fa-pencil-alt"></span>);
+use constant UPLOAD_CONTIGS       => q(<span class="nav_icon fas fa-dna"></span>);
+use constant LINK_CONTIGS         => q(<span class="nav_icon fas fa-link"></span>);
+use constant MORE                 => q(<span class="nav_icon fas fa-plus"></span>);
 use constant HOME                 => q(<span class="nav_icon fas fa-2x fa-home"></span>);
-use constant RELOAD               => q(<span class="nav_icon fas fa-2x fa-sync"></span>);
-use constant KEY                  => q(<span class="nav_icon fas fa-2x fa-key"></span>);
-use constant EYE_SHOW             => q(<span class="nav_icon fas fa-2x fa-eye"></span>);
-use constant EYE_HIDE             => q(<span class="nav_icon fas fa-2x fa-eye-slash"></span>);
-use constant CURATE               => q(<span class="nav_icon fas fa-2x fa-user-tie"></span>);
+use constant RELOAD               => q(<span class="nav_icon fas fa-sync"></span>);
+use constant KEY                  => q(<span class="nav_icon fas fa-key"></span>);
+use constant OKAY                 => q(<span class="nav_icon fas fa-check"></span>);
+use constant BOOKMARK             => q(<span class="nav_icon far fa-bookmark"></span>);
+use constant EYE_SHOW             => q(<span class="nav_icon fas fa-eye"></span>);
+use constant EYE_HIDE             => q(<span class="nav_icon fas fa-eye-slash"></span>);
+use constant TOGGLE_ON            => q(<span class="nav_icon fas fa-toggle-on"></span>);
+use constant TOGGLE_OFF           => q(<span class="nav_icon fas fa-toggle-off"></span>);
 use constant EXPORT_TABLE => q(<span class="fa-stack fa-2x export">)
   . q(<span class="fas fa-square fa-stack-2x export_button"></span>)
   . q(<span class="fas fa-table fa-stack-1x fa-inverse" style="margin-top:-0.2em"></span>)
@@ -224,10 +228,10 @@ use constant TREEMAP_ICON => q(<svg xmlns="http://www.w3.org/2000/svg" viewBox="
   . q(<rect x="422" y="368" width="56" height="128" rx="16" ry="16"/></g></svg>);
 use constant FLANKING => qw(0 20 50 100 200 500 1000 2000 5000 10000 25000 50000);
 use constant MAX_ROWS => 20;
-@values = qw(FACE_STYLE SHOW HIDE SAVE SAVING UP DOWN LEFT RIGHT
+@values = qw(FACE_STYLE SHOW HIDE ON OFF SAVE UP DOWN LEFT RIGHT
   EDIT DELETE ADD COMPARE UPLOAD UPLOAD_CHANGE_CONFIG QUERY USERS PENDING GOOD BAD MEH TRUE FALSE BAN DOWNLOAD
-  BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY EYE_SHOW EYE_HIDE
-  CURATE EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE PDF_FILE HTML_FILE
+  BACK QUERY_MORE EDIT_MORE UPLOAD_CONTIGS LINK_CONTIGS MORE HOME RELOAD KEY OKAY BOOKMARK EYE_SHOW EYE_HIDE
+  TOGGLE_ON TOGGLE_OFF EXPORT_TABLE EXCEL_FILE TEXT_FILE FASTA_FILE FASTA_FLANKING_FILE PDF_FILE HTML_FILE
   EMBL_FILE GBK_FILE GFF3_FILE MISC_FILE ARCHIVE_FILE IMAGE_FILE ALIGN_FILE CODE_FILE FLANKING
   SUBMIT_BUTTON MAX_ROWS LOCK UNLOCK FIRST PREVIOUS NEXT LAST TOOLTIP WARNING_TOOLTIP TREEMAP_ICON);
 push @EXPORT_OK, @values;
@@ -334,10 +338,10 @@ $EXPORT_TAGS{'submissions'} = [@values];
 #Schemes
 use constant SCHEME_FLAGS => ( 'experimental', 'in development', 'please cite', 'unpublished' );
 use constant SCHEME_FLAG_COLOURS => {
-	'please cite'    => '#990000',
-	'experimental'   => '#4c9900',
-	'in development' => '#4c0099',
-	'unpublished'    => '#009999'
+	'please cite'    => 'var(--flag1)',
+	'experimental'   => 'var(--flag2)',
+	'in development' => 'var(--flag3)',
+	'unpublished'    => 'var(--flag4)'
 };
 push @EXPORT_OK, qw (SCHEME_FLAGS SCHEME_FLAG_COLOURS);
 $EXPORT_TAGS{'scheme_flags'} = [qw(SCHEME_FLAGS SCHEME_FLAG_COLOURS)];

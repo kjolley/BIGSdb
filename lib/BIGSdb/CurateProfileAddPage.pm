@@ -23,8 +23,8 @@ use 5.010;
 use parent qw(BIGSdb::CurateAddPage);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
-use Log::Log4perl qw(get_logger);
-use List::MoreUtils qw(none any uniq);
+use Log::Log4perl     qw(get_logger);
+use List::MoreUtils   qw(none any uniq);
 my $logger = get_logger('BIGSdb.Page');
 use constant SUCCESS => 1;
 
@@ -124,7 +124,7 @@ sub _set_submission_params {
 			my $designations = $profile->{'designations'};
 			$q->param( "locus:$_" => $designations->{$_} ) foreach keys %$designations;
 			my $fields = $profile->{'fields'} // {};
-			$q->param("field:$_" => $fields->{$_}) foreach keys %$fields;
+			$q->param( "field:$_" => $fields->{$_} ) foreach keys %$fields;
 			last;
 		}
 		$profile_index++;
@@ -358,8 +358,9 @@ sub _print_interface {
 	say q(<div class="scrollable">);
 	my $icon = $self->get_form_icon( 'profiles', 'plus' );
 	say $icon;
-	say qq(<p>Please fill in the fields below - required fields are marked with an exclamation mark (!).$msg</p>);
-	say q(<fieldset class="form" style="float:left"><legend>Record</legend>);
+	say q(<p>Please fill in the fields below - required fields are marked )
+	  . qq(<label class="required">in bold</label>.$msg</p>);
+	say q(<fieldset style="float:left"><legend>Record</legend>);
 	my $loci         = $self->{'datastore'}->get_scheme_loci($scheme_id);
 	my $fields       = $self->{'datastore'}->get_scheme_fields($scheme_id);
 	my $longest_name = BIGSdb::Utils::get_largest_string_length( [ @$loci, @$fields ] );
@@ -369,10 +370,10 @@ sub _print_interface {
 	print $q->start_form;
 	$q->param( sent => 1 );
 	say $q->hidden($_) foreach qw (page db sent scheme_id submission_id);
-	say q(<ul>);
-	my ( $label, $title ) = $self->get_truncated_label( $primary_key, 24 );
-	my $title_attribute = $title ? qq( title="$title") : q();
-	say qq(<li><label for="field_$primary_key" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
+	( my $cleaned_pk = $primary_key ) =~ s/_/ /gx;
+	say q(<div class="form_container">);
+	say qq(<div class="form_label"><label for="field_$primary_key" class="required">$cleaned_pk:</label></div>);
+	say q(<div class="form_value">);
 	my $pk_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 	my %html5_args    = ( required => 'required' );
 	$html5_args{'type'} = 'number' if $pk_field_info->{'type'} eq 'integer';
@@ -383,21 +384,22 @@ sub _print_interface {
 		-value => $q->param("field:$primary_key") // $newdata->{$primary_key},
 		%html5_args
 	);
+
 	my $scheme_field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $primary_key );
 
 	if ( $scheme_field_info->{'description'} ) {
 		say $self->get_tooltip(qq($primary_key - $scheme_field_info->{'description'}));
 	}
-	say q(</li>);
+	say q(</div>);
 	foreach my $locus (@$loci) {
 		%html5_args = ( required => 'required' );
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		$html5_args{'type'} = 'number'
 		  if $locus_info->{'allele_id_format'} eq 'integer' && !$scheme_info->{'allow_missing_loci'};
 		my $cleaned = $self->clean_locus( $locus, { no_common_name => 1, strip_links => 1 } );
-		( $label, $title ) = $self->get_truncated_label( $cleaned, 24 );
-		$title_attribute = $title ? qq( title="$title") : q();
-		say qq(<li><label for="locus_$locus" class="form" style="width:${width}em"$title_attribute>$label: !</label>);
+		$cleaned =~ s/_/ /gx;
+		say qq(<div class="form_label"><label for="locus_$locus" class="required">$cleaned:</label></div>);
+		say q(<div class="form_value">);
 		say $self->textfield(
 			-name  => "locus:$locus",
 			-id    => "locus_$locus",
@@ -405,9 +407,10 @@ sub _print_interface {
 			-value => $q->param("locus:$locus") // $newdata->{"locus:$locus"},
 			%html5_args
 		);
-		say q(</li>);
+		say q(</div>);
 	}
-	say qq(<li><label for="field_sender" class="form" style="width:${width}em">sender: !</label>);
+	say q(<div class="form_label"><label for="field_sender" class="required">sender:</label></div>);
+	say q(<div class="form_value">);
 	my ( $users, $user_names ) = $self->{'datastore'}->get_users;
 	say $self->popup_menu(
 		-name     => 'field:sender',
@@ -417,15 +420,15 @@ sub _print_interface {
 		-default  => $newdata->{'field:sender'},
 		-required => 'required'
 	);
-	say q(</li>);
+	say q(</div>);
 	foreach my $field (@$fields) {
 		next if $field eq $primary_key;
 		$scheme_field_info  = $self->{'datastore'}->get_scheme_field_info( $scheme_id, $field );
 		%html5_args         = ();
 		$html5_args{'type'} = 'number' if $scheme_field_info->{'type'} eq 'integer';
-		( $label, $title ) = $self->get_truncated_label( $field, 24 );
-		$title_attribute = $title ? " title=\"$title\"" : '';
-		say qq(<li><label for="field_$field" class="form" style="width:${width}em"$title_attribute>$label: </label>);
+		( my $cleaned = $field ) =~ s/_/ /gx;
+		say qq(<div class="form_label"><label for="field_$field">$cleaned:</label></div>);
+		say q(<div class="form_value">);
 		if ( defined $scheme_field_info->{'option_list'} ) {
 			my @optlist = split /\|/x, $scheme_field_info->{'option_list'};
 			unshift @optlist, q();
@@ -444,23 +447,25 @@ sub _print_interface {
 			);
 		}
 		if ( $scheme_field_info->{'description'} ) {
-			say $self->get_tooltip(qq($label - $scheme_field_info->{'description'}));
+			say $self->get_tooltip(qq($field - $scheme_field_info->{'description'}));
 		}
-		say q(</li>);
+		say q(</div>);
 	}
-	say qq(<li><label class="form" style="width:${width}em">curator: !</label><b>)
-	  . $self->get_curator_name . q[ (]
-	  . $self->{'username'}
-	  . q[)</b></li>];
-	say qq(<li><label class="form" style="width:${width}em">date_entered: !</label><b>)
-	  . BIGSdb::Utils::get_datestamp()
-	  . q(</b></li>);
-	say qq(<li><label class="form" style="width:${width}em">datestamp: !</label><b>)
-	  . BIGSdb::Utils::get_datestamp()
-	  . q(</b></li>);
-	say qq(<li><label for="pubmed" class="form" style="width:${width}em">PubMed ids:</label>);
+	say q(<div class="form_label"><label class="required">curator:</label></div>);
+	say q(<div class="form_value">);
+	say $self->get_curator_name . q[ (] . $self->{'username'} . q[)</div>];
+	say q(<div class="form_label"><label class="required">date entered:</label></div>);
+	say q(<div class="form_value">);
+	say BIGSdb::Utils::get_datestamp();
+	say q(</div>);
+	say q(<div class="form_label"><label class="required">datestamp:</label></div>);
+	say q(<div class="form_value">);
+	say BIGSdb::Utils::get_datestamp();
+	say q(</div>);
+	say q(<div class="form_label"><label for="pubmed">PubMed ids:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textarea( -name => 'pubmed', -id => 'pubmed', -rows => 2, -cols => 12, -style => 'width:10em' );
-	say q(</li></ul>);
+	say q(</div></div>);
 	$self->print_action_fieldset( { scheme_id => $scheme_id } );
 	say $q->end_form;
 	say q(</fieldset></div></div>);
@@ -510,7 +515,7 @@ sub is_locus_field_bad {
 		}
 		return "$mapped value is invalid - this scheme does not allow missing (0) or arbitrary alleles (N) "
 		  . 'in the profile.';
-	} elsif ($value eq 'P'){
+	} elsif ( $value eq 'P' ) {
 		my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 		if ( $scheme_info->{'allow_presence'} ) {
 			if ( !$self->{'datastore'}->sequence_exists( $locus, $value ) ) {
@@ -560,12 +565,7 @@ sub get_javascript {
   \$("select#field_sender").select2({
 		width: '240px',
 		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
 	});
-	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
-	\$(document).on('select2:open', () => {
-   	   document.querySelector('.select2-search__field').focus();
-	}); 
 });
 END
 	return $buffer;

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -43,12 +43,7 @@ sub get_javascript {
   \$("select#sender").select2({
 		width: '240px',
 		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
 	});
-	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
-	\$(document).on('select2:open', () => {
-   	   document.querySelector('.select2-search__field').focus();
-	}); 
 });
 END
 	return $buffer;
@@ -105,9 +100,14 @@ sub print_seqbin_warnings {
 		  . q(not yet been validated.)
 		  : q();
 		if ($seqbin) {
-			say q(<div class="box" id="warning"><p>Sequences have already been uploaded for this isolate.</p>)
-			  . qq(<ul><li>Contigs: $seqbin->{'contigs'}</li><li>Total length: $seqbin->{'total_length'} bp</li></ul>)
-			  . qq(<p>Please make sure that you intend to add new sequences for this isolate.$remote_clause</p></div>);
+			$self->print_warning(
+				{
+					message => q(Sequences have already been uploaded for this isolate.),
+					detail  => qq(<ul><li>Contigs: $seqbin->{'contigs'}</li>)
+					  . qq(<li>Total length: $seqbin->{'total_length'} bp</li></ul>)
+					  . qq(<p>Please make sure that you intend to add new sequences for this isolate.$remote_clause)
+				}
+			);
 		}
 	}
 	return;
@@ -126,17 +126,19 @@ sub _print_interface {
 	say $q->start_form;
 	my ( $users, $user_names ) =
 	  $self->{'datastore'}->get_users( { blank_message => 'Select sender...' } );
-	say q(<p>Please fill in the following fields - required fields are marked with an exclamation mark (!).</p>);
+	say q(<p>Please fill in the following fields - required fields are marked )
+	  . q(<label class="required">in bold</label>.</p>);
 	say q(<fieldset style="float:left"><legend>Paste in sequences in FASTA format:</legend>);
 	say $q->hidden($_) foreach qw (page db);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say q(</fieldset>);
-	say q(<fieldset style="float:left"><legend>Attributes</legend><ul>);
+	say q(<fieldset style="float:left"><legend>Attributes</legend>);
+	say q(<div class="form_container">);
 	my $sender;
 	my $isolate_count = $self->{'datastore'}->run_query("SELECT COUNT(*) FROM $self->{'system'}->{'view'}");
 
 	if ( $q->param('isolate_id') && !$options->{'error'} ) {
-		say q(<li><label class="parameter">isolate id: !</label>);
+		say q(<div class="form_label"><label class="required">isolate id:</label></div>);
 		my $isolate_id = $q->param('isolate_id');
 		my $isolate_name;
 		if ( BIGSdb::Utils::is_int($isolate_id) ) {
@@ -151,10 +153,11 @@ sub _print_interface {
 		} else {
 			$isolate_name = 'Invalid isolate';
 		}
-		say qq{<span id="isolate_id">$isolate_id) $isolate_name</span>};
+		say qq{<div class="form_value"><span id="isolate_id">$isolate_id) $isolate_name</span></div>};
 		say $q->hidden( 'isolate_id', $isolate_id );
 	} elsif ( $isolate_count > MAX_ISOLATES_DROPDOWN ) {
-		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
+		say q(<div class="form_label"><label for="isolate_id" class="required">isolate id:</label></div>);
+		say q(<div class="form_value">);
 		say $self->textfield(
 			-name       => 'isolate_id',
 			id          => 'isolate_id',
@@ -162,8 +165,9 @@ sub _print_interface {
 			type        => 'number',
 			placeholder => 'Enter isolate id...'
 		);
+		say q(</div>);
 	} else {
-		say q(<li><label for="isolate_id" class="parameter">isolate id: !</label>);
+		say q(<div class="form_label"><label for="isolate_id" class="required">isolate id:</label></div>);
 		my $id_arrayref =
 		  $self->{'datastore'}
 		  ->run_query( "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} ORDER BY id",
@@ -175,6 +179,7 @@ sub _print_interface {
 			push @ids, $_->[0];
 			$labels{ $_->[0] } = "$_->[0]) $_->[1]";
 		}
+		say q(<div class="form_value">);
 		say $self->popup_menu(
 			-name     => 'isolate_id',
 			-id       => 'isolate_id',
@@ -182,8 +187,10 @@ sub _print_interface {
 			-labels   => \%labels,
 			-required => 'required',
 		);
+		say q(</div>);
 	}
-	say q(</li><li><label for="sender" class="parameter">sender: !</label>);
+	say q(<div class="form_label"><label for="sender" class="required">sender:</label></div>);
+	say q(<div class="form_value">);
 	say $self->popup_menu(
 		-name     => 'sender',
 		-id       => 'sender',
@@ -192,13 +199,20 @@ sub _print_interface {
 		-required => 'required',
 		-default  => $sender
 	);
-	say q(</li><li><label for="method" class="parameter">method: </label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="method">method:</label></div>);
 	my $method_labels = { '' => ' ' };
+	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'method', -id => 'method', -values => [ '', SEQ_METHODS ], -labels => $method_labels );
-	say q(</li><li><label for="run_id" class="parameter">run id: </label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="run_id">run id: </label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'run_id', -id => 'run_id', -size => 32 );
-	say q(</li><li><label for="assembly_id" class="parameter">assembly id: </label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="assembly_id">assembly id:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'assembly_id', -id => 'assembly_id', -size => 32 );
+	say q(</div>);
 	my $seq_attributes =
 	  $self->{'datastore'}->run_query( 'SELECT key,type,description FROM sequence_attributes ORDER BY key',
 		undef, { fetch => 'all_arrayref', slice => {} } );
@@ -206,14 +220,17 @@ sub _print_interface {
 	if (@$seq_attributes) {
 		foreach my $attribute (@$seq_attributes) {
 			( my $label = $attribute->{'key'} ) =~ s/_/ /;
-			say qq(<li><label for="$attribute->{'key'}" class="parameter">$label:</label>\n);
+			say qq(<div class="form_label"><label for="$attribute->{'key'}">$label:</label></div>\n);
+			say q(<div class="form_value">);
 			say $q->textfield( -name => $attribute->{'key'}, -id => $attribute->{'key'} );
 			if ( $attribute->{'description'} ) {
 				say $self->get_tooltip(qq($attribute->{'key'} - $attribute->{'description'}.));
 			}
+			say q(</div>);
 		}
 	}
-	say q(</li></ul></fieldset><fieldset style="float:left"><legend>Options</legend>);
+	say q(</div></fieldset>);
+	say q(<fieldset style="float:left"><legend>Options</legend>);
 	say q(<ul><li>);
 	say $q->checkbox(
 		-name    => 'size_filter',

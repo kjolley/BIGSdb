@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Automatically tag scan genomes for exactly matching alleles
 #Written by Keith Jolley
-#Copyright (c) 2011-2024, University of Oxford
+#Copyright (c) 2011-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20240419
+#Version: 20260823
 use strict;
 use warnings;
 use 5.010;
@@ -31,7 +31,8 @@ use constant {
 	HOST             => undef,                  #Use values in config.xml
 	PORT             => undef,                  #But you can override here.
 	USER             => undef,
-	PASSWORD         => undef
+	PASSWORD         => undef,
+	LOCK_DIR         => '/var/run/lock'         #Override in bigsdb.conf
 };
 #######End Local configuration#############################################
 use lib (LIB_DIR);
@@ -39,6 +40,7 @@ use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
 use Parallel::ForkManager;
 use File::Temp qw(tempdir);
+use Digest::MD5;
 use BIGSdb::Offline::AutoTag;
 my %opts;
 GetOptions(
@@ -76,6 +78,7 @@ GetOptions(
 	'T|already_tagged'     => \$opts{'T'},
 	'v|view=s'             => \$opts{'v'}
 ) or die("Error in command line arguments\n");
+
 if ( $opts{'h'} ) {
 	show_help();
 	exit;
@@ -85,6 +88,9 @@ if ( !$opts{'d'} ) {
 	say 'Help: autotag.pl -h';
 	exit;
 }
+my $job_fingerprint = get_job_fingerprint();    #Do this now as we delete args later.
+check_if_script_already_running();
+
 if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	my $script = BIGSdb::Offline::AutoTag->new(    #Create script object to use methods to determine isolate list
 		{
@@ -126,8 +132,8 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	$script->{'logger'}
 	  ->info("$opts{'d'}:Running Autotagger on $isolate_count isolate$plural ($threads thread$plural)");
 	my $job_id = $script->add_job( 'AutoTag', { temp_init => 1 } );
-        my $tmpdir = tempdir(DIR => $ENV{'TMPDIR'});
-        my $pm     = Parallel::ForkManager->new( $opts{'threads'} , $tmpdir);
+	my $tmpdir = tempdir( DIR => $ENV{'TMPDIR'} );
+	my $pm     = Parallel::ForkManager->new( $opts{'threads'}, $tmpdir );
 
 	foreach my $list (@$lists) {
 
@@ -153,6 +159,7 @@ if ( $opts{'threads'} && $opts{'threads'} > 1 ) {
 	$pm->wait_all_children;
 	$script->{'logger'}->info("$opts{'d'}:All Autotagger threads finished");
 	$script->stop_job( $job_id, { temp_init => 1 } );
+	remove_lock_file();
 	exit;
 }
 
@@ -170,6 +177,67 @@ BIGSdb::Offline::AutoTag->new(
 		instance         => $opts{'d'},
 	}
 );
+remove_lock_file();
+
+sub get_job_fingerprint {
+	my $arg_fingerprint;
+	foreach my $key ( sort keys %opts ) {
+		$arg_fingerprint .= qq($key:) . ( $opts{$key} // q(_) );
+	}
+	my $hash = Digest::MD5::md5_hex("$0$arg_fingerprint");
+	return $hash;
+}
+
+sub check_if_script_already_running {
+	my $script = BIGSdb::Offline::Script->new(
+		{
+			config_dir => CONFIG_DIR,
+			lib_dir    => LIB_DIR,
+		}
+	);
+
+	my $lock_file = get_lock_file();
+	if ( -e $lock_file ) {
+		open( my $fh, '<', $lock_file )
+		  || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
+		my $pid = <$fh>;
+		close $fh;
+		my $pid_exists = kill( 0, $pid );
+		if ( !$pid_exists ) {
+			say 'Lock file exists but process is no longer running - deleting lock.'
+			  if !$opts{'q'};
+			unlink $lock_file;
+		} else {
+			$script->{'logger'}->error("$opts{'d'} - Script already running with these parameters - terminating.");
+			undef $script;
+			say 'Script already running with these parameters - terminating.' if !$opts{'q'};
+			exit(1);
+		}
+	}
+	open( my $fh, '>', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for writing");
+	say $fh $$;
+	close $fh;
+	return;
+}
+
+sub get_lock_file {
+	my $script = BIGSdb::Offline::Script->new(
+		{
+			config_dir => CONFIG_DIR,
+			lib_dir    => LIB_DIR,
+		}
+	);
+
+	my $lock_dir  = $script->{'config'}->{'lock_dir'} // LOCK_DIR;
+	my $lock_file = "$lock_dir/BIGSdb_autotag_$job_fingerprint";
+	return $lock_file;
+}
+
+sub remove_lock_file {
+	my $lock_file = get_lock_file();
+	unlink $lock_file;
+	return;
+}
 
 sub show_help {
 	my $termios = POSIX::Termios->new;

@@ -1,6 +1,6 @@
 #Kleborate.pm - Kleborate wrapper for BIGSdb
 #Written by Keith Jolley
-#Copyright (c) 2023-2025, University of Oxford
+#Copyright (c) 2023-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -47,20 +47,20 @@ sub get_attributes {
 		  . 'loci; virulence plasmid associated loci; antimicrobial resistance determinants; and K (capsule) and O '
 		  . 'antigen (LPS) serotype prediction (<a href="https://pubmed.ncbi.nlm.nih.gov/34234121/">'
 		  . 'Lam <i>et al.</i> 2021 <i>Nat Commun</i> <b>12:</b>4188</a>).',
-		category            => 'Third party',
+		category            => 'Analysis',
 		buttontext          => 'Kleborate',
 		menutext            => 'Kleborate',
 		module              => 'Kleborate',
-		version             => '1.1.1',
+		version             => '1.1.2',
 		dbtype              => 'isolates',
-		section             => 'third_party,isolate_info,postquery',
+		section             => 'analysis,isolate_info,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'offline_jobs,Kleborate,seqbin',
 		system_flag         => 'Kleborate',
 		explicit_enable     => 1,
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/kleborate.html",
-		order               => 36,
+		order               => 50,
 		min                 => 1,
 		max                 => $self->_get_max_records,
 		always_show_in_menu => 1,

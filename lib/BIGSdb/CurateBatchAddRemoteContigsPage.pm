@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2017-2025, University of Oxford
+#Copyright (c) 2017-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -31,7 +31,7 @@ my $logger = get_logger('BIGSdb.Page');
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery jQuery.multiselect modernizr noCache);
+	$self->{$_} = 1 foreach qw (jQuery select2 modernizr noCache);
 		my $q = $self->{'cgi'};
 	if ( $q->param('check') || $q->param('process') || $q->param('upload') ) {
 		$self->{'processing'} = 1;
@@ -315,17 +315,15 @@ sub _check {
 		$isolate_data = $self->{'contigManager'}->get_remote_isolate($isolate_uri);
 	}
 	catch {
+		$error = 1;
 		if ( $_->isa('BIGSdb::Exception::Authentication') ) {
 			say q(failed! - check OAuth authentication settings</p>);
-			$error = 1;
-		}
-		if ( $_->isa('BIGSdb::Exception::File') ) {
+		} elsif ( $_->isa('BIGSdb::Exception::File') ) {
 			say q(failed! - URI is inaccesible</p>);
-			$error = 1;
-		}
-		if ( $_->isa('BIGSdb::Exception::Data') ) {
+		} elsif ( $_->isa('BIGSdb::Exception::Data') ) {
 			say q(failed! - Returned data is not in valid format</p>);
-			$error = 1;
+		} else {
+			$logger->error($_);			
 		}
 	};
 	if (!$error) {
@@ -364,7 +362,8 @@ sub _print_interface {
 	  . q(</p>);
 	say $q->start_form;
 	say q(<fieldset style="float:left"><legend>Enter details</legend>);
-	say q(<ul><li><label for="isolate_id" class="parameter">isolate id: !</label>);
+	say q(<div class="form_container">);
+	say q(<div class="form_label"><label for="isolate_id" class="required">isolate id:</label></div>);
 	my $id_arrayref =
 	  $self->{'datastore'}
 	  ->run_query( "SELECT id,$self->{'system'}->{'labelfield'} FROM $self->{'system'}->{'view'} ORDER BY id",
@@ -372,7 +371,7 @@ sub _print_interface {
 	my @ids = (0);
 	my %labels;
 	$labels{'0'} = 'Select isolate...';
-
+	say q(<div class="form_value">);
 	if ( @$id_arrayref <= 1000 ) {
 		foreach (@$id_arrayref) {
 			push @ids, $_->[0];
@@ -382,10 +381,11 @@ sub _print_interface {
 	} else {
 		say $q->textfield( -name => 'isolate_id', -id => 'isolate_id', -size => 6 );
 	}
-	say q(</li><li>);
-	say q(<label for="contig_uri" class="parameter">isolate record URI: !</label>);
+	say q(</div>);
+	say q(<div class="form_label"><label for="contig_uri" class="required">isolate record URI:</label></div>);
+	say q(<div class="form_value">);
 	say $q->textfield( -name => 'isolate_uri', -id => 'contig_url', -size => 80 );
-	say q(</li></ul>);
+	say q(</div></div>);
 	say q(</fieldset>);
 	$self->print_action_fieldset;
 	$q->param( check => 1 );

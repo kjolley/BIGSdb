@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2019-2025, University of Oxford
+#Copyright (c) 2019-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,9 +20,9 @@ package BIGSdb::Offline::BatchSequenceCheck;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Offline::Script BIGSdb::CurateBatchAddPage);
+use parent          qw(BIGSdb::Offline::Script BIGSdb::CurateBatchAddPage);
 use List::MoreUtils qw(any none);
-use Digest::MD5 qw(md5);
+use Digest::MD5     qw(md5);
 use JSON;
 use BIGSdb::Constants qw(ALLELE_FLAGS DIPLOID HAPLOID IDENTITY_THRESHOLD);
 my $logger;
@@ -48,7 +48,6 @@ sub run {
 	my $table_buffer =
 	  qq(<div class="scrollable"><table class="tablesorter"><thead><tr>$table_header</tr></thead><tbody>);
 	my @records = split /\n/x, $self->{'options'}->{'data'};
-	my $td      = 1;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
 	my $primary_keys = [qw(locus allele_id)];
 	my $record_count;
@@ -125,7 +124,7 @@ sub run {
 				}
 			}
 			next if !$continue;
-			$table_buffer .= qq(<tr class="td$td">$rowbuffer);
+			$table_buffer .= qq(<tr>$rowbuffer);
 			my $new_args = {
 				file_header_pos => $file_header_pos,
 				data            => \@data,
@@ -133,7 +132,6 @@ sub run {
 			$table_buffer .= qq(</tr>\n);
 			$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 		}
-		$td = $td == 1 ? 2 : 1;    #row stripes
 		push @$checked_buffer, $checked_record;
 	}
 	$table_buffer .= q(</tbody></table></div>);

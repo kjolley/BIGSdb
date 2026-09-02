@@ -36,7 +36,7 @@ sub initiate {
 	if ( $self->{'cgi'}->param('function') ) {
 		$self->{'type'} = 'text';
 	} else {
-		$self->{'jQuery'} = 1;
+		$self->{$_} = 1 foreach qw(jQuery select2);
 	}
 	my $q = $self->{'cgi'};
 	if ( $q->param('profiles') ) {

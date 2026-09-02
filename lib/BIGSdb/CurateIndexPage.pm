@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,7 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage BIGSdb::IndexPage BIGSdb::SubmitPage);
 use Try::Tiny;
-use List::MoreUtils qw(uniq none);
+use List::MoreUtils   qw(uniq none);
 use BIGSdb::Constants qw(:interface DEFAULT_DOMAIN);
 use Email::Sender::Transport::SMTP;
 use Email::Sender::Simple qw(try_to_sendmail);
@@ -40,7 +40,7 @@ sub set_pref_requirements {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache packery tooltips allowExpand);
+	$self->{$_} = 1 foreach qw (jQuery noCache packery allowExpand tooltips select2 bigsdb.curateindex);
 	$self->choose_set;
 	$self->{'system'}->{'only_sets'} = 'no' if $self->is_admin;
 	my $guid = $self->get_guid;
@@ -62,7 +62,8 @@ sub initiate {
 			}
 		};
 	}
-	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
+
+	#	$self->{'optional_curator_display'} = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
 
 	#Check admin links to see what potentially can be displayed.
 	my @methods = qw(misc_admin locus_admin scheme_admin set_admin client_admin field_admin);
@@ -100,163 +101,13 @@ sub initiate {
 }
 
 sub get_javascript {
-	my ($self)     = @_;
-	my $links      = $self->get_related_databases;
-	my $db_trigger = q();
-	if ( @$links > 1 ) {
-		$db_trigger = << "END";
-+\$("#related_db_trigger,#close_related_db").click(function(){		
-		\$("#related_db_panel").toggle("slide",{direction:"right"},"fast");
-		return false;
-	});	
-END
-	}
+	my ($self)           = @_;
+	my $links            = $self->get_related_databases;
+	my $related_db_count = @$links;
+	my $db_trigger       = q();
+
 	my $buffer = << "END";
-\$(function () {
-	\$( "#show_closed" ).click(function() {
-		if (\$("span#show_closed_text").css('display') == 'none'){
-			\$("span#show_closed_text").css('display', 'inline');
-			\$("span#hide_closed_text").css('display', 'none');
-		} else {
-			\$("span#show_closed_text").css('display', 'none');
-			\$("span#hide_closed_text").css('display', 'inline');
-		}
-		\$( "#closed" ).toggle( 'blind', {} , 500 );
-		return false;
-	});
-	\$('a#toggle_notifications').click(function(event){		
-		event.preventDefault();
-  		\$(this).attr('href', function(){  		
-	  		\$.ajax({
-	  			url: this.href,
-	  			cache: false,
-	  			success: function () {
-	  				if (\$('span#notify_text').text() == 'ON'){
-	  					\$('span#notify_text').text('OFF');
-	  				} else {
-	  					\$('span#notify_text').text('ON');
-	  				}
-	  			}
-	  		});
-	   	});
-	});
-	\$('a#toggle_all_curator_methods').click(function(event){		
-		event.preventDefault();
-  		\$(this).attr('href', function(){  
-  			\$('#all_curator_methods_off').toggle();	
-	  		\$('#all_curator_methods_on').toggle();
-	  		\$('.default_hide_curator').fadeToggle(200,'',function(){
-	  			\$('#curator_grid').packery();
-	  		});	
-	  		\$.ajax({
-	  			url: this.href,
-	  			cache: false,
-	  		});
-	   	});
-	});
-	\$('a#toggle_all_admin_methods').click(function(event){
-		event.preventDefault();
-		\$(this).attr('href', function(){  
-  			\$('#all_admin_methods_off').toggle();	
-	  		\$('#all_admin_methods_on').toggle();
-		});
-		var categories = ["locus","scheme","set","client","field","misc"];
-		if (\$('#all_admin_methods_on').is(':visible')){
-			for (var i=0; i<categories.length; i++){
-				if (\$('#' + categories[i] + '_admin_methods_off').is(':visible')){
-					\$('#toggle_' + categories[i] + '_admin_methods').click();	
-				}
-			}
-		} else {
-			for (var i=0; i<categories.length; i++){
-				if (\$('#' + categories[i] + '_admin_methods_on').is(':visible')){
-					\$('#toggle_' + categories[i] + '_admin_methods').click();	
-				}
-			}
-		}
-	});
-	var categories = ["misc_admin","locus_admin","scheme_admin","set_admin","client_admin","field_admin"];
-	for (var i=0; i<categories.length; i++){
-		var cat = categories[i]
-		bind_toggle(cat);
-	}
-	var \$grid = \$(".grid").packery({
-       	itemSelector: '.grid-item',
-  		gutter: 10,
-  		stamp: '.stamp'
-    });        
-    \$(window).resize(function() {
-    	delay(function(){
-     			\$grid.packery({
-     				gutter:10
-     			});
-    	}, 1000);
- 	});
- 	\$("#expand,#contract").click(function(){
- 		delay(function(){
-     			\$grid.packery({
-     				gutter:10
-     			});
-    	}, 3000);
- 	});
-	$db_trigger
-	\$(".curate_icon_link").on("mouseenter", function(){
-		\$(".curate_icon_highlight", this).addClass("fa-beat");
-	});
-	\$(".curate_icon_link").on("mouseleave", function(){
-		\$(".curate_icon_highlight", this).removeClass("fa-beat");
-	});
-});
-
-function bind_toggle (cat){
-	\$('a#toggle_' + cat + '_methods').click(function(event){	
-		event.preventDefault();
- 		\$(this).attr('href', function(){  
-  			\$('#' + cat + '_methods_off').toggle();	
-	  		\$('#' + cat + '_methods_on').toggle();
-	  		\$('.' + cat).fadeToggle(200,'',function(){
-	  			\$('#admin_grid').packery();
-	  		});	
-	  		\$.ajax({
-	  			url: this.href,
-	  			cache: false,
-	  		});
-	   	});
-	   	var categories = ["locus","scheme","set","client","field","misc"];
-	   	var all_hidden = 1;
-	   	var all_shown = 1;
-	   	for (var i=0; i<categories.length; i++){	
-		  	if (\$('#' + categories[i] + '_admin_methods_on').is(':visible')){
-				all_hidden = 0;
-			}
-			if (\$('#' + categories[i] + '_admin_methods_off').is(':visible')){
-				all_shown = 0;
-			}
-		}
-		if (all_hidden){
-			\$('#all_admin_methods_off').css('display','inline');	
-	  		\$('#all_admin_methods_on').css('display','none');
-		} else {
-			\$('#all_admin_methods_on').css('display','inline');	
-	  		\$('#all_admin_methods_off').css('display','none');
-		}
-		if (all_shown){
-			\$('#all_admin_methods_on').css('display','inline');	
-	  		\$('#all_admin_methods_off').css('display','none');
-		} else {
-			\$('#all_admin_methods_off').css('display','inline');	
-	  		\$('#all_admin_methods_on').css('display','none');
-		}
-	});
-}
-
-var delay = (function(){
-  var timer = 0;
-  return function(callback, ms){
-    clearTimeout (timer);
-    timer = setTimeout(callback, ms);
-  };
-})();	
+const related_dbs=$related_db_count;
 END
 	return $buffer;
 }
@@ -327,35 +178,6 @@ sub _get_set_string {
 	return $set_string;
 }
 
-sub _get_standard_links {
-	my ($self) = @_;
-	my $buffer = $self->_get_user_fields;
-	return $buffer;
-}
-
-sub _get_seqdef_links {
-	my ($self) = @_;
-	my $buffer = $self->_get_locus_description_fields;
-	$buffer .= $self->_get_sequence_fields;
-	$buffer .= $self->_get_profile_fields;
-	$buffer .= $self->_get_classification_field_values;
-	$buffer .= $self->_get_lincode_prefix_values;
-	return $buffer;
-}
-
-sub _get_isolate_links {
-	my ($self) = @_;
-	my $buffer;
-	$buffer .= $self->_get_isolate_fields;
-	$buffer .= $self->_get_isolate_field_extended_attribute_field;
-	$buffer .= $self->_get_projects;
-	$buffer .= $self->_get_allele_designations;
-	$buffer .= $self->_get_sequence_bin;
-	$buffer .= $self->_get_allele_sequences;
-	$buffer .= $self->_get_geography_point_lookup;
-	return $buffer;
-}
-
 sub _get_admin_links {
 	my ($self) = @_;
 	my $buffer = q();
@@ -405,28 +227,31 @@ sub _get_admin_links {
 
 sub _get_geocoding {
 	my ($self) = @_;
-	return q() if !$self->is_admin;
-	my $buffer =
-		q(<div class="curategroup curategroup_geocoding grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Geocoding setup</h2>);
-	$buffer .= $self->_get_icon_group(
-		undef,
-		'globe-africa',
-		{
+	my $cards = [];
+	return $cards if !$self->is_admin;
+	push @$cards, {
+		title   => 'Geocoding setup',
+		table   => undef,
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			action       => 1,
 			action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=geocoding),
 			action_label => 'Setup',
-			info         => 'Geocoding - Set up standard country names and continent links.'
+			info         => 'Set up standard country names and continent links.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+
+	};
+
+	return $cards;
 }
 
 sub _get_geography_point_lookup {
 	my ($self) = @_;
-	return q() if !$self->can_modify_table('geography_point_lookup');
-	return     if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
+	my $cards = [];
+	return $cards if !$self->can_modify_table('geography_point_lookup');
+	return $cards if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
 	my $atts = $self->{'xmlHandler'}->get_all_field_attributes;
 	my $lookup_fields;
 	foreach my $field ( keys %$atts ) {
@@ -435,35 +260,37 @@ sub _get_geography_point_lookup {
 			last;
 		}
 	}
-	return q() if !$lookup_fields;
+	return $cards if !$lookup_fields;
 	if ( !$self->{'datastore'}->run_query(q(SELECT to_regclass('geography_point_lookup'))) ) {
 		$logger->fatal(
 				'Your database configuration contains one or more fields with the geography_point_lookup attribute set '
 			  . 'but your database does not contain the geography_point_lookup table. You need to ensure that PostGIS '
 			  . 'is installed and run the isolatedb_geocoding.sql SQL script against the database to set this up.' );
 		undef $atts->{$_}->{'geography_point_lookup'} foreach keys %$atts;
-		return q();
+		return $cards;
 	}
-	my $buffer = q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Geopoint field lookup</h2>);
-	$buffer .= $self->_get_icon_group(
-		'geography_point_lookup',
-		'globe-europe',
-		{
+
+	push @$cards,
+	  {
+		title   => 'Geopoint field lookup',
+		table   => 'geography_point_lookup',
+		type    => 'curator',
+		default => 'hide',
+		section => 'metadata',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Geopoint lookup - Set GPS coordinates for geographic field values.'
+			info      => 'Set GPS coordinates for geographic field values.'
 		}
-	);
-	$buffer .= q(</div>);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_user_fields {
 	my ($self) = @_;
-	my $buffer = q();
 	my ( $import, $query_only );
+	my $cards = [];
 	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
 		&& $self->{'datastore'}->user_dbs_defined )
 	{
@@ -475,161 +302,177 @@ sub _get_user_fields {
 	my $modify_users = $self->can_modify_table('users');
 	if ( $modify_users || $import || $query_only ) {
 		my $import_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=importUser);
-		$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_curator"><h2>Users</h2>);
-		$buffer .= $self->_get_icon_group(
-			'users', 'user',
-			{
+		push @$cards,
+		  {
+			title   => 'Users',
+			table   => 'users',
+			type    => 'curator',
+			default => 'show',
+			section => 'user',
+			data    => {
 				add          => $modify_users,
 				batch_add    => $modify_users,
 				query        => $modify_users,
 				query_only   => $query_only && !$modify_users,
 				import       => $import,
 				import_url   => $import_url,
-				import_label => 'Import user account from centralized user database'
+				import_label => 'Import user account from centralized user database',
+				info         => 'User profiles and status'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
+
 	}
 	if ( $self->can_modify_table('user_groups') ) {
-		$buffer .= q(<div class="curategroup curategroup_users grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>User groups</h2>);
-		$buffer .= $self->_get_icon_group(
-			'user_groups',
-			'users',
-			{
+		push @$cards,
+		  {
+			title   => 'User groups',
+			table   => 'user_groups',
+			type    => 'curator',
+			default => 'hide',
+			section => 'user',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info => 'User groups - Users can be members of user groups to facilitate setting access permissions.',
+				info      => 'Users can be members of user groups to facilitate setting access permissions.',
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
+
 	}
 	if ( $self->can_modify_table('user_group_members') ) {
-		$buffer .= q(<div class="curategroup curategroup_users grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>User group members</h2>);
-		$buffer .= $self->_get_icon_group(
-			'user_group_members',
-			'user-friends',
-			{
+		push @$cards,
+		  {
+			title   => 'User group members',
+			table   => 'user_group_members',
+			type    => 'curator',
+			default => 'hide',
+			section => 'user',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'User group members - Add users to user groups to facilitate setting access permissions.'
+				info      => 'Add users to user groups to facilitate setting access permissions.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
+
 	}
-	if ( ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin )
-		&& $self->{'datastore'}->user_dbs_defined )
-	{
-	}
-	return $buffer;
+
+	return $cards;
 }
 
 sub _get_locus_description_fields {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('locus_descriptions');
-	return $buffer if !$self->_loci_exist;
+	my $cards = [];
+	return $cards if !$self->can_modify_table('locus_descriptions');
+	return $cards if !$self->_loci_exist;
 	if ( !$self->is_admin ) {
 		my $allowed =
 		  $self->{'datastore'}
 		  ->run_query( 'SELECT EXISTS(SELECT * FROM locus_curators WHERE curator_id=?)', $self->get_curator_id );
-		return $buffer if !$allowed;
+		return $cards if !$allowed;
 	}
-	$buffer .= q(<div class="curategroup curategroup_locus_descriptions grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Locus descriptions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'locus_descriptions',
-		'clipboard',
-		{
-			add       => 1,
-			batch_add => 1,
-			query     => 1
-		}
-	);
-	$buffer .= qq(</div>\n);
-	$buffer .= q(<div class="curategroup curategroup_locus_descriptions grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Locus links</h2>);
-	$buffer .= $self->_get_icon_group(
-		'locus_links',
-		'link',
-		{
+
+	push @$cards,
+	  {
+		title   => 'Locus descriptions',
+		table   => 'locus_descriptions',
+		type    => 'curator',
+		default => 'hide',
+		section => 'loci',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Locus links - Hyperlinks to further information on the internet about a locus.'
+			info      => 'Information about loci such as gene products or description of function.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+
+	push @$cards,
+	  {
+		title   => 'Locus links',
+		table   => 'locus_links',
+		type    => 'curator',
+		default => 'hide',
+		section => 'loci',
+		data    => {
+			add       => 1,
+			batch_add => 1,
+			query     => 1,
+			info      => 'Hyperlinks to further information on the internet about a locus.'
+		}
+	  };
+	return $cards;
 }
 
 sub _get_sequence_fields {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('sequences');
-	return $buffer if !$self->_loci_exist;
+	my $cards = [];
+	return $cards if !$self->can_modify_table('sequences');
+	return $cards if !$self->_loci_exist;
 	my $set_string = $self->_get_set_string;
 	my $batch_add_url =
 	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSequences$set_string);
 	my $fasta_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddFasta$set_string);
-	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_show_curator"><h2>Sequences</h2>);
-	$buffer .= $self->_get_icon_group(
-		'sequences',
-		'dna',
-		{
+	push @$cards,
+	  {
+		title   => 'Sequences',
+		table   => 'sequences',
+		type    => 'curator',
+		default => 'show',
+		section => 'loci',
+		data    => {
 			add           => 1,
 			batch_add     => 1,
 			batch_add_url => $batch_add_url,
 			query         => 1,
 			fasta         => 1,
 			fasta_url     => $fasta_url,
-			fasta_label   => 'Upload new sequences using a FASTA file containing new variants of a single locus.'
+			info          => 'Allele or protein variant sequences. Batch upload by TSV or FASTA file.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired alleles</h2>);
-	$buffer .= $self->_get_icon_group(
-		'retired_allele_ids',
-		'trash-alt',
-		{
+	  };
+	push @$cards,
+	  {
+		title   => 'Retired alleles',
+		table   => 'retired_allele_ids',
+		type    => 'curator',
+		default => 'hide',
+		section => 'loci',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Retired alleles - Alleles ids defined here will be prevented from being reused.'
+			info      => 'Alleles ids defined here will be prevented from being reused.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele accessions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'accession',
-		'external-link-alt',
-		{
+	  };
+	push @$cards,
+	  {
+		title   => 'Allele accessions',
+		table   => 'accession',
+		type    => 'curator',
+		default => 'hide',
+		section => 'loci',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Allele accessions - Associate sequences with Genbank/ENA accessions numbers.'
+			info      => 'Associate sequences with Genbank/ENA accessions numbers.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	$buffer .= q(<div class="curategroup curategroup_sequences grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele publications</h2>);
-	$buffer .= $self->_get_icon_group(
-		'sequence_refs',
-		'book-open',
-		{
+	  };
+	push @$cards,
+	  {
+		title   => 'Allele publications',
+		table   => 'sequence_refs',
+		type    => 'curator',
+		default => 'hide',
+		section => 'loci',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Allele references - Associate sequences with publications using PubMed id.'
+			info      => 'Associate sequences with publications using PubMed id.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_profile_fields {
@@ -653,30 +496,31 @@ sub _get_profile_fields {
 			{ fetch => 'col_arrayref' }
 		);
 	}
-	my $buffer = q();
+	my $cards = [];
 	my %desc;
+	my $scheme_info = {};
 	foreach my $scheme_id (@$schemes)
 	{    #Can only order schemes after retrieval since some can be renamed by set membership
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id } );
-		$desc{$scheme_id} = $scheme_info->{'name'};
+		$scheme_info->{$scheme_id} =
+		  $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
+		$desc{$scheme_id} = $scheme_info->{$scheme_id}->{'name'};
 	}
 	my $curator_id = $self->get_curator_id;
 	foreach my $scheme_id ( sort { $desc{$a} cmp $desc{$b} } @$schemes ) {
 		next if $set_id && !$self->{'datastore'}->is_scheme_in_set( $scheme_id, $set_id );
 		next if $self->{'prefs'}->{'disable_schemes'}->{$scheme_id};
-		my $class   = q(default_show_curator);
-		my $display = q();
-		if ( !$self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ) {
-			$class   = q(default_hide_curator);
-			$display = qq(style="display:$self->{'optional_curator_display'}");
-		}
+		my $default = $self->{'datastore'}->is_scheme_curator( $scheme_id, $curator_id ) ? q(show) : q(hide);
+
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
-		$buffer .=
-			qq(<div class="curategroup curategroup_profiles grid-item $class" )
-		  . qq($display><h2>$desc{$scheme_id} profiles</h2>);
-		$buffer .= $self->_get_icon_group(
-			undef, 'table',
-			{
+
+		push @$cards,
+		  {
+			title   => "$desc{$scheme_id} profiles",
+			table   => undef,
+			type    => 'curator',
+			default => $default,
+			section => 'schemes',
+			data    => {
 				add     => 1,
 				add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=profileAdd&amp;scheme_id=$scheme_id),
@@ -688,93 +532,104 @@ sub _get_profile_fields {
 				  . qq(page=query&amp;scheme_id=$scheme_id),
 				batch_update     => 1,
 				batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-				  . qq(page=batchProfileUpdate&amp;scheme_id=$scheme_id)
+				  . qq(page=batchProfileUpdate&amp;scheme_id=$scheme_id),
+				info => "$scheme_info->{$scheme_id}->{'primary_key'} identifiers linked to allelic profiles",
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	if ($buffer) {
-		$buffer .= q(<div class="curategroup curategroup_profiles grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Profile publications</h2>);
-		$buffer .= $self->_get_icon_group(
-			'profile_refs',
-			'book-open',
-			{
+	if ( $self->can_modify_table('profile_refs') ) {
+		push @$cards,
+		  {
+			title   => 'Profile publications',
+			table   => 'profile_refs',
+			type    => 'curator',
+			default => 'hide',
+			section => 'schemes',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Profile references - Associate allelic profiles with publications using PubMed id.'
+				info      => 'Associate allelic profiles with publications using PubMed id.'
 			}
-		);
-		$buffer .= qq(</div>\n);
-		$buffer .= q(<div class="curategroup curategroup_profiles grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired profiles</h2>);
-		$buffer .= $self->_get_icon_group(
-			'retired_profiles',
-			'trash-alt',
-			{
+		  };
+	}
+	if ( $self->can_modify_table('retired_profiles') ) {
+		push @$cards,
+		  {
+			title   => 'Retired profiles',
+			table   => 'retired_profiles',
+			type    => 'curator',
+			default => 'hide',
+			section => 'schemes',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Retired profiles - Profile ids defined here will be prevented from being reused.'
+				info      => 'Profile ids defined here will be prevented from being reused.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	return $buffer;
+	return $cards;
 }
 
 sub _get_mutation_fields {
 	my ($self) = @_;
-	my $buffer = q();
+	my $cards = [];
 	if ( $self->can_modify_table('dna_mutations') && $self->_locus_type_exists('DNA') ) {
-		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Single nucleotide polymorphisms</h2>);
-		$buffer .= $self->_get_icon_group(
-			'dna_mutations',
-			'dna',
-			{
+		push @$cards,
+		  {
+			title   => 'SNPs',
+			table   => 'dna_mutations',
+			type    => 'admin',
+			default => 'hide',
+			section => 'locus',
+			data    => {
 				add       => 1,
 				batch_add => 1,
-				query     => 1
+				query     => 1,
+				info      => 'Define single nucleotide polymorphisms (SNPs) for detection within alleles.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
 	if ( $self->can_modify_table('peptide_mutations')
 		&& ( $self->_locus_type_exists('peptide') || $self->_locus_type_exists('DNA') ) )
 	{
-		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Single AA variations</h2>);
-		$buffer .= $self->_get_icon_group(
-			'peptide_mutations',
-			'dna',
-			{
+		push @$cards,
+		  {
+			title   => 'Single AA variations',
+			table   => 'peptide_mutations',
+			type    => 'admin',
+			default => 'hide',
+			section => 'locus',
+			data    => {
 				add       => 1,
 				batch_add => 1,
-				query     => 1
+				query     => 1,
+				info      => 'Define single amino acid variations for detection within alleles.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	return $buffer;
+	return $cards;
 }
 
 sub _get_isolate_fields {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('isolates');
+	my $cards = [];
+	return $cards if !$self->can_modify_table('isolates');
 	my $exists  = $self->_isolates_exist;
 	my $add_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=isolateAdd);
 	my $batch_add_url =
 	  qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=isolates);
 	my $query_url        = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query);
 	my $batch_update_url = qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchIsolateUpdate);
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_show_curator"><h2>Isolates</h2>);
-	$buffer .= $self->_get_icon_group(
-		'isolates',
-		'file-alt',
-		{
+	push @$cards,
+	  {
+		title   => 'Isolates',
+		table   => 'isolates',
+		type    => 'curator',
+		default => 'show',
+		section => 'isolate',
+		data    => {
 			add              => $self->{'permissions'}->{'only_private'} ? 0 : 1,
 			add_url          => $add_url,
 			batch_add        => $self->{'permissions'}->{'only_private'} ? 0 : 1,
@@ -782,329 +637,354 @@ sub _get_isolate_fields {
 			query            => $exists,
 			query_url        => $query_url,
 			batch_update     => $exists,
-			batch_update_url => $batch_update_url
+			batch_update_url => $batch_update_url,
+			info             => 'Isolate records contain provenance and phenotypic metadata.'
 		}
-	);
-	$buffer .= qq(</div>\n);
+	  };
 
 	if ($exists) {
-		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Isolate aliases</h2>);
-		$buffer .= $self->_get_icon_group(
-			'isolate_aliases',
-			'list-ul',
-			{
+
+		push @$cards,
+		  {
+			title   => 'Isolate aliases',
+			table   => 'isolate_aliases',
+			type    => 'curator',
+			default => 'hide',
+			section => 'isolate',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Isolate aliases - Alternative names for isolates.'
+				info      => 'Alternative names for isolates.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 		if ( ( $self->{'system'}->{'alternative_codon_tables'} // q() ) eq 'yes' ) {
-			$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
-			  . qq(style="display:$self->{'optional_curator_display'}"><h2>Codon tables</h2>);
-			$buffer .= $self->_get_icon_group(
-				'codon_tables',
-				'table',
-				{
+
+			push @$cards,
+			  {
+				title   => 'Codon tables',
+				table   => 'codon_tables',
+				type    => 'curator',
+				default => 'hide',
+				section => 'isolate',
+				data    => {
 					add       => 1,
 					batch_add => 1,
 					query     => 1,
 					info      => 'Codon tables - Set alternative codon tables for specific isolates.'
 				}
-			);
-			$buffer .= qq(</div>\n);
+			  };
 		}
-		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Publications</h2>);
-		$buffer .= $self->_get_icon_group(
-			'refs',
-			'book-open',
-			{
+
+		push @$cards,
+		  {
+			title   => 'Publications',
+			table   => 'refs',
+			type    => 'curator',
+			default => 'hide',
+			section => 'isolate',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Publications - Associate isolates with publications using PubMed id.'
+				info      => 'Associate isolates with publications using PubMed id.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( $user_info->{'status'} eq 'curator' || $user_info->{'status'} eq 'admin' ) {
-		$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
-		  . qq(style="display:$self->{'optional_curator_display'}"><h2>Retired isolates</h2>);
-		$buffer .= $self->_get_icon_group(
-			'retired_isolates',
-			'trash-alt',
-			{
+
+		push @$cards,
+		  {
+			title   => 'Retired isolates',
+			table   => 'retired_isolates',
+			type    => 'curator',
+			default => 'hide',
+			section => 'isolate',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Retired isolates - Isolate ids defined here will not be reused.'
+				info      => 'Isolate ids defined here will not be reused.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	return $buffer;
+
+	return $cards;
 }
 
 sub _get_isolate_field_extended_attribute_field {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('isolate_value_extended_attributes');
+	my $cards = [];
+	return $cards if !$self->can_modify_table('isolate_value_extended_attributes');
 	my $count = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM isolate_field_extended_attributes)');
-	return $buffer if !$count;
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Extended attributes</h2>);
-	$buffer .= $self->_get_icon_group(
-		'isolate_value_extended_attributes',
-		'expand-arrows-alt',
-		{
+	return $cards if !$count;
+	push @$cards,
+	  {
+		title   => 'Extended attributes',
+		table   => 'isolate_value_extended_attributes',
+		type    => 'curator',
+		default => 'hide',
+		section => 'metadata',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Extended attributes - Data linked to isolate record field values.'
+			info      => 'Data lookup values linked to isolate record fields.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_projects {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('projects');
-	$buffer .= q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Projects</h2>);
-	$buffer .= $self->_get_icon_group(
-		'projects',
-		'list-alt',
-		{
-			fa_class  => 'far',
+	my $cards = [];
+	return $cards if !$self->can_modify_table('projects');
+	push @$cards,
+	  {
+		title   => 'Projects',
+		table   => 'projects',
+		type    => 'curator',
+		default => 'hide',
+		section => 'isolate',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Projects - Group isolate records.'
+			info      => 'Group isolate records.'
 		}
-	);
-	$buffer .= qq(</div>\n);
+	  };
 	my $projects = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM projects)');
-	return $buffer if !$projects;
-	return $buffer if !$self->_isolates_exist;
-	$buffer .= q(<div class="curategroup curategroup_projects grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Project members</h2>);
-	$buffer .= $self->_get_icon_group(
-		'project_members',
-		'object-group',
-		{
-			fa_class  => 'far',
+	return $cards if !$projects;
+	return $cards if !$self->_isolates_exist;
+	push @$cards,
+	  {
+		title   => 'Project members',
+		table   => 'project_members',
+		type    => 'curator',
+		default => 'hide',
+		section => 'isolate',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info => 'Project members - Isolates belonging to projects. Isolates can belong to any number of projects.'
+			info      => 'Define isolates belonging to a project. Isolates can belong to any number of projects.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_allele_designations {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('allele_designations');
-	return $buffer if !$self->_isolates_exist;
-	$buffer .= q(<div class="curategroup curategroup_designations grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Allele designations</h2>);
-	$buffer .= $self->_get_icon_group(
-		'allele_designations',
-		'table',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('allele_designations');
+	return $cards if !$self->_isolates_exist;
+
+	push @$cards,
+	  {
+		title   => 'Allele designations',
+		table   => 'allele_designations',
+		type    => 'curator',
+		default => 'hide',
+		section => 'isolate',
+		data    => {
 			batch_add => 1,
 			query     => 1,
-			info      =>
-			  'Allele designations - Update individual allele designations from within the isolate update function.'
+			info      => 'Update individual allele designations.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_sequence_bin {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('sequence_bin');
-	return $buffer if !$self->_isolates_exist;
-	$buffer .=
-	  q(<div class="curategroup curategroup_designations grid-item default_show_curator"><h2>Sequence bin</h2>);
-	$buffer .= $self->_get_icon_group(
-		'sequence_bin',
-		'dna',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('sequence_bin');
+	return $cards if !$self->_isolates_exist;
+	my $linked_contigs = ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes';
+	my $linked_info    = $linked_contigs ? ' Contigs can also be linked from another database.' : q();
+	push @$cards,
+	  {
+		title   => 'Sequence bin',
+		table   => 'sequence_bin',
+		type    => 'curator',
+		default => 'show',
+		section => 'seqbin',
+		data    => {
 			add           => 1,
 			add_url       => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=addSeqbin),
 			batch_add     => 1,
 			batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddSeqbin),
 			query         => 1,
-			link          => ( $self->{'system'}->{'remote_contigs'} // q() ) eq 'yes' ? 1 : 0,
+			link          => $linked_contigs ? 1 : 0,
 			link_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAddRemoteContigs),
-			link_label => 'Link contigs stored in remote isolate database',
-			info       => 'Sequence bin - The sequence bin for an isolate can contain sequences from any source, '
-			  . 'but usually consists of genome assembly contigs.'
+			link_label => 'Link',
+			info       => "DNA sequences (contigs) linked to an isolate.$linked_info"
 		}
-	);
-	$buffer .= qq(</div>\n);
+	  };
 	my $seqbin = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
-	return $buffer if !$seqbin;
-	$buffer .= q(<div class="curategroup curategroup_designations grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Sequence accessions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'accession',
-		'external-link-alt',
-		{
+	return $cards if !$seqbin;
+	push @$cards,
+	  {
+		title   => 'Sequence accessions',
+		table   => 'accession',
+		type    => 'curator',
+		default => 'hide',
+		section => 'seqbin',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Accessions - Associate individual contigs in the '
-			  . 'sequence bin with Genbank/ENA accessions numbers.'
+			info      => 'Associate individual contigs in the ' . 'sequence bin with Genbank/ENA accessions numbers.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_allele_sequences {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('allele_sequences');
-	return $buffer if !$self->_isolates_exist;
+	my $cards = [];
+	return $cards if !$self->can_modify_table('allele_sequences');
+	return $cards if !$self->_isolates_exist;
 	my $seqbin = $self->{'datastore'}->run_query('SELECT EXISTS(SELECT id FROM sequence_bin)');
-	return $buffer if !$seqbin;
-	$buffer .=
-	  q(<div class="curategroup curategroup_designations grid-item default_show_curator"><h2>Sequence tags</h2>);
-	$buffer .= $self->_get_icon_group(
-		'allele_sequences',
-		'tags',
-		{
+	return $cards if !$seqbin;
+	push @$cards,
+	  {
+		title   => 'Sequence tags',
+		table   => 'allele_sequences',
+		type    => 'curator',
+		default => 'show',
+		section => 'seqbin',
+		data    => {
 			query    => 1,
 			scan     => 1,
 			scan_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagScan),
-			info     => 'Sequence tags - Scan genomes to identify locus regions, '
-			  . 'then tag these positions and allele designations.'
+			info     => 'Scan genomes to identify locus regions, then tag these positions and allele designations.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_permissions {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('permissions');
-	$buffer .= q(<div class="curategroup curategroup_permissions grid-item default_show_admin"><h2>Permissions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'permissions',
-		'user-shield',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('permissions');
+	push @$cards,
+	  {
+		title   => 'Permissions',
+		table   => 'permissions',
+		type    => 'admin',
+		default => 'show',
+		section => 'general',
+		data    => {
 			query             => 1,
 			always_show_query => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=curatorPermissions),
-			info      => q(Permissions - Set curator permissions for individual users - )
+			info      => q(Set curator permissions for individual users - )
 			  . q(these are only active for users with a status of 'curator' in the users table.)
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_user_dbases {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('user_dbases');
-	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item misc_admin" )
-	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>User databases</h2>);
-	$buffer .= $self->_get_icon_group(
-		'user_dbases',
-		'database',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('user_dbases');
+	push @$cards,
+	  {
+		title   => 'User databases',
+		table   => 'user_dbases',
+		type    => 'admin',
+		default => 'hide',
+		section => 'misc',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'User databases - Add global databases containing site-wide user data - '
+			info      => 'Add global databases containing site-wide user data - '
 			  . 'these can be used to set up accounts that work across databases.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_curator_configs {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('curator_configs');
-	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item misc_admin" )
-	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>Curator configs</h2>);
-	$buffer .= $self->_get_icon_group(
-		'curator_configs',
-		'user-tie',
-		{
+	my $cards = [];
+
+	return $cards if !$self->can_modify_table('curator_configs');
+	push @$cards,
+	  {
+		title   => 'Curator configs',
+		table   => 'curator_configs',
+		type    => 'admin',
+		default => 'hide',
+		section => 'misc',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Curator configs - Limit users to curator access only from specific database '
+			info      => 'Limit users to curator access only from specific database '
 			  . 'configurations. If a curator does not have a value set here, then they can curate using '
 			  . 'any configurations that their other permissions allow them to use.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_oauth_credentials {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
-	return $buffer if !$self->can_modify_table('oauth_credentials');
-	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item misc_admin" )
-	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>OAuth credentials</h2>);
-	$buffer .= $self->_get_icon_group(
-		'oauth_credentials',
-		'unlock-alt',
-		{
+	my $cards = [];
+	return $cards if ( $self->{'system'}->{'remote_contigs'} // q() ) ne 'yes';
+	return $cards if !$self->can_modify_table('oauth_credentials');
+	push @$cards,
+	  {
+		title   => 'OAuth credentials',
+		table   => 'oauth_credentials',
+		type    => 'admin',
+		default => 'hide',
+		section => 'misc',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info => 'OAuth credentials - OAuth credentials for accessing contigs stored in remote BIGSdb databases.'
+			info      => 'OAuth credentials for accessing contigs stored in remote BIGSdb databases.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_genome_filtering {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->{'permissions'}->{'modify_probes'} && !$self->is_admin;
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>PCR reactions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'pcr', 'vial',
-		{
+	my $cards = [];
+	return $cards if !$self->{'permissions'}->{'modify_probes'} && !$self->is_admin;
+
+	push @$cards,
+	  {
+		title   => 'PCR reactions',
+		table   => 'pcr',
+		type    => 'admin',
+		default => 'hide',
+		section => 'locus',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
 			info      => 'PCR reactions - Set up <i>in silico</i> PCR reactions. '
 			  . 'These can be used to filter genomes for tagging to specific repetitive loci.'
 		}
-	);
-	$buffer .= qq(</div>\n);
+	  };
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM pcr)') && $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>PCR locus links</h2>);
-		$buffer .= $self->_get_icon_group(
-			'pcr_locus',
-			'stream',
-			{
+
+		push @$cards,
+		  {
+			title   => 'PCR locus links',
+			table   => 'pcr_locus',
+			type    => 'admin',
+			default => 'hide',
+			section => 'locus',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
@@ -1112,29 +992,34 @@ sub _get_genome_filtering {
 				  . 'For the locus to be matched, the region of DNA must be predicted to fall '
 				  . 'within the PCR amplification product.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Nucleotide probes</h2>);
-	$buffer .= $self->_get_icon_group(
-		'probes', 'vial',
-		{
+
+	push @$cards,
+	  {
+		title   => 'Nucleotide probes',
+		table   => 'probes',
+		type    => 'admin',
+		default => 'hide',
+		section => 'locus',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
 			info      => 'Nucleotide probes - Define nucleotide probes for <i>in silico</i> hybridization '
 			  . 'reaction to filter genomes for tagging to specific repetitive loci.'
 		}
-	);
-	$buffer .= qq(</div>\n);
+	  };
 	if ( $self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM probes)') && $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-		  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Probe locus links</h2>);
-		$buffer .= $self->_get_icon_group(
-			'probe_locus',
-			'stream',
-			{
+
+		push @$cards,
+		  {
+			title   => 'Probe locus links',
+			table   => 'probe_locus',
+			type    => 'admin',
+			default => 'hide',
+			section => 'locus',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
@@ -1142,712 +1027,773 @@ sub _get_genome_filtering {
 				  . 'For the locus to be matched, the region of DNA must be predicted to lie '
 				  . 'within a specified distance of the probe sequence in the genome.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	return $buffer;
+	return $cards;
 }
 
 sub _get_sequence_attributes {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('sequence_attributes');
-	$buffer .= q(<div class="curategroup curategroup_designations grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Sequence attributes</h2>);
-	$buffer .= $self->_get_icon_group(
-		'sequence_attributes',
-		'code',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('sequence_attributes');
+	push @$cards,
+	  {
+		title   => 'Sequence attributes',
+		table   => 'sequence_attributes',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_locus_extended_attributes {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('locus_extended_attributes');
-	return $buffer if !$self->_loci_exist;
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Locus extended attributes</h2>);
-	$buffer .= $self->_get_icon_group(
-		'locus_extended_attributes',
-		'expand-arrows-alt',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('locus_extended_attributes');
+	return $cards if !$self->_loci_exist;
+	push @$cards,
+	  {
+		title   => 'Extended attributes',
+		table   => 'locus_extended_attributes',
+		type    => 'admin',
+		default => 'hide',
+		section => 'locus',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_client_dbases {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('client_dbases');
-	$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
-	  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client databases</h2>);
-	$buffer .= $self->_get_icon_group(
-		'client_dbases',
-		'coins',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('client_dbases');
+
+	push @$cards,
+	  {
+		title   => 'Client databases',
+		table   => 'client_dbases',
+		type    => 'admin',
+		default => 'hide',
+		section => 'client',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info => 'Client databases - Define isolate databases that use locus allele or scheme profile definitions '
+			info      => 'Define isolate databases that use locus allele or scheme profile definitions '
 			  . 'defined in this database - this enables backlinks and searches of these databases when you query '
 			  . 'sequences or profiles in this database.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM client_dbases)');
+	  };
+	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM client_dbases)');
 	if ( $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
-		  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client database loci</h2>);
-		$buffer .= $self->_get_icon_group(
-			'client_dbase_loci',
-			'sliders-h',
-			{
+
+		push @$cards,
+		  {
+			title   => 'Client loci',
+			table   => 'client_dbase_loci',
+			type    => 'admin',
+			default => 'hide',
+			section => 'client',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Client database loci - Define loci that are used in client databases.'
+				info      => 'Define loci that are used in client databases.'
 			}
-		);
-		$buffer .= qq(</div>\n);
-		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
-		  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client database fields</h2>);
-		$buffer .= $self->_get_icon_group(
-			'client_dbase_loci_fields',
-			'th-list',
-			{
+		  };
+
+		push @$cards,
+		  {
+			title   => 'Client fields',
+			table   => 'client_dbase_loci_fields',
+			type    => 'admin',
+			default => 'hide',
+			section => 'client',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Client database fields linked to loci - Define fields in client database whose value '
+				info      => 'Define fields in client database whose value '
 				  . 'can be displayed when isolate has matching allele.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
 	if ( $self->_schemes_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
-		  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client database schemes</h2>);
-		$buffer .= $self->_get_icon_group(
-			'client_dbase_schemes',
-			'table',
-			{
+
+		push @$cards,
+		  {
+			title   => 'Client schemes',
+			table   => 'client_dbase_schemes',
+			type    => 'admin',
+			default => 'hide',
+			section => 'client',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Client database scheme - Define schemes that are used in client databases. '
+				info      => 'Define schemes that are used in client databases. '
 				  . 'You will also need to add the appropriate loci to the client database loci table.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
+		if ( $self->_classification_schemes_exist ) {
+
+			push @$cards,
+			  {
+				title   => 'Classification schemes',
+				table   => 'client_dbase_cschemes',
+				type    => 'admin',
+				default => 'hide',
+				section => 'client',
+				data    => {
+					add       => 1,
+					batch_add => 1,
+					query     => 1,
+					info      => 'Define classification schemes that are used in ' . 'client databases.'
+				}
+			  };
+		}
 	}
-	if ( $self->_classification_schemes_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_remote_dbases grid-item client_admin" )
-		  . qq(style="display:$self->{'optional_client_admin_display'}"><h2>Client database classification schemes</h2>);
-		$buffer .= $self->_get_icon_group(
-			'client_dbase_cschemes',
-			'object-group',
-			{
-				add       => 1,
-				batch_add => 1,
-				query     => 1,
-				info      => 'Client database classification scheme - Define classification schemes that are used in '
-				  . 'client databases.'
-			}
-		);
-		$buffer .= qq(</div>\n);
-	}
-	return $buffer;
+	return $cards;
 }
 
 sub _get_locus_curators {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('locus_curators');
-	return $buffer if !$self->_loci_exist;
-	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>Locus curators</h2>);
-	$buffer .= $self->_get_icon_group(
-		'locus_curators',
-		'user-tie',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('locus_curators');
+	return $cards if !$self->_loci_exist;
+	push @$cards,
+	  {
+		title   => 'Locus curators',
+		table   => 'locus_curators',
+		type    => 'admin',
+		default => 'show',
+		section => 'general',
+		data    => {
 			add              => 1,
 			batch_add        => 1,
 			query            => 1,
 			batch_update     => 1,
 			batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . q(page=memberUpdate&amp;table=locus_curators),
-			info => 'Locus curators - Define which curators can add or update sequences for particular loci.'
+			info => 'Define which curators can add or update sequences for particular loci.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_scheme_curators {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('scheme_curators');
-	return $buffer if !$self->_schemes_exist;
-	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>Scheme curators</h2>);
-	$buffer .= $self->_get_icon_group(
-		'scheme_curators',
-		'user-tie',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('scheme_curators');
+	return $cards if !$self->_schemes_exist;
+	push @$cards,
+	  {
+		title   => 'Scheme curators',
+		table   => 'scheme_curators',
+		type    => 'admin',
+		default => 'show',
+		section => 'general',
+		data    => {
 			add              => 1,
 			batch_add        => 1,
 			query            => 1,
 			batch_update     => 1,
 			batch_update_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 			  . q(page=memberUpdate&amp;table=scheme_curators),
-			info => 'Scheme curators - Define which curators can add or update profiles for particular schemes.'
+			info => 'Define which curators can add or update profiles for particular schemes.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_user_passwords {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if $self->{'system'}->{'authentication'} ne 'builtin';
-	return $buffer if !$self->{'permissions'}->{'set_user_passwords'} && !$self->is_admin;
-	$buffer .= q(<div class="curategroup curategroup_users grid-item default_show_admin"><h2>User passwords</h2>);
-	$buffer .= $self->_get_icon_group(
-		undef, 'key',
-		{
+	my $cards = [];
+	return $cards if $self->{'system'}->{'authentication'} ne 'builtin';
+	return $cards if !$self->{'permissions'}->{'set_user_passwords'} && !$self->is_admin;
+	push @$cards,
+	  {
+		title   => 'User passwords',
+		table   => undef,
+		type    => 'admin',
+		default => 'show',
+		section => 'general',
+		data    => {
 			set       => 1,
 			set_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=setPassword),
 			set_label => 'Set passwords',
-			info      => 'Set user password - Set a user password to enable them to log on '
-			  . 'or change an existing password.'
+			info      => 'Set a user password to enable them to log on ' . 'or change an existing password.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_config_check {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer
+	my $cards = [];
+	return $cards
 	  if !$self->{'permissions'}->{'modify_loci'}
 	  && !$self->{'permissions'}->{'modify_schemes'}
 	  && !$self->is_admin;
-	$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin">)
-	  . q(<h2>Configuration check</h2>);
-	$buffer .= $self->_get_icon_group(
-		undef,
-		'clipboard-check',
-		{
+	push @$cards,
+	  {
+		title   => 'Configuration check',
+		table   => undef,
+		type    => 'admin',
+		default => 'show',
+		section => 'general',
+		data    => {
 			action     => 1,
 			action_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configCheck&amp;)
 			  . q(show_probs_only=1),
 			action_label => 'Check',
-			info         => 'Configuration check - Checks database connectivity for loci and schemes and '
+			info         => 'Checks database connectivity for loci and schemes and '
 			  . 'that required helper applications are properly installed.'
 		}
-	);
-	$buffer .= qq(</div>\n);
+	  };
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin">)
-		  . q(<h2>Configuration repair</h2>);
-		$buffer .= $self->_get_icon_group(
-			undef, 'wrench',
-			{
+
+		push @$cards,
+		  {
+			title   => 'Configuration repair',
+			table   => undef,
+			type    => 'admin',
+			default => 'show',
+			section => 'general',
+			data    => {
 				action       => 1,
 				action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=configRepair),
 				action_label => 'Repair',
-				info         => 'Configuration repair - Rebuild scheme tables'
+				info         => 'Rebuild scheme tables'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	return $buffer;
+	return $cards;
 }
 
 sub _get_blast_cache_refresh {
 	my ($self) = @_;
-	my $buffer = q();
+	my $cards  = [];
 	my $loci   = $self->{'datastore'}->get_loci;
-	return $buffer
+	return $cards
 	  if !$self->is_admin || $self->{'system'}->{'dbtype'} ne 'sequences' || !@$loci;
-	$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin"><h2>BLAST caches</h2>);
-	$buffer .= $self->_get_icon_group(
-		undef, 'eraser',
-		{
+	push @$cards,
+	  {
+		title   => 'BLAST caches',
+		table   => undef,
+		type    => 'admin',
+		default => 'show',
+		section => 'general',
+		data    => {
 			action       => 1,
 			action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache),
 			action_label => 'Clear caches',
-			info         => 'BLAST caches - Mark caches stale.'
+			info         => 'Mark caches stale.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_scheme_cache_refresh {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer
+	my $cards = [];
+	return $cards
 	  if !( $self->is_admin || $self->{'permissions'}->{'refresh_scheme_caches'} )
 	  || $self->{'system'}->{'dbtype'} ne 'isolates'
 	  || !$self->_cache_tables_exists;
-	$buffer .= q(<div class="curategroup curategroup_maintenance grid-item default_show_admin"><h2>Cache refresh</h2>);
-	$buffer .= $self->_get_icon_group(
-		undef,
-		'sync-alt',
-		{
+
+	push @$cards,
+	  {
+		title   => 'Cache refresh',
+		table   => undef,
+		type    => 'admin',
+		default => 'show',
+		section => 'general',
+		data    => {
 			action       => 1,
 			action_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=refreshCache),
 			action_label => 'Refresh',
-			info         => 'Scheme caches - Update one or all scheme field caches.'
+			info         => 'Update one or all scheme field caches.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_loci {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('loci');
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Loci</h2>);
-	$buffer .= $self->_get_icon_group(
-		'loci',
-		'sliders-h',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('loci');
+	push @$cards,
+	  {
+		title   => 'Loci',
+		table   => 'loci',
+		type    => 'admin',
+		default => 'hide',
+		section => 'locus',
+		data    => {
 			add        => 1,
 			batch_add  => 1,
 			query      => 1,
 			scan       => 1,
-			scan_label => 'Databank scan',
+			scan_label => 'Databank',
 			scan_url   => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=databankScan)
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer if !$self->_loci_exist;
-	$buffer .= q(<div class="curategroup curategroup_loci grid-item locus_admin" )
-	  . qq(style="display:$self->{'optional_locus_admin_display'}"><h2>Locus aliases</h2>);
-	$buffer .= $self->_get_icon_group(
-		'locus_aliases',
-		'list-ul',
-		{
+	  };
+
+	return $cards if !$self->_loci_exist;
+	push @$cards,
+	  {
+		title   => 'Locus aliases',
+		table   => 'locus_aliases',
+		type    => 'admin',
+		default => 'hide',
+		section => 'locus',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Locus aliases - Alternative names for loci. These can also be set when you batch add loci.'
+			info      => 'Alternative names for loci. These can also be set when you batch add loci.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_isolate_field_extended_attributes {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('isolate_field_extended_attributes');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Extended attribute fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'isolate_field_extended_attributes',
-		'expand-arrows-alt',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('isolate_field_extended_attributes');
+	push @$cards,
+	  {
+		title   => 'Extended attributes',
+		table   => 'isolate_field_extended_attributes',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Extended attribute fields - '
-			  . 'Define additional attributes linked to a particular isolate record field.'
+			info      => 'Define additional attributes linked to a particular isolate record field.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_eav_fields {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('eav_fields');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Sparse fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'eav_fields',
-		'microscope',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('eav_fields');
+	push @$cards,
+	  {
+		title   => 'Sparse fields',
+		table   => 'eav_fields',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Sparse fields - Define fields that are likely to contain sparsely populated '
+			info      => 'Define fields that are likely to contain sparsely populated '
 			  . 'values, i.e. fields that only a minority of records will have values for. It is '
 			  . 'inefficient to define these as separate columns in the main isolates table. This is particularly '
 			  . 'appropriate if you have 10s-100s of such fields to define.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_analysis_fields {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('analysis_fields');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Analysis fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'analysis_fields',
-		'chart-line',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('analysis_fields');
+	push @$cards,
+	  {
+		title   => 'Analysis fields',
+		table   => 'analysis_fields',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Analysis fields - Define fields that can appear in the output of arbitray '
+			info      => 'Define fields that can appear in the output of arbitray '
 			  . 'analysis run by external tools, e.g. Kleborate, rMLST species id. These save analysis '
 			  . 'results as a JSON string within the analysis_results table. By registering particular '
 			  . 'fields you can allow BIGSdb to use these results for queries or further analysis.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_composite_fields {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('composite_fields');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Composite fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'composite_fields',
-		'cubes',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('composite_fields');
+	push @$cards, {
+		title   => 'Composite fields',
+		table   => 'composite_fields',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			query     => 1,
 			query_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=compositeQuery),
-			info      => 'Composite fields - Consist of a combination of different isolate, loci or scheme fields.'
+			info      => 'Consist of a combination of different isolate, loci or scheme fields.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+
+	};
+	return $cards;
 }
 
 sub _get_query_interfaces {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('query_interfaces');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item misc_admin" )
-	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>Query interfaces</h2>);
-	$buffer .= $self->_get_icon_group(
-		'query_interfaces',
-		'shapes',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('query_interfaces');
+	push @$cards,
+	  {
+		title   => 'Query interfaces',
+		table   => 'query_interfaces',
+		type    => 'admin',
+		default => 'hide',
+		section => 'misc',
+		data    => {
 			add   => 1,
 			query => 1,
-			info  => 'Query interfaces - Define query interfaces with pre-selected fields.'
+			info  => 'Define query interfaces with pre-selected fields.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM query_interfaces)');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item misc_admin" )
-	  . qq(style="display:$self->{'optional_misc_admin_display'}"><h2>Query interface fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'query_interface_fields',
-		'cube',
-		{
+	  };
+	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM query_interfaces)');
+
+	push @$cards,
+	  {
+		title   => 'Query interface fields',
+		table   => 'query_interface_fields',
+		type    => 'admin',
+		default => 'hide',
+		section => 'misc',
+		data    => {
 			add   => 1,
 			query => 1,
-			info  => 'Interface fields - Add pre-selected fields to query interfaces.'
+			info  => 'Add pre-selected fields to query interfaces.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_validation_rules {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('validation_rules');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Validation conditions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'validation_conditions',
-		'check-circle',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('validation_rules');
+	push @$cards,
+	  {
+		title   => 'Validation conditions',
+		table   => 'validation_conditions',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			query     => 1,
 			batch_add => 1,
-			info      => 'Validation conditions - Conditions that must be matched for a validation to fail. '
+			info      => 'Conditions that must be matched for a validation to fail. '
 			  . 'Multiple conditions can be combined to create a rule.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Validation rules</h2>);
-	$buffer .= $self->_get_icon_group(
-		'validation_rules',
-		'ban',
-		{
+	  };
+	push @$cards,
+	  {
+		title   => 'Validation rules',
+		table   => 'validation_rules',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			query     => 1,
 			batch_add => 1,
-			info      => 'Validation rules - Advanced rules restricting values in provenance '
+			info      => 'Advanced rules restricting values in provenance '
 			  . 'metadata fields depending on values in other fields.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer
+	  };
+	return $cards
 	  if !$self->{'datastore'}
 	  ->run_query('SELECT EXISTS(SELECT * FROM validation_rules) AND EXISTS(SELECT * FROM validation_conditions)');
-	$buffer .= q(<div class="curategroup curategroup_isolates grid-item field_admin" )
-	  . qq(style="display:$self->{'optional_field_admin_display'}"><h2>Rule conditions</h2>);
-	$buffer .= $self->_get_icon_group(
-		'validation_rule_conditions',
-		'tasks',
-		{
+	push @$cards,
+	  {
+		title   => 'Rule conditions',
+		table   => 'validation_rule_conditions',
+		type    => 'admin',
+		default => 'hide',
+		section => 'field',
+		data    => {
 			add       => 1,
 			query     => 1,
 			batch_add => 1,
-			info      => 'Rule conditions - Conditions that must be fulfilled to fail a validation rule.'
+			info      => 'Conditions that must be fulfilled to fail a validation rule.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_schemes {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('schemes');
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Schemes</h2>);
-	$buffer .= $self->_get_icon_group(
-		'schemes',
-		'table',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('schemes');
+	push @$cards,
+	  {
+		title   => 'Schemes',
+		table   => 'schemes',
+		type    => 'admin',
+		default => 'hide',
+		section => 'scheme',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Schemes - Schemes consist of collections of loci, '
-			  . 'optionally containing a primary key field, e.g. MLST'
+			info => 'Schemes consist of collections of loci, ' . 'optionally containing a primary key field, e.g. MLST'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer if !$self->_schemes_exist;
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Scheme fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'scheme_fields',
-		'th-list',
-		{
+	  };
+	return $cards if !$self->_schemes_exist;
+
+	push @$cards,
+	  {
+		title   => 'Scheme fields',
+		table   => 'scheme_fields',
+		type    => 'admin',
+		default => 'hide',
+		section => 'scheme',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Scheme fields - Define which fields belong to a scheme'
+			info      => 'Define which fields belong to a scheme'
 		}
-	);
-	$buffer .= qq(</div>\n);
+	  };
 
 	if ( $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-		  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Scheme members</h2>);
-		$buffer .= $self->_get_icon_group(
-			'scheme_members',
-			'object-group',
-			{
+		push @$cards, {
+			title   => 'Scheme loci',
+			table   => 'scheme_members',
+			type    => 'admin',
+			default => 'hide',
+			section => 'scheme',
+			data    => {
 				fa_class  => 'far',
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Scheme members - Define which loci belong to a scheme'
+				info      => 'Define which loci belong to a scheme'
 			}
-		);
-		$buffer .= qq(</div>\n);
+
+		};
 	}
-	return $buffer;
+	return $cards;
 }
 
 sub _get_scheme_groups {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('scheme_groups');
-	return $buffer if !$self->_schemes_exist;
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Scheme groups</h2>);
-	$buffer .= $self->_get_icon_group(
-		'scheme_groups',
-		'sitemap',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('scheme_groups');
+	return $cards if !$self->_schemes_exist;
+	push @$cards,
+	  {
+		title   => 'Scheme groups',
+		table   => 'scheme_groups',
+		type    => 'admin',
+		default => 'hide',
+		section => 'scheme',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Scheme groups - Define groups in to which schemes can belong - '
+			info      => 'Define groups in to which schemes can belong - '
 			  . 'groups can also belong to other groups to create a hierarchy.'
 		}
-	);
-	$buffer .= qq(</div>\n);
+	  };
 	if ( $self->_schemes_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-		  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Group members (schemes)</h2>);
-		$buffer .= $self->_get_icon_group(
-			'scheme_group_scheme_members',
-			'object-group',
-			{
-				fa_class  => 'far',
+		push @$cards,
+		  {
+			title   => 'Group schemes',
+			table   => 'scheme_group_scheme_members',
+			type    => 'admin',
+			default => 'hide',
+			section => 'scheme',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Scheme group members - Define which schemes belong to a group.'
+				info      => 'Define which schemes belong to a group.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
 	if ( $self->_scheme_groups_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-		  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Group members (groups)</h2>);
-		$buffer .= $self->_get_icon_group(
-			'scheme_group_group_members',
-			'object-group',
-			{
-				fa_class  => 'far',
+
+		push @$cards,
+		  {
+			title   => 'Group subgroups',
+			table   => 'scheme_group_group_members',
+			type    => 'admin',
+			default => 'hide',
+			section => 'scheme',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Scheme group members - Define which scheme groups belong to a parent group. '
+				info      => 'Define which scheme groups belong to a parent group. '
 				  . 'Use this to construct a hierarchy of schemes.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	return $buffer;
+	return $cards;
 }
 
 sub _get_classification_schemes {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->_schemes_exist;
-	return $buffer if !$self->can_modify_table('classification_schemes');
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Classification schemes</h2>);
-	$buffer .= $self->_get_icon_group(
-		'classification_schemes',
-		'object-group',
-		{
+	my $cards = [];
+	return $cards if !$self->_schemes_exist;
+	return $cards if !$self->can_modify_table('classification_schemes');
+	push @$cards,
+	  {
+		title   => 'Classification schemes',
+		table   => 'classification_schemes',
+		type    => 'admin',
+		default => 'hide',
+		section => 'scheme',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Classification schemes - Set up for clustering '
-			  . 'of scheme profiles at different locus difference thresholds.'
+			info      => 'Set up for clustering ' . 'of scheme profiles at different locus difference thresholds.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer if !$self->_classification_schemes_exist;
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>Classification group fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'classification_group_fields',
-		'object-group',
-		{
+	  };
+	return $cards if !$self->_classification_schemes_exist;
+
+	push @$cards,
+	  {
+		title   => 'Classification fields',
+		table   => 'classification_group_fields',
+		type    => 'admin',
+		default => 'hide',
+		section => 'scheme',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Classification group fields - Additional fields that can be associated with '
-			  . 'classification scheme groups.'
+			info      => 'Additional fields that can be associated with ' . 'classification scheme groups.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_classification_field_values {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM classification_group_fields)');
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>Classification group field values</h2>);
-	$buffer .= $self->_get_icon_group(
-		'classification_group_field_values',
-		'object-group',
-		{
+	my $cards = [];
+	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM classification_group_fields)');
+	push @$cards,
+	  {
+		title   => 'Classification group field values',
+		table   => 'classification_group_field_values',
+		type    => 'curator',
+		default => 'hide',
+		section => 'schemes',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'Classification group field values - Associate values with particular classification groups.'
+			info      => 'Associate values with particular classification groups.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_lincode_prefix_values {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->{'system'}->{'dbtype'} eq 'sequences';
-	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_fields)');
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item default_hide_curator" )
-	  . qq(style="display:$self->{'optional_curator_display'}"><h2>LINcode prefix nomenclature</h2>);
-	$buffer .= $self->_get_icon_group(
-		'lincode_prefixes',
-		'grip-horizontal',
-		{
+	my $cards = [];
+	return $cards if !$self->{'system'}->{'dbtype'} eq 'sequences';
+	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_fields)');
+	if (
+		!$self->is_admin
+		&& !$self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM scheme_curators s JOIN lincode_fields l ON '
+			  . 's.scheme_id=l.scheme_id WHERE curator_id=?)',
+			$self->get_curator_id
+		)
+	  )
+	{
+		return $cards;
+	}
+
+	push @$cards,
+	  {
+		title   => 'LINcode prefix nomenclature',
+		table   => 'lincode_prefixes',
+		type    => 'curator',
+		default => 'hide',
+		section => 'schemes',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
 			info      => 'LINcode prefix values - Link LINcode prefixes to nomenclature values.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+	  };
+	return $cards;
 }
 
 sub _get_lincode_schemes {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->_schemes_exist( { with_pk => 1 } );
-	return $buffer if !$self->can_modify_table('lincode_schemes');
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>LINcode schemes</h2>);
-	$buffer .= $self->_get_icon_group(
-		'lincode_schemes',
-		'object-group',
-		{
+	my $cards = [];
+	return $cards if !$self->_schemes_exist( { with_pk => 1 } );
+	return $cards if !$self->can_modify_table('lincode_schemes');
+
+	push @$cards,
+	  {
+		title   => 'LIN code schemes',
+		table   => 'lincode_schemes',
+		type    => 'admin',
+		default => 'hide',
+		section => 'scheme',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'LINcode schemes - Set up LINcode clustering '
-			  . 'of scheme profiles at different locus difference thresholds.'
+			info      => 'Set up LINcode clustering ' . 'of scheme profiles at different locus difference thresholds.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_schemes)');
-	$buffer .= q(<div class="curategroup curategroup_schemes grid-item scheme_admin" )
-	  . qq(style="display:$self->{'optional_scheme_admin_display'}"><h2>LINcode fields</h2>);
-	$buffer .= $self->_get_icon_group(
-		'lincode_fields',
-		'th-list',
-		{
+	  };
+	return $cards if !$self->{'datastore'}->run_query('SELECT EXISTS(SELECT * FROM lincode_schemes)');
+	push @$cards, {
+		title   => 'LIN code fields',
+		table   => 'lincode_fields',
+		type    => 'admin',
+		default => 'hide',
+		section => 'scheme',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info      => 'LINcode fields - Set up fields to associate LINcode prefixes to nomenclature terms.'
+			info      => 'Set up fields to associate LINcode prefixes to nomenclature terms.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer;
+
+	};
+	return $cards;
 }
 
 sub _get_lincodes {
 	my ($self) = @_;
-	return q() if !$self->is_admin;
+	my $cards = [];
+	return $cards if !$self->is_admin;
 	my $schemes;
 	my $set_id     = $self->get_set_id;
 	my $set_clause = $set_id ? qq( AND id IN (SELECT scheme_id FROM set_schemes WHERE set_id=$set_id)) : q();
@@ -1858,7 +1804,6 @@ sub _get_lincodes {
 		undef,
 		{ fetch => 'col_arrayref' }
 	);
-	my $buffer = q();
 	my %desc;
 
 	foreach my $scheme_id (@$schemes)
@@ -1876,232 +1821,193 @@ sub _get_lincodes {
 			$display = qq(style="display:$self->{'optional_scheme_admin_display'}");
 		}
 		$desc{$scheme_id} =~ s/\&/\&amp;/gx;
-		$buffer .=
-			q(<div class="curategroup curategroup_profiles grid-item scheme_admin" )
-		  . qq($display><h2>$desc{$scheme_id} LINcodes</h2>);
-		$buffer .= $self->_get_icon_group(
-			undef,
-			'grip-horizontal',
-			{
+		push @$cards,
+		  {
+			title   => "$desc{$scheme_id} LINcodes",
+			table   => undef,
+			type    => 'admin',
+			default => 'hide',
+			section => 'scheme',
+			data    => {
 				batch_add     => 1,
 				batch_add_url => qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
 				  . qq(page=lincodeBatchAdd&amp;scheme_id=$scheme_id)
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
-	return $buffer;
+	return $cards;
 }
 
 sub _get_sets {
 	my ($self) = @_;
-	my $buffer = q();
-	return $buffer if !$self->can_modify_table('sets');
-	return $buffer if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
-	$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
-	  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Sets</h2>);
-	$buffer .= $self->_get_icon_group(
-		'sets', 'hands',
-		{
+	my $cards = [];
+	return $cards if !$self->can_modify_table('sets');
+	return $cards if ( $self->{'system'}->{'sets'} // '' ) ne 'yes';
+	push @$cards,
+	  {
+		title   => 'Sets',
+		table   => 'sets',
+		type    => 'admin',
+		default => 'hide',
+		section => 'set',
+		data    => {
 			add       => 1,
 			batch_add => 1,
 			query     => 1,
-			info => 'Sets - Describe a collection of loci and schemes that can be treated like a stand-alone database.'
+			info      => 'Describe a collection of loci and schemes that can be treated like a stand-alone database.'
 		}
-	);
-	$buffer .= qq(</div>\n);
-	return $buffer if !$self->_sets_exist;
+	  };
+	return $cards if !$self->_sets_exist;
 
 	if ( $self->_loci_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
-		  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set loci</h2>);
-		$buffer .= $self->_get_icon_group(
-			'set_loci',
-			'object-group',
-			{
-				fa_class  => 'far',
+
+		push @$cards,
+		  {
+			title   => 'Set loci',
+			table   => 'set_loci',
+			type    => 'admin',
+			default => 'hide',
+			section => 'set',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Set loci - Define loci belonging to a set.'
+				info      => 'Define loci belonging to a set.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
 	if ( $self->_schemes_exist ) {
-		$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
-		  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set schemes</h2>);
-		$buffer .= $self->_get_icon_group(
-			'set_schemes',
-			'object-group',
-			{
-				fa_class  => 'far',
+
+		push @$cards,
+		  {
+			title   => 'Set schemes',
+			table   => 'set_schemes',
+			type    => 'admin',
+			default => 'hide',
+			section => 'set',
+			data    => {
 				add       => 1,
 				batch_add => 1,
 				query     => 1,
-				info      => 'Set schemes - Define schemes belonging to a set.'
+				info      => 'Define schemes belonging to a set.'
 			}
-		);
-		$buffer .= qq(</div>\n);
+		  };
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		if ( $self->{'system'}->{'views'} ) {
-			$buffer .= q(<div class="curategroup curategroup_sets grid-item set_admin" )
-			  . qq(style="display:$self->{'optional_set_admin_display'}"><h2>Set views</h2>);
-			$buffer .= $self->_get_icon_group(
-				'set_view',
-				'glasses',
-				{
+			push @$cards,
+			  {
+				title   => 'Set views',
+				table   => 'set_view',
+				type    => 'admin',
+				default => 'hide',
+				section => 'set',
+				data    => {
 					add       => 1,
 					batch_add => 1,
 					query     => 1,
-					info      => 'Set views - Set database views linked to sets.'
+					info      => 'Set database views linked to sets.'
 				}
-			);
-			$buffer .= qq(</div>\n);
+			  };
 		}
 	}
-	return $buffer;
+	return $cards;
 }
 
-sub _get_icon_group {
-	my ( $self, $table, $icon, $options ) = @_;
-	my $fa_class   = $options->{'fa_class'} // 'fas';
+sub _print_card {
+	my ( $self, $card, $order ) = @_;
 	my $set_string = $self->_get_set_string;
 	my $links      = 0;
 
 	#Checking a large seqdef db sequences table can be slow on PostgreSQL 9.3.
 	#We can instead use the locus_stats table.
+	my $table       = $card->{'table'} // q();
 	my $check_table = $table;
-	$check_table = 'locus_stats' if ( $table // q() ) eq 'sequences';
-	my $records_exist = $table ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $check_table)") : 1;
-	foreach my $value (qw(add batch_add link query query_only import fasta batch_update scan set action)) {
-		$links++ if $options->{$value};
+	$check_table = 'locus_stats' if $table eq 'sequences';
+	my $db_type = $self->{'system'}->{'dbtype'} // q();
+	my $records_exist =
+	  $card->{'table'} ? $self->{'datastore'}->run_query("SELECT EXISTS(SELECT * FROM $check_table)") : 1;
+	my $tooltip =
+		$card->{'data'}->{'info'}
+	  ? $self->get_tooltip( "$card->{'title'} - $card->{'data'}->{'info'}", { extra_class => 'curator_tooltip' } )
+	  : q();
+	say qq(<div class="curategroup grid-item $db_type $card->{'section'}" )
+	  . qq(data-order="$order" data-type="$card->{'type'}" )
+	  . qq(data-section="$card->{'section'}" data-default="$card->{'default'}" style="display:none">)
+	  . qq(<h2><span class="title">$card->{'title'}</span></h2>$tooltip);
+
+	if ( $card->{'data'}->{'info'} ) {
+		say qq(<p class="curate_info">$card->{'data'}->{'info'}</p>);
 	}
-	$links--
-	  if ( $options->{'query'} || $options->{'query_only'} ) && !$records_exist && !$options->{'always_show_query'};
-	my $buffer;
-	if ( $options->{'info'} ) {
-		$buffer .= q(<span style="position:absolute;right:1.5em;top:0.2em">);
-		$buffer .= qq(<a style="cursor:help" title="$options->{'info'}" class="tooltip">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_info fas fa-info-circle"></span>);
-		$buffer .= qq(</a></span>\n);
-	}
-	$buffer .=
-	  qq(<span class="curate_icon_span"><span class="curate_icon fa-7x fa-fw $fa_class fa-$icon"></span></span>);
-	$buffer .= q(<span class="curate_buttonbar">);
-	my $pos = 5.7 - BIGSdb::Utils::decimal_place( $links * 2.2 / 2, 1 );
-	if ( $options->{'add'} ) {
-		my $url = $options->{'add_url'}
+	say q(<div class="curate_buttonbar">);
+	if ( $card->{'data'}->{'add'} ) {
+		my $url = $card->{'data'}->{'add_url'}
 		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=add&amp;table=$table);
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$url$set_string" title="Add" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus"></span>);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+		say qq(<a href="$url$set_string" class="curate_link add"><span class="fas fa-add"></span>Add</a>);
 	}
-	if ( $options->{'batch_add'} ) {
-		my $url = $options->{'batch_add_url'}
+	if ( $card->{'data'}->{'batch_add'} ) {
+		my $url = $card->{'data'}->{'batch_add_url'}
 		  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=batchAdd&amp;table=$table);
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$url$set_string" title="Batch add" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus" )
-		  . qq(style="left:0.5em;bottom:-0.8em;font-size:1.5em"></span>\n);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_plus fas fa-plus"></span>);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+		say qq(<a href="$url$set_string" class="curate_link add"><span class="fas fa-add"></span>)
+		  . q(<span class="fas fa-add"></span> Batch</a>);
 	}
-	if ( $options->{'link'} ) {
-		my $text = $options->{'link_label'} // 'Link';
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$options->{'link_url'}$set_string" title="$text" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_link_remote fas fa-link"></span>);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+	if ( $card->{'data'}->{'fasta'} ) {
+		my $url = $card->{'data'}->{'fasta_url'};
+		say qq(<a href="$url" class="curate_link add"><span class="fas fa-add"></span>)
+		  . q(<span class="fas fa-add"></span> FASTA</a>);
+
 	}
-	if ( $options->{'fasta'} ) {
-		my $text = $options->{'fasta_label'} // 'Upload FASTA';
-		$pos -= 0.5;
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$options->{'fasta_url'}" title="$text" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight fa-stack" style="font-size:1em">);
-		$buffer .= q(<span class="fas fa-file fa-stack-2x curate_icon_fasta"></span>);
-		$buffer .= q(<span class="fa-stack-1x filetype-text" style="top:0.25em">FAS</span>);
-		$buffer .= q(</span>);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
-	}
-	if ( $records_exist || $options->{'always_show_query'} ) {
-		if ( $options->{'query'} ) {
-			my $url = $options->{'query_url'}
+	if ( $records_exist || $card->{'data'}->{'always_show_query'} ) {
+		if ( $card->{'data'}->{'query'} ) {
+			my $url = $card->{'data'}->{'query_url'}
 			  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table);
-			$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-			$buffer .= qq(<a href="$url$set_string" title="Update/delete" class="curate_icon_link">);
-			$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
-			$buffer .=
-				q(<span class="curate_icon_highlight curate_icon_edit fas fa-pencil-alt" )
-			  . qq(style="left:0.8em;bottom:-0.5em;font-size:1.2em"></span>\n);
-			$buffer .=
-				q(<span class="curate_icon_highlight curate_icon_delete fas fa-times" )
-			  . qq(style="left:0.8em;bottom:-1.5em;font-size:1.2em"></span>\n);
-			$buffer .= qq(</a></span>\n);
-			$pos += 2.2;
-		} elsif ( $options->{'query_only'} ) {
-			my $url = $options->{'query_url'}
+			say qq(<a href="$url$set_string" class="curate_link edit"><span class="fas fa-pencil-alt"></span> Edit</a>);
+		} elsif ( $card->{'data'}->{'query_only'} ) {
+			my $url = $card->{'data'}->{'query_url'}
 			  // qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tableQuery&amp;table=$table);
-			$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-			$buffer .= qq(<a href="$url$set_string" title="Query" class="curate_icon_link">);
-			$buffer .= q(<span class="curate_icon_highlight curate_icon_query fas fa-search"></span>);
-			$buffer .= qq(</a></span>\n);
-			$pos += 2.2;
+			say qq(<a href="$url$set_string" class="curate_link query">)
+			  . q(<span class="fas fa-search"></span> Query</a></span>);
+
 		}
 	}
-	if ( $options->{'import'} ) {
-		my $text = $options->{'import_label'} // 'Import';
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$options->{'import_url'}" title="$text" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_import fas fa-arrow-left"></span>);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+	if ( $card->{'data'}->{'batch_update'} ) {
+		my $text = $card->{'data'}->{'batch_update_label'} // 'Batch edit';
+		my $url  = $card->{'data'}->{'batch_update_url'};
+		say qq(<a href="$url$set_string" class="curate_link edit">)
+		  . q(<span class="fas fa-pencil-alt"></span> Batch</a>);
+
 	}
-	if ( $options->{'batch_update'} ) {
-		my $text = $options->{'batch_update_label'} // 'Batch Update';
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$options->{'batch_update_url'}$set_string" title="$text" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_batch_edit fas fa-pencil-alt"></span>);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_batch_edit fas fa-plus" )
-		  . qq(style="left:0em;bottom:-0.5em;font-size:1.5em"></span>\n);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+	if ( $card->{'data'}->{'scan'} ) {
+		my $url  = $card->{'data'}->{'scan_url'};
+		my $text = $card->{'data'}->{'scan_label'} // 'Scan';
+		say qq(<a href="$url$set_string" class="curate_link curate_action">)
+		  . qq(<span class="fas fa-barcode"></span> $text</a>);
 	}
-	if ( $options->{'scan'} ) {
-		my $text = $options->{'scan_label'} // 'Scan';
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$options->{'scan_url'}" title="$text" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_scan_barcode fas fa-barcode"></span>);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_scan_query fas fa-search" )
-		  . qq(style="left:0.8em;bottom:-1.4em;font-size:1.5em"></span>\n);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+	if ( $card->{'data'}->{'import'} ) {
+		my $text = $card->{'data'}->{'import_label'} // 'Import';
+		my $url  = $card->{'data'}->{'import_url'};
+		say qq(<a href="$url$set_string" class="curate_link import">)
+		  . q(<span class="fas fa-arrow-left"></span> Import</a>);
 	}
-	if ( $options->{'set'} ) {
-		my $text = $options->{'set_label'} // 'Set';
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$options->{'set_url'}" title="$text" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_set fas fa-edit"></span>);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+	if ( $card->{'data'}->{'set'} ) {
+		my $text = $card->{'data'}->{'set_label'} // 'Set';
+		my $url  = $card->{'data'}->{'set_url'};
+		say qq(<a href="$url$set_string" class="curate_link import"><span class="fas fa-edit"></span> $text</a>);
 	}
-	if ( $options->{'action'} ) {
-		my $text = $options->{'action_label'} // 'Action';
-		$buffer .= qq(<span style="position:absolute;left:${pos}em;bottom:1em">);
-		$buffer .= qq(<a href="$options->{'action_url'}" title="$text" class="curate_icon_link">);
-		$buffer .= q(<span class="curate_icon_highlight curate_icon_action fas fa-chevron-circle-right"></span>);
-		$buffer .= qq(</a></span>\n);
-		$pos += 2.2;
+	if ( $card->{'data'}->{'action'} ) {
+		my $text = $card->{'data'}->{'action_label'} // 'Action';
+		my $url  = $card->{'data'}->{'action_url'};
+		say qq(<a href="$url$set_string" class="curate_link curate_action">)
+		  . qq(<span class="fas fa-chevron-circle-right"></span> $text</a>);
 	}
-	$buffer .= q(</span>);
-	return $buffer;
+	if ( $card->{'data'}->{'link'} ) {
+		my $text = $card->{'data'}->{'link_label'} // 'Link';
+		my $url  = $card->{'data'}->{'link_url'};
+		say qq(<a href="$url$set_string" class="curate_link curate_action"><span class="fas fa-link"></span> $text</a>);
+	}
+	say q(</div>);
+	say q(</div>);
+	return;
 }
 
 sub print_content {
@@ -2111,58 +2017,243 @@ sub print_content {
 	my $system      = $self->{'system'};
 	return if $self->_ajax_call;
 	my $desc = $self->get_db_description( { formatted => 1 } );
-	say qq(<h1 style="padding-top:0.3em">Database curator's interface - $desc</h1>);
+	say qq(<h1>Database curator's interface - $desc</h1>);
 	$self->_print_set_section;
-	my $buffer = $self->_get_standard_links;
+	my %count = (
+		user          => 0,
+		isolate       => 0,
+		seqbin        => 0,
+		loci          => 0,
+		metadata      => 0,
+		general_admin => 0,
+		locus_admin   => 0,
+		field_admin   => 0,
+		misc_admin    => 0
+	);
+	my $user_fields = $self->_get_user_fields;
+	$count{'user'} += @$user_fields;
+
+	my $all_fields = [@$user_fields];
 
 	if ( $system->{'dbtype'} eq 'isolates' ) {
-		$buffer .= $self->_get_isolate_links;
+		my $isolate_fields = $self->_get_isolate_fields;
+		push @$all_fields, @$isolate_fields;
+		$count{'isolate'} += @$isolate_fields;
+		my $isolate_field_extended_attributes = $self->_get_isolate_field_extended_attribute_field;
+		push @$all_fields, @$isolate_field_extended_attributes;
+		$count{'metadata'} += @$isolate_field_extended_attributes;
+		my $project_fields = $self->_get_projects;
+		push @$all_fields, @$project_fields;
+		$count{'isolate'} += @$project_fields;
+		my $allele_designations = $self->_get_allele_designations;
+		push @$all_fields, @$allele_designations;
+		$count{'isolate'} += @$allele_designations;
+		my $seqbin = $self->_get_sequence_bin;
+		push @$all_fields, @$seqbin;
+		$count{'seqbin'} += @$seqbin;
+		my $allele_seqs = $self->_get_allele_sequences;
+		push @$all_fields, @$allele_seqs;
+		$count{'seqbin'} += @$allele_seqs;
+		my $geo_lookup = $self->_get_geography_point_lookup;
+		push @$all_fields, @$geo_lookup;
+		$count{'metadata'} += @$geo_lookup;
 	} elsif ( $system->{'dbtype'} eq 'sequences' ) {
-		$buffer .= $self->_get_seqdef_links;
+		my $locus_desc = $self->_get_locus_description_fields;
+		push @$all_fields, @$locus_desc;
+		$count{'loci'} += @$locus_desc;
+		my $seqs = $self->_get_sequence_fields;
+		push @$all_fields, @$seqs;
+		$count{'loci'} += @$seqs;
+		my $schemes = $self->_get_profile_fields;
+		push @$all_fields, @$schemes;
+		$count{'schemes'} += @$schemes;
+		my $cs = $self->_get_classification_field_values;
+		push @$all_fields, @$cs;
+		$count{'schemes'} += @$cs;
+		my $lincode = $self->_get_lincode_prefix_values;
+		push @$all_fields, @$lincode;
+		$count{'schemes'} += @$lincode;
 	}
-	my $can_do_something;
-	if ($buffer) {
-		$can_do_something = 1;
+	my $order = 0;
+	foreach my $card (@$all_fields) {
+		$self->_print_card( $card, $order );
+		$order++;
+	}
+	my $can_do_something = @$all_fields;
+
+	if (@$all_fields) {
 		say q(<div class="box" id="curator">);
-		my $toggle_status = $self->_get_curator_toggle_status( \$buffer );
-		if ( $toggle_status->{'show_toggle'} ) {
-			say q(<div style="float:right">);
-			say q(<a id="toggle_all_curator_methods" style="text-decoration:none" )
-			  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_curator_methods=1">);
-			my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
-			my $on  = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
-			say q(<span id="all_curator_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
-			  . qq(style="display:$off" title="Showing common functions"></span>);
-			say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
-			  . qq(style="display:$on" title="Showing all authorized functions"></span>);
-			say q(<span style="vertical-align:0.4em">Show all</span></a>);
-			say q(</div>);
-		}
 		say q(<span class="main_icon fas fa-user-tie fa-3x fa-pull-left"></span>);
+		my %title = (
+			user     => 'User management',
+			isolate  => 'Isolates',
+			seqbin   => 'Sequences',
+			loci     => 'Loci/alleles',
+			schemes  => 'Schemes',
+			metadata => 'Metadata'
+		);
+		say q(<div class="title_toggle">);
 		say q(<h2>Curator functions</h2>);
-		say q(<div class="grid" id="curator_grid">);
-		say $buffer;
+		my $toggle_status = $self->_get_curator_toggle_status($all_fields);
+		if ( $toggle_status->{'show_toggle'} ) {
+			$self->_print_curator_toggle;
+		}
+		say q(</div>);
+		say q(<div id="curator_collapsed" class="grid" data-type="curator"></div>);
+		say q(<div id="curator_expanded">);
+		foreach my $section (qw(user isolate seqbin loci schemes metadata)) {
+			next if !$count{$section};
+			say qq(<h3 class="curator_heading" id="curate_heading_$section" style="display:none">)
+			  . qq($title{$section} ($count{$section})</h3>);
+
+			say qq(<div id="curator_$section" class="grid" data-type="curator"></div>);
+		}
 		say q(</div>);
 		say q(<div style="clear:both"></div>);
-		$self->print_related_database_panel;
 		say q(</div>);
-
-		if ( $toggle_status->{'always_show_hidden'} ) {
-			say q[<script>$(function() {$(".default_hide_curator").css("display","inline");]
-			  . q[$("#curator_grid").packery()});</script>];
-		}
+		say qq(<script>const always_show_hidden=$toggle_status->{'always_show_hidden'};</script>);
+	} else {
+		say q(<script>const always_show_hidden=0;</script>);
 	}
-	$buffer = $self->_get_admin_links;
-	if ($buffer) {
+
+	my $admin_fields = [];
+	my $permissions  = $self->_get_permissions;
+	push @$admin_fields, @$permissions;
+	$count{'general_admin'} += @$admin_fields;
+	my $user_passwords = $self->_get_user_passwords;
+	push @$admin_fields, @$user_passwords;
+	$count{'general_admin'} += @$user_passwords;
+	my $config_check = $self->_get_config_check;
+	push @$admin_fields, @$config_check;
+	$count{'general_admin'} += @$config_check;
+	my $cache_refresh = $self->_get_blast_cache_refresh;
+	push @$admin_fields, @$cache_refresh;
+	$count{'general_admin'} += @$cache_refresh;
+	my $scheme_cache = $self->_get_scheme_cache_refresh;
+	push @$admin_fields, @$scheme_cache;
+	$count{'general_admin'} += @$scheme_cache;
+	my $user_dbs = $self->_get_user_dbases;
+	push @$admin_fields, @$user_dbs;
+	$count{'misc_admin'} += @$user_dbs;
+	my $curator_configs = $self->_get_curator_configs;
+	push @$admin_fields, @$curator_configs;
+	$count{'misc_admin'} += @$curator_configs;
+
+	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+		my $geocoding = $self->_get_geocoding;
+		push @$admin_fields, @$geocoding;
+		$count{'field_admin'} += @$geocoding;
+		my $eav_fields = $self->_get_eav_fields;
+		push @$admin_fields, @$eav_fields;
+		$count{'field_admin'} += @$eav_fields;
+		my $ext_att = $self->_get_isolate_field_extended_attributes;
+		push @$admin_fields, @$ext_att;
+		$count{'field_admin'} += @$ext_att;
+		my $composites = $self->_get_composite_fields;
+		push @$admin_fields, @$composites;
+		$count{'field_admin'} += @$composites;
+		my $rules = $self->_get_validation_rules;
+		push @$admin_fields, @$rules;
+		$count{'field_admin'} += @$rules;
+		my $oauth = $self->_get_oauth_credentials;
+		push @$admin_fields, @$oauth;
+		$count{'misc_admin'} += @$oauth;
+		my $qry_int = $self->_get_query_interfaces;
+		push @$admin_fields, @$qry_int;
+		$count{'misc_admin'} += @$qry_int;
+	}
+
+	#Only modify schemes/loci etc. when sets not selected.
+	my $set_id = $self->get_set_id;
+	if ( !$set_id ) {
+		my $loci = $self->_get_loci;
+		push @$admin_fields, @$loci;
+		$count{'locus_admin'} += @$loci;
+
+		if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
+			my $filtering = $self->_get_genome_filtering;
+			push @$admin_fields, @$filtering;
+			$count{'locus_admin'} += @$filtering;
+			my $seq_att = $self->_get_sequence_attributes;
+			push @$admin_fields, @$seq_att;
+			$count{'field_admin'} += @$seq_att;
+			my $analysis = $self->_get_analysis_fields;
+			push @$admin_fields, @$analysis;
+			$count{'field_admin'} += @$analysis;
+		} elsif ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+			my $ext_att = $self->_get_locus_extended_attributes;
+			push @$admin_fields, @$ext_att;
+			$count{'locus_admin'} += @$ext_att;
+			my $mutation = $self->_get_mutation_fields;
+			push @$admin_fields, @$mutation;
+			$count{'locus_admin'} += @$mutation;
+		}
+		my $schemes = $self->_get_schemes;
+		push @$admin_fields, @$schemes;
+		$count{'scheme_admin'} += @$schemes;
+		my $scheme_groups = $self->_get_scheme_groups;
+		push @$admin_fields, @$scheme_groups;
+		$count{'scheme_admin'} += @$scheme_groups;
+		my $classification = $self->_get_classification_schemes;
+		push @$admin_fields, @$classification;
+		$count{'scheme_admin'} += @$classification;
+		my $lincode_schemes = $self->_get_lincode_schemes;
+		push @$admin_fields, @$lincode_schemes;
+		$count{'scheme_admin'} += @$lincode_schemes;
+
+		if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+			my $lincodes = $self->_get_lincodes;
+			push @$admin_fields, @$lincodes;
+			$count{'scheme_admin'} += @$lincodes;
+			my $clients = $self->_get_client_dbases;
+			push @$admin_fields, @$clients;
+			$count{'client_admin'} += @$clients;
+			my $locus_curators = $self->_get_locus_curators;
+			push @$admin_fields, @$locus_curators;
+			$count{'general_admin'} += @$locus_curators;
+			my $scheme_curators = $self->_get_scheme_curators;
+			push @$admin_fields, @$scheme_curators;
+			$count{'general_admin'} += @$scheme_curators;
+		}
+		my $sets = $self->_get_sets;
+		push @$admin_fields, @$sets;
+		$count{'set_admin'} += @$sets;
+	}
+
+	$order = 0;
+	foreach my $card (@$admin_fields) {
+		$self->_print_card( $card, $order );
+		$order++;
+	}
+
+	if (@$admin_fields) {
 		$can_do_something = 1;
+		my %title = (
+			general => 'General',
+			locus   => 'Loci',
+			scheme  => 'Schemes',
+			misc    => 'Miscellaneous',
+			field   => 'Fields',
+			client  => 'Clients',
+			set     => 'Sets'
+		);
+
 		say q(<div class="box" id="admin">);
-		$self->_print_admin_toggles( \$buffer );
 		say q(<span class="config_icon fas fa-user-cog fa-3x fa-pull-left"></span>);
+		say q(<div class="title_toggle">);
 		say q(<h2>Admin functions</h2>);
-		say q(<div class="grid" id="admin_grid">);
-		say q(<div class="grid-item stamp" style="position:absolute;right:0;width:100px;height:178px;z-index:0"></div>);
-		say $buffer;
-		say q(</div>);
+		say q(<div class="curate_toggle">);
+		$self->_print_admin_toggles( \%count );
+		say q(</div></div>);
+
+		foreach my $section (qw(general locus scheme field client set misc)) {
+			next if !$count{"${section}_admin"};
+			say qq(<h3 class="admin_heading" id="admin_heading_$section" style="display:none">)
+			  . qq($title{$section} ($count{"${section}_admin"})</h3>);
+
+			say qq(<div id="${section}_admin" class="grid" data-type="admin"></div>);
+		}
+
 		say q(<div style="clear:both"></div>);
 		say q(</div>);
 	}
@@ -2181,6 +2272,8 @@ sub print_content {
 			}
 		);
 	}
+	$self->print_related_database_panel;
+
 	return;
 }
 
@@ -2190,10 +2283,28 @@ sub print_panel_buttons {
 	return;
 }
 
+sub _print_curator_toggle {
+	my ($self) = @_;
+	say q(<div class="toggle_group" style="margin-bottom:10px"><div style="margin-right: 5px">Show:</div>);
+	say q(<div class="curate_toggle">);
+	my $class = $self->{'prefs'}->{'all_curator_methods'} ? ' toggle_on' : '';
+	say qq(<a id="toggle_all_curator_methods" class="button$class" )
+	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;)
+	  . q(toggle_all_curator_methods=1">);
+	my $off = $self->{'prefs'}->{'all_curator_methods'} ? 'none'   : 'inline';
+	my $on  = $self->{'prefs'}->{'all_curator_methods'} ? 'inline' : 'none';
+	say q(<span id="all_curator_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
+	  . qq(style="display:$off" title="Showing common functions"></span>);
+	say q(<span id="all_curator_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
+	  . qq(style="display:$on" title="Showing all authorized functions"></span>);
+	say q(<span class="label">All functions</span></a>);
+	say q(</div></div>);
+	return;
+}
+
 sub _print_admin_toggles {
-	my ( $self, $buffer ) = @_;
-	say q(<div style="position:absolute;right:16px;z-index:9">);
-	say q(<ul style="list-style:none;padding-left:0">);
+	my ( $self, $counts ) = @_;
+
 	my %label = (
 		locus  => 'Loci',
 		scheme => 'Schemes',
@@ -2208,46 +2319,51 @@ sub _print_admin_toggles {
 	my $toggle_buffer;
 
 	foreach my $category (qw(locus scheme set client field misc)) {
-		next if !ref $buffer || $$buffer !~ /${category}_admin/x;
+		next if !$counts->{"${category}_admin"};
 		$count++;
 		my $off      = $self->{'prefs'}->{"${category}_admin_methods"} ? 'none'   : 'inline';
 		my $on       = $self->{'prefs'}->{"${category}_admin_methods"} ? 'inline' : 'none';
 		my $expanded = $expanded{$category} // $category;
+		my $class    = $self->{'prefs'}->{"${category}_admin_methods"} ? ' toggle_on' : '';
 		$toggle_buffer .=
-			qq(<li><a id="toggle_${category}_admin_methods" style="text-decoration:none" )
+			qq(<a id="toggle_${category}_admin_methods" class="button$class" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_${category}_admin_methods=1">)
 		  . qq(<span id="${category}_admin_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
 		  . qq(style="display:$off" title="Not showing $expanded admin functions"></span>)
 		  . qq(<span id="${category}_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 		  . qq(style="display:$on" title="Showing $expanded admin and configuration functions"></span> )
-		  . qq(<span style="vertical-align:0.4em">$label{$category}</span></a></li>);
+		  . qq(<span class="label">$label{$category}</span></a>);
 		$all_on = 0 if !$self->{'prefs'}->{"${category}_admin_methods"};
 	}
-	if ( $count > 1 || ( $count == 1 && $$buffer =~ /default_show_admin/x ) ) {
+	if ($count) {
+		say q(<div class="toggle_group"><div style="margin-right: 5px">Show:</div>);
+		say q(<div class="curate_toggle">);
 		say $toggle_buffer;
-	}
-	if ( $count > 1 ) {
-		my $off = $all_on ? 'none'   : 'inline';
-		my $on  = $all_on ? 'inline' : 'none';
-		say q(<li><a id="toggle_all_admin_methods" style="text-decoration:none" )
+		my $off   = $all_on ? 'none'       : 'inline';
+		my $on    = $all_on ? 'inline'     : 'none';
+		my $class = $all_on ? ' toggle_on' : '';
+		say qq(<a id="toggle_all_admin_methods" class="button$class" )
 		  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=index&amp;toggle_all_admin_methods=1">)
 		  . q(<span id="all_admin_methods_off" class="toggle_icon fas fa-toggle-off fa-2x" )
 		  . qq(style="display:$off" title="Not showing all admin functions"></span>)
 		  . q(<span id="all_admin_methods_on" class="toggle_icon fas fa-toggle-on fa-2x" )
 		  . qq(style="display:$on" title="Showing all admin and configuration functions"></span> )
-		  . q(<span style="vertical-align:0.4em">Show all</span></a></li>);
+		  . q(<span class="label">Show all</span></a>);
+		say q(</div></div>);
 	}
-	say q(</ul>);
-	say q(</div>);
+
 	return;
 }
 
 sub _get_curator_toggle_status {
-	my ( $self, $buffer_ref ) = @_;
-	my $hidden      = $$buffer_ref =~ /default_hide_curator/x ? 1 : 0;
-	my $default     = $$buffer_ref =~ /default_show_curator/x ? 1 : 0;
-	my $show_toggle = ( $hidden && $default ) ? 1 : 0;
-	my $always_show_hidden;
+	my ( $self, $fields ) = @_;
+	my ( $hidden, $default );
+	foreach my $field (@$fields) {
+		$hidden  = 1 if $field->{'default'} eq 'hide';
+		$default = 1 if $field->{'default'} eq 'show';
+	}
+	my $show_toggle        = ( $hidden && $default ) ? 1 : 0;
+	my $always_show_hidden = 0;
 	if ( $hidden && !$default ) {
 		$always_show_hidden = 1;
 	}
@@ -2463,12 +2579,19 @@ sub _get_publication_requests {
 	return $buffer;
 }
 
+sub _hide_account_requests {
+	my ($self) = @_;
+	return 1 if ( $self->{'system'}->{'hide_account_requests'} // q() ) eq 'yes';
+	return;
+}
+
 sub _print_account_requests_section {
 	my ($self) = @_;
 	my $curator = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	return
 	  if !( $curator->{'account_request_emails'}
 		&& ( $self->{'permissions'}->{'import_site_users'} || $self->is_admin ) );
+	return if $self->_hide_account_requests;
 	my $q = $self->{'cgi'};
 	$self->_reject_user if $q->param('reject');
 	$self->_import_user if $q->param('import');

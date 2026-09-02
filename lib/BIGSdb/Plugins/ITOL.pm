@@ -56,19 +56,19 @@ sub get_attributes {
 		  . 'in the resultant tree to be coloured. Datasets are uploaded to the <a href="https://itol.embl.de/">'
 		  . 'Interactive Tree of Life website</a> (<a href="https://www.ncbi.nlm.nih.gov/pubmed/27095192">'
 		  . 'Letunic &amp; Bork 2016 <i>Nucleic Acids Res</i> 44(W1):W242-5</a>) for visualisation.',
-		category            => 'Third party',
+		category            => 'External',
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.10.2',
+		version             => '1.10.3',
 		dbtype              => 'isolates',
-		section             => 'third_party,postquery',
+		section             => 'external,postquery',
 		input               => 'query',
 		help                => 'tooltips',
 		requires            => 'aligner,offline_jobs,js_tree,clustalw,itol_api_key,itol_project_name',
 		supports            => 'user_genomes',
 		url                 => "$self->{'config'}->{'doclink'}/data_analysis/itol.html",
-		order               => 35,
+		order               => 50,
 		min                 => 2,
 		system_flag         => 'ITOL',
 		always_show_in_menu => 1,
@@ -255,7 +255,7 @@ sub _print_interface {
 	#Subclassed plugins may not yet support uploaded genomes.
 	$self->print_user_genome_upload_fieldset if ( $atts->{'supports'} // q() ) =~ /user_genomes/x;
 	$self->print_isolates_locus_fieldset( { locus_paste_list => 1, no_all_none => 1 } );
-	$self->print_recommended_scheme_fieldset( { no_clear => 1 } );
+	$self->print_recommended_scheme_fieldset;
 	$self->print_scheme_fieldset;
 	$self->print_extra_form_elements;
 	$self->print_action_fieldset( { no_reset => 1 } );

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2025, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,9 +20,9 @@ package BIGSdb::AlleleQueryPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::QueryPage);
+use parent          qw(BIGSdb::QueryPage);
 use List::MoreUtils qw(any none uniq);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(:interface SEQ_STATUS ALLELE_FLAGS OPERATORS);
 
@@ -67,18 +67,17 @@ sub get_javascript {
   	  var url = '$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=alleleQuery&locus=' + locus_name;
  	  location.href=url;
     });
-    \$("select#locus").select2({
-		width: '240px',
-		dropdownAutoWidth: true,
-		minimumResultsForSearch: 20
-	});
-	// hack to fix jquery 3.6 focus security patch that bugs auto search in select-2
-	\$(document).on('select2:open', () => {
-   	   document.querySelector('.select2-search__field').focus();
-	});
+    render_filters();
     $panel_js
  });
 
+function render_filters(){
+	\$("select.filter").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+		placeholder: '',
+	});
+}
 
 function loadContent(url) {
 	var row = parseInt(url.match(/row=(\\d+)/)[1]);
@@ -147,6 +146,7 @@ sub print_content {
 			{ message => q(This interface requires that you enable Javascript in your browser.) } );
 		say q(</noscript>);
 		$self->_print_interface;
+		$self->_print_modify_search_fieldset;
 	}
 	if ( defined $q->param('submit') || defined $q->param('query_file') || defined $q->param('t1') ) {
 		if ( $locus eq q() ) {
@@ -211,9 +211,20 @@ sub _print_allele_fields {
 	#split so single row can be added by AJAX call
 	my ( $self, $locus, $row, $max_rows, $select_items, $labels ) = @_;
 	my $q = $self->{'cgi'};
-	say q(<span style="display:flex">);
-	say $q->popup_menu( -name => "field$row", -values => $select_items, -labels => $labels, -class => 'fieldlist' );
-	say $q->popup_menu( -name => "operator$row", -values => [OPERATORS] );
+	say q(<span class="query_block">);
+	say $q->popup_menu(
+		-name   => "field$row",
+		-values => $select_items,
+		-labels => $labels,
+		-style  => 'width:180px',
+		-class  => 'do_not_calc_width'
+	);
+	say $q->popup_menu(
+		-name   => "operator$row",
+		-values => [OPERATORS],
+		-style  => 'width:120px',
+		-class  => 'do_not_calc_width'
+	);
 	say $q->textfield( -name => "value$row", -id => "value$row", -class => 'value_entry' );
 	if ( $row == 1 ) {
 		$locus //= '';
@@ -242,12 +253,12 @@ sub _print_interface {
 	my ( $display_loci, $cleaned ) =
 	  $self->{'datastore'}->get_locus_list( { set_id => $set_id, no_list_by_common_name => 1 } );
 	print $q->start_form;
-	say q(<p><b>Locus: </b>);
+	say q(<p><span class="query_block"><span class="label"><b>Locus:</b></span>);
 
 	#Following is eval'd because it may take a while to populate when a very large number of loci are defined.
 	#If the user closes the connection while the page is loading it would otherwise lead to a 500 error.
 	eval { say $q->popup_menu( -name => 'locus', -id => 'locus', -values => $display_loci, -labels => $cleaned ) };
-	say q( <span class="comment">Page will reload when changed</span></p>);
+	say q( <span class="comment label">Page will reload when changed</span></span></p>);
 	say $q->hidden($_) foreach qw (db page);
 	if ( $q->param('locus') ) {
 		say qq(<ul><li><a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=locusInfo&amp;)
@@ -274,14 +285,13 @@ sub _print_interface {
 	$self->_print_list_fieldset;
 	$self->_print_filters_fieldset;
 	say q(<fieldset style="float:left"><legend>Display</legend>);
-	say q(<ul><li><span style="white-space:nowrap"><label for="order" class="display">Order by: </label>);
+	say q(<ul><li><span class="query_block"><label for="order" class="display label">Order by:</label>);
 	say $q->popup_menu( -name => 'order', -id => 'order', -values => $order_by, -labels => $labels );
 	say $q->popup_menu( -name => 'direction', -values => [qw(ascending descending)], -default => 'ascending' );
 	say q(</span></li><li>);
 	say $self->get_number_records_control;
 	say q(</li></ul></fieldset>);
 	$self->print_action_fieldset( { locus => $locus, submit_label => 'Search' } );
-	$self->_print_modify_search_fieldset;
 	say $q->end_form;
 	say q(</div></div>);
 	return;
@@ -294,7 +304,8 @@ sub print_panel_buttons {
 		|| ( defined $q->param('pagejump') && $q->param('pagejump') eq '1' )
 		|| $q->param('First') )
 	{
-		say q(<span class="icon_button"><a class="trigger_button" id="panel_trigger" style="display:none">)
+		say q(<span class="icon_button"><a class="trigger_button primary_trigger" id="panel_trigger" )
+		  . q(style="display:none">)
 		  . q(<span class="fas fa-lg fa-wrench"></span><span class="icon_label">Modify form</span></a></span>);
 	}
 	return;
@@ -373,13 +384,12 @@ sub _print_mutation_fields {
 			}
 		}
 	}
-	say q(<span style="white-space:nowrap">);
-	say $self->popup_menu(
+	say q(<span class="query_block">);
+	say $q->popup_menu(
 		-name   => "mutation$row",
 		-id     => "mutation$row",
 		-values => [ q(), @values ],
 		-labels => $labels,
-		-class  => 'fieldlist'
 	);
 	if ( $row == 1 ) {
 		my $next_row = $max_rows ? $max_rows + 1 : 2;
@@ -407,14 +417,13 @@ sub _print_filters_fieldset {
 	my $display = $self->{'prefs'}->{'aq_filters_fieldset'}
 	  || $self->filters_selected ? 'inline' : 'none';
 	say qq(<fieldset id="filters_fieldset" style="float:left;display:$display"><legend>Filters</legend>);
-	say q(<ul><li>);
-	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'display' } );
-	say q(</li><li>);
+	say q(<div class="form_container">);
+	say $self->get_filter( 'status', [SEQ_STATUS], { class => 'filter', grid => 1 } );
 	if ( ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes' ) {
 		my @flag_values = ( 'any flag', 'no flag', ALLELE_FLAGS );
-		say $self->get_filter( 'allele_flag', \@flag_values, { class => 'display' } );
+		say $self->get_filter( 'allele_flag', \@flag_values, { class => 'filter', grid => 1 } );
 	}
-	say q(</li></ul></fieldset>);
+	say q(</div></fieldset>);
 	return;
 }
 
@@ -422,13 +431,12 @@ sub _print_modify_search_fieldset {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	say q(<div id="modify_panel" class="panel">);
-	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-lg fa-times"></span></a>);
+	say q(<a class="trigger" id="close_trigger" href="#"><span class="fas fa-times"></span></a>);
 	say q(<h2>Modify form parameters</h2>);
-	say q(<p style="white-space:nowrap">Click to add or remove additional query terms:</p>)
-	  . q(<ul style="list-style:none;margin-left:-2em">);
+	say q(<p class="modal_description">Click to add or remove additional query terms:</p>) . q(<ul class="toggle">);
 	my $allele_fieldset_display = $self->{'prefs'}->{'aq_allele_fieldset'}
-	  || $self->_highest_entered_fields('alleles') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_allele">$allele_fieldset_display</a>);
+	  || $self->_highest_entered_fields('alleles') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_allele">$allele_fieldset_display);
 	say q(Allele fields</li>);
 	my $locus = $q->param('locus');
 
@@ -440,23 +448,23 @@ sub _print_modify_search_fieldset {
 		);
 		if ($mutations) {
 			my $mutation_fieldset_display = $self->{'prefs'}->{'aq_mutations_fieldset'}
-			  || $self->_highest_entered_fields('mutations') ? HIDE : SHOW;
-			say qq(<li><a href="" class="button fieldset_trigger" id="show_mutations">$mutation_fieldset_display</a>);
+			  || $self->_highest_entered_fields('mutations') ? ON : OFF;
+			say qq(<li class="fieldset_trigger" id="show_mutations">$mutation_fieldset_display);
 			say q(Sequence variation</li>);
 		}
 	}
 	my $list_fieldset_display = $self->{'prefs'}->{'aq_list_fieldset'}
-	  || $q->param('list') ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_list">$list_fieldset_display</a>);
+	  || $q->param('list') ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_list">$list_fieldset_display);
 	say q(Allele id list box</li>);
 	my $filters_fieldset_display = $self->{'prefs'}->{'aq_filters_fieldset'}
-	  || $self->filters_selected ? HIDE : SHOW;
-	say qq(<li><a href="" class="button fieldset_trigger" id="show_filters">$filters_fieldset_display</a>);
+	  || $self->filters_selected ? ON : OFF;
+	say qq(<li class="fieldset_trigger" id="show_filters">$filters_fieldset_display);
 	say q(Filters</li>);
 	say q(</ul>);
 	my $save = SAVE;
 	say qq(<a id="save_options" class="button" href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=alleleQuery&amp;save_options=1" style="display:none">$save</a> <span id="saving"></span><br />);
+	  . qq(page=alleleQuery&amp;save_options=1" style="display:none">$save Save options</a> <span id="saving"></span><br />);
 	say q(</div>);
 	return;
 }
