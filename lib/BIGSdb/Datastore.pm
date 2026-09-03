@@ -1302,11 +1302,9 @@ sub create_temp_isolate_scheme_fields_view {
 	}
 	my $scheme_table;
 	my $isolates;
-	if ( !$legacy_migration ) {
-		$scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
-		$isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
-			{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
-	}
+	$scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
+	$isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
+		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 
 	if ($replace_table) {
@@ -1336,54 +1334,60 @@ sub create_temp_isolate_scheme_fields_view {
 	eval {
 		if ($legacy_migration) {
 
+			# Preserve the existing cache when doing an incremental/daily renewal.
 			# Remove rows for isolates that no longer exist while copying the
-			# legacy cache. This avoids recalculating scheme field values.
-			$self->{'db'}
-			  ->do( "INSERT INTO $table SELECT old.* FROM $rename_table old " . 'JOIN isolates ON isolates.id=old.id' );
-		} else {
-			if ( $method eq 'full' ) {
-				$self->{'db'}->do("DELETE FROM $table");
+			# legacy cache. This avoids recalculating scheme field values which are
+			# not part of the requested renewal.
+			# A full renewal simply rebuilds the replacement table from scratch.
+			if ( $method ne 'full' ) {
+				$self->{'db'}
+				  ->do("INSERT INTO $table SELECT old.* FROM $rename_table old JOIN isolates ON isolates.id=old.id")
+				  ;
 			}
-			my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
-			my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
-			my @f_values;
-			foreach my $scheme_field (@$scheme_fields) {
-				my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $scheme_field );
-				push @f_values, "$scheme_field $scheme_field_info->{'type'}";
-			}
-			foreach my $isolate_id (@$isolates) {
-				local $" = q(,);
-				my $field_values;
-				if ( $scheme_info->{'allow_presence'} ) {
-					$field_values = $self->_get_field_values_from_presence_scheme( $isolate_id, $scheme_id );
-				} else {
+		}
 
-					#We know that the scheme_cache table exists and is up-to-date because we have just
-					#created it. We can therefore use an embedded plpgsql function to lookup values
-					#directly in the database, which will be quicker and use less memory.
-					$field_values = $self->run_query(
-						"SELECT @$scheme_fields FROM get_isolate_scheme_fields(?,?) f(@f_values)",
-						[ $isolate_id, $scheme_id ],
-						{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
-					);
+		if ( $method eq 'full' ) {
+			$self->{'db'}->do("DELETE FROM $table");
+		}
+		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
+		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
+		my @f_values;
+		foreach my $scheme_field (@$scheme_fields) {
+			my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $scheme_field );
+			push @f_values, "$scheme_field $scheme_field_info->{'type'}";
+		}
+		foreach my $isolate_id (@$isolates) {
+			local $" = q(,);
+			my $field_values;
+			if ( $scheme_info->{'allow_presence'} ) {
+				$field_values = $self->_get_field_values_from_presence_scheme( $isolate_id, $scheme_id );
+			} else {
+
+				#We know that the scheme_cache table exists and is up-to-date because we have just
+				#created it. We can therefore use an embedded plpgsql function to lookup values
+				#directly in the database, which will be quicker and use less memory.
+				$field_values = $self->run_query(
+					"SELECT @$scheme_fields FROM get_isolate_scheme_fields(?,?) f(@f_values)",
+					[ $isolate_id, $scheme_id ],
+					{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
+				);
+			}
+			$i++;
+			if ( $method =~ /^daily/x ) {
+				$delete_sql->execute($isolate_id);
+			}
+			foreach my $field_value (@$field_values) {
+				my @values;
+				foreach my $field (@$scheme_fields) {
+					push @values, $field_value->{ lc($field) };
 				}
-				$i++;
-				if ( $options->{'method'} =~ /^daily/x ) {
-					$delete_sql->execute($isolate_id);
-				}
-				foreach my $field_value (@$field_values) {
-					my @values;
-					foreach my $field (@$scheme_fields) {
-						push @values, $field_value->{ lc($field) };
-					}
-					$insert_sql->execute( $isolate_id, @values );
-				}
-				my $progress = int( $i * 100 / @$isolates );
-				if ( $progress > $last_progress ) {
-					$options->{'status'}->{'stage_progress'} = $progress;
-					$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
-					$last_progress = $progress;
-				}
+				$insert_sql->execute( $isolate_id, @values );
+			}
+			my $progress = int( $i * 100 / @$isolates );
+			if ( $progress > $last_progress ) {
+				$options->{'status'}->{'stage_progress'} = $progress;
+				$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
+				$last_progress = $progress;
 			}
 		}
 		if ( !$table_exists || $replace_table ) {
