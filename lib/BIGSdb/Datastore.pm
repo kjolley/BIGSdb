@@ -1277,9 +1277,13 @@ sub create_temp_isolate_scheme_fields_view {
 		}
 		$table_exists = 0;
 	}
+	my $fk_name     = "tisf_${scheme_id}_isolate_id";
+	my $fk_exists   = $self->_constraint_exists( $table, $fk_name );
+	my $install_fk  = !$fk_exists;
 	my $scheme_info = $self->get_scheme_info($scheme_id);
 	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): importing definitions";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
+
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $method       = $options->{'method'} // 'full';
 	my $isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
@@ -1308,6 +1312,13 @@ sub create_temp_isolate_scheme_fields_view {
 	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): looking up profiles";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	eval {
+		#Avoid foreign-key checks while bulk-loading a full cache rebuild.
+		#The constraint is recreated before this transaction commits.
+		if ( $options->{'method'} eq 'full' && $fk_exists ) {
+			$self->{'db'}->do("ALTER TABLE $table DROP CONSTRAINT $fk_name");
+			$install_fk = 1;
+		}
+
 		if ( $options->{'method'} eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
@@ -1362,6 +1373,19 @@ sub create_temp_isolate_scheme_fields_view {
 				$self->{'db'}->do("CREATE INDEX ON $table($field)");
 			}
 		}
+		if ($install_fk) {
+
+			#Existing caches may contain rows for isolates that have since been deleted.
+			#Remove them before adding the FK so renewal also repairs pre-existing caches.
+			if ( $options->{'method'} ne 'full' ) {
+
+				# Existing pre-v1.54 cache may contain orphaned rows.
+				$self->{'db'}->do( "DELETE FROM $table AS cache WHERE NOT EXISTS "
+					  . '(SELECT 1 FROM isolates WHERE isolates.id=cache.id)' );
+			}
+			$self->{'db'}->do( "ALTER TABLE $table ADD CONSTRAINT $fk_name "
+				  . 'FOREIGN KEY (id) REFERENCES isolates(id) ON DELETE CASCADE' );
+		}
 	};
 	if ($@) {
 		$logger->error($@);
@@ -1402,6 +1426,15 @@ sub _index_exists {
 	  . q[t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) ]
 	  . q[AND t.relkind = 'r' AND t.relname=? AND a.attname=?)];
 	return $self->run_query( $qry, [ $table, lc($column) ] );
+}
+
+sub _constraint_exists {
+	my ( $self, $table, $constraint ) = @_;
+	return $self->run_query(
+		'SELECT EXISTS(SELECT 1 FROM information_schema.table_constraints '
+		  . 'WHERE (table_schema,table_name,constraint_name)=(?,?,?))',
+		[ 'public', $table, $constraint ]
+	);
 }
 
 sub create_temp_cscheme_table {
