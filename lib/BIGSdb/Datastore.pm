@@ -1282,8 +1282,11 @@ sub create_temp_isolate_scheme_fields_view {
 	my $scheme_info = $self->get_scheme_info($scheme_id);
 	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): importing definitions";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
-
-	my $method = $options->{'method'} // 'full';
+	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
+	my $method       = $options->{'method'} // 'full';
+	my $isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
+		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
+	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 
 	# A legacy cache without the FK can be migrated without recalculating the
 	# scheme fields: copy the existing rows, excluding deleted isolates, then
@@ -1298,17 +1301,9 @@ sub create_temp_isolate_scheme_fields_view {
 		$timestamp    = BIGSdb::Utils::get_timestamp();
 		$table        = "${table}_$timestamp";
 		$new_fk_name  = "${fk_name}_$timestamp";
-
 	}
-	my $scheme_table;
-	my $isolates;
-	$scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
-	$isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
-		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
-	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 
 	if ($replace_table) {
-		$options->{'method'} = 'full';
 		my @fields;
 		foreach my $field (@$scheme_fields) {
 			my $field_info = $self->get_scheme_field_info( $scheme_id, $field );
@@ -1341,8 +1336,7 @@ sub create_temp_isolate_scheme_fields_view {
 			# A full renewal simply rebuilds the replacement table from scratch.
 			if ( $method ne 'full' ) {
 				$self->{'db'}
-				  ->do("INSERT INTO $table SELECT old.* FROM $rename_table old JOIN isolates ON isolates.id=old.id")
-				  ;
+				  ->do("INSERT INTO $table SELECT old.* FROM $rename_table old JOIN isolates ON isolates.id=old.id");
 			}
 		}
 
