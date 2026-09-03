@@ -1303,7 +1303,7 @@ sub create_temp_isolate_scheme_fields_view {
 		$new_fk_name  = "${fk_name}_$timestamp";
 	}
 
-	if ($replace_table) {
+	if (!$table_exists || $replace_table) {
 		my @fields;
 		foreach my $field (@$scheme_fields) {
 			my $field_info = $self->get_scheme_field_info( $scheme_id, $field );
