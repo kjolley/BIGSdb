@@ -1279,18 +1279,36 @@ sub create_temp_isolate_scheme_fields_view {
 	}
 	my $fk_name     = "tisf_${scheme_id}_isolate_id";
 	my $fk_exists   = $self->_constraint_exists( $table, $fk_name );
-	my $install_fk  = !$fk_exists;
 	my $scheme_info = $self->get_scheme_info($scheme_id);
 	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): importing definitions";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $method       = $options->{'method'} // 'full';
-	my $isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
+
+	my $replace_table = !$fk_exists || $method eq 'full';
+	my $install_fk    = !$fk_exists || $replace_table;
+	my $rename_table;
+	my $timestamp;
+	my $new_fk_name;
+	if ($replace_table) {
+		$rename_table = $table;
+		$timestamp    = BIGSdb::Utils::get_timestamp();
+		$table        = "${table}_$timestamp";
+		$new_fk_name  = "${fk_name}_$timestamp";
+
+		# A legacy cache without the FK is rebuilt in full so that the replacement
+		# table contains only current isolates before the FK is installed.
+		if ( !$fk_exists ) {
+			$method = 'full';
+			$options->{'method'} = 'full';
+		}
+	}
+	my $isolates = $self->_get_isolate_ids_for_cache( $scheme_id,
 		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 
-	if ( !$table_exists ) {
+	if ($replace_table) {
 		$options->{'method'} = 'full';
 		my @fields;
 		foreach my $field (@$scheme_fields) {
@@ -1312,14 +1330,7 @@ sub create_temp_isolate_scheme_fields_view {
 	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): looking up profiles";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	eval {
-		#Avoid foreign-key checks while bulk-loading a full cache rebuild.
-		#The constraint is recreated before this transaction commits.
-		if ( $options->{'method'} eq 'full' && $fk_exists ) {
-			$self->{'db'}->do("ALTER TABLE $table DROP CONSTRAINT $fk_name");
-			$install_fk = 1;
-		}
-
-		if ( $options->{'method'} eq 'full' ) {
+		if ( $method eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
 		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
@@ -1363,33 +1374,50 @@ sub create_temp_isolate_scheme_fields_view {
 				$last_progress = $progress;
 			}
 		}
-		if ( !$table_exists ) {
+		if ( !$table_exists || $replace_table ) {
 			$self->{'db'}->do("GRANT SELECT ON $table TO apache");
 		}
 
 		#Check if all indexes are in place - create them if not.
 		foreach my $field ( 'id', @$scheme_fields ) {
-			if ( !$table_exists || !$self->_index_exists( $table, $field ) ) {
+			if ( $replace_table || !$self->_index_exists( $table, $field ) ) {
 				$self->{'db'}->do("CREATE INDEX ON $table($field)");
 			}
 		}
 		if ($install_fk) {
-
-			#Existing caches may contain rows for isolates that have since been deleted.
-			#Remove them before adding the FK so renewal also repairs pre-existing caches.
-			if ( $options->{'method'} ne 'full' ) {
+			if ($replace_table) {
+				$self->{'db'}->do( "ALTER TABLE $table ADD CONSTRAINT $new_fk_name "
+					  . 'FOREIGN KEY (id) REFERENCES isolates(id) ON DELETE CASCADE' );
+			} else {
 
 				# Existing pre-v1.54 cache may contain orphaned rows.
 				$self->{'db'}->do( "DELETE FROM $table AS cache WHERE NOT EXISTS "
 					  . '(SELECT 1 FROM isolates WHERE isolates.id=cache.id)' );
+				$self->{'db'}->do( "ALTER TABLE $table ADD CONSTRAINT $fk_name "
+					  . 'FOREIGN KEY (id) REFERENCES isolates(id) ON DELETE CASCADE' );
 			}
-			$self->{'db'}->do( "ALTER TABLE $table ADD CONSTRAINT $fk_name "
-				  . 'FOREIGN KEY (id) REFERENCES isolates(id) ON DELETE CASCADE' );
 		}
 	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
+		return;
+	}
+	if ($replace_table) {
+		eval {
+			#The expensive rebuild is complete. Only the final swap touches the
+			#currently-used cache table, so any lock is held only briefly.
+			$self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table");
+			$self->{'db'}->do("ALTER TABLE $rename_table RENAME CONSTRAINT $new_fk_name TO $fk_name");
+		};
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+			return;
+		}
+		$self->{'db'}->commit;
+		$self->_delete_temp_tables("${rename_table}_");
+		$table = $rename_table;
 	}
 	$self->{'db'}->commit;
 	delete $options->{'status'}->{'stage_progress'};
