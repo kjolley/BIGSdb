@@ -1283,11 +1283,13 @@ sub create_temp_isolate_scheme_fields_view {
 	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): importing definitions";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 
-	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
-	my $method       = $options->{'method'} // 'full';
+	my $method = $options->{'method'} // 'full';
 
-	my $replace_table = !$fk_exists || $method eq 'full';
-	my $install_fk    = !$fk_exists || $replace_table;
+	# A legacy cache without the FK can be migrated without recalculating the
+	# scheme fields: copy the existing rows, excluding deleted isolates, then
+	# add the FK to the replacement table before swapping it into place.
+	my $legacy_migration = !$fk_exists && $table_exists;
+	my $replace_table    = $legacy_migration || $method eq 'full';
 	my $rename_table;
 	my $timestamp;
 	my $new_fk_name;
@@ -1297,15 +1299,14 @@ sub create_temp_isolate_scheme_fields_view {
 		$table        = "${table}_$timestamp";
 		$new_fk_name  = "${fk_name}_$timestamp";
 
-		# A legacy cache without the FK is rebuilt in full so that the replacement
-		# table contains only current isolates before the FK is installed.
-		if ( !$fk_exists ) {
-			$method = 'full';
-			$options->{'method'} = 'full';
-		}
 	}
-	my $isolates = $self->_get_isolate_ids_for_cache( $scheme_id,
-		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
+	my $scheme_table;
+	my $isolates;
+	if ( !$legacy_migration ) {
+		$scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
+		$isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
+			{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
+	}
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 
 	if ($replace_table) {
@@ -1327,51 +1328,62 @@ sub create_temp_isolate_scheme_fields_view {
 	my @placeholders  = ('?') x ( @$scheme_fields + 1 );
 	my $last_progress = 0;
 	my $i             = 0;
-	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): looking up profiles";
+	$options->{'status'}->{'stage'} =
+	  $legacy_migration
+	  ? "Scheme $scheme_id ($scheme_info->{'name'}): copying existing cache"
+	  : "Scheme $scheme_id ($scheme_info->{'name'}): looking up profiles";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	eval {
-		if ( $method eq 'full' ) {
-			$self->{'db'}->do("DELETE FROM $table");
-		}
-		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
-		my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
-		my @f_values;
-		foreach my $scheme_field (@$scheme_fields) {
-			my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $scheme_field );
-			push @f_values, "$scheme_field $scheme_field_info->{'type'}";
-		}
-		foreach my $isolate_id (@$isolates) {
-			local $" = q(,);
-			my $field_values;
-			if ( $scheme_info->{'allow_presence'} ) {
-				$field_values = $self->_get_field_values_from_presence_scheme( $isolate_id, $scheme_id );
-			} else {
+		if ($legacy_migration) {
 
-				#We know that the scheme_cache table exists and is up-to-date because we have just
-				#created it. We can therefore use an embedded plpgsql function to lookup values
-				#directly in the database, which will be quicker and use less memory.
-				$field_values = $self->run_query(
-					"SELECT @$scheme_fields FROM get_isolate_scheme_fields(?,?) f(@f_values)",
-					[ $isolate_id, $scheme_id ],
-					{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
-				);
+			# Remove rows for isolates that no longer exist while copying the
+			# legacy cache. This avoids recalculating scheme field values.
+			$self->{'db'}
+			  ->do( "INSERT INTO $table SELECT old.* FROM $rename_table old " . 'JOIN isolates ON isolates.id=old.id' );
+		} else {
+			if ( $method eq 'full' ) {
+				$self->{'db'}->do("DELETE FROM $table");
 			}
-			$i++;
-			if ( $options->{'method'} =~ /^daily/x ) {
-				$delete_sql->execute($isolate_id);
+			my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
+			my $delete_sql = $self->{'db'}->prepare("DELETE FROM $table WHERE id=?");
+			my @f_values;
+			foreach my $scheme_field (@$scheme_fields) {
+				my $scheme_field_info = $self->get_scheme_field_info( $scheme_id, $scheme_field );
+				push @f_values, "$scheme_field $scheme_field_info->{'type'}";
 			}
-			foreach my $field_value (@$field_values) {
-				my @values;
-				foreach my $field (@$scheme_fields) {
-					push @values, $field_value->{ lc($field) };
+			foreach my $isolate_id (@$isolates) {
+				local $" = q(,);
+				my $field_values;
+				if ( $scheme_info->{'allow_presence'} ) {
+					$field_values = $self->_get_field_values_from_presence_scheme( $isolate_id, $scheme_id );
+				} else {
+
+					#We know that the scheme_cache table exists and is up-to-date because we have just
+					#created it. We can therefore use an embedded plpgsql function to lookup values
+					#directly in the database, which will be quicker and use less memory.
+					$field_values = $self->run_query(
+						"SELECT @$scheme_fields FROM get_isolate_scheme_fields(?,?) f(@f_values)",
+						[ $isolate_id, $scheme_id ],
+						{ fetch => 'all_arrayref', slice => {}, cache => "Pg::get_isolate_scheme_fields::$scheme_id" }
+					);
 				}
-				$insert_sql->execute( $isolate_id, @values );
-			}
-			my $progress = int( $i * 100 / @$isolates );
-			if ( $progress > $last_progress ) {
-				$options->{'status'}->{'stage_progress'} = $progress;
-				$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
-				$last_progress = $progress;
+				$i++;
+				if ( $options->{'method'} =~ /^daily/x ) {
+					$delete_sql->execute($isolate_id);
+				}
+				foreach my $field_value (@$field_values) {
+					my @values;
+					foreach my $field (@$scheme_fields) {
+						push @values, $field_value->{ lc($field) };
+					}
+					$insert_sql->execute( $isolate_id, @values );
+				}
+				my $progress = int( $i * 100 / @$isolates );
+				if ( $progress > $last_progress ) {
+					$options->{'status'}->{'stage_progress'} = $progress;
+					$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
+					$last_progress = $progress;
+				}
 			}
 		}
 		if ( !$table_exists || $replace_table ) {
@@ -1384,18 +1396,9 @@ sub create_temp_isolate_scheme_fields_view {
 				$self->{'db'}->do("CREATE INDEX ON $table($field)");
 			}
 		}
-		if ($install_fk) {
-			if ($replace_table) {
-				$self->{'db'}->do( "ALTER TABLE $table ADD CONSTRAINT $new_fk_name "
-					  . 'FOREIGN KEY (id) REFERENCES isolates(id) ON DELETE CASCADE' );
-			} else {
-
-				# Existing pre-v1.54 cache may contain orphaned rows.
-				$self->{'db'}->do( "DELETE FROM $table AS cache WHERE NOT EXISTS "
-					  . '(SELECT 1 FROM isolates WHERE isolates.id=cache.id)' );
-				$self->{'db'}->do( "ALTER TABLE $table ADD CONSTRAINT $fk_name "
-					  . 'FOREIGN KEY (id) REFERENCES isolates(id) ON DELETE CASCADE' );
-			}
+		if ($replace_table) {
+			$self->{'db'}->do( "ALTER TABLE $table ADD CONSTRAINT $new_fk_name "
+				  . 'FOREIGN KEY (id) REFERENCES isolates(id) ON DELETE CASCADE' );
 		}
 	};
 	if ($@) {
