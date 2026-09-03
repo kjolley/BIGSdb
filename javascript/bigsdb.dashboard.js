@@ -27,7 +27,6 @@ $(function() {
 	showOrHideElements();
 	$("select#add_field,label[for='add_field']").css("display", "inline");
 	var fill_gaps = $("#fill_gaps").prop('checked');
-	var open_new = $("#open_new").prop('checked');
 	var grid;
 	try {
 		grid = new Muuri('#dashboard', {
@@ -85,9 +84,9 @@ $(function() {
 		return false;
 	});
 	$("#dashboard_panel_trigger").show();
-	$('#modal_overlay').on('click', function () {
-	  $('#modify_dashboard_panel').hide();
-	  $(this).removeClass('open');
+	$('#modal_overlay').on('click', function() {
+		$('#modify_dashboard_panel').hide();
+		$(this).removeClass('open');
 	});
 	$("#fill_gaps").change(function() {
 		fill_gaps = $("#fill_gaps").prop('checked');
@@ -125,9 +124,9 @@ $(function() {
 		$("span.dashboard_remove_element").css("display", remove_elements ? "inline" : "none");
 	});
 	$("#open_new").change(function() {
-		open_new = $("#open_new").prop('checked');
+		const openNew = $("#open_new").prop('checked');
 		$.ajax({
-			url: url + "&page=dashboard&updateGeneralPrefs=1&attribute=open_new&value=" + (open_new ? 1 : 0)
+			url: url + "&page=dashboard&updateGeneralPrefs=1&attribute=open_new&value=" + (openNew ? 1 : 0)
 		}).done(function() {
 			reloadElementsWithURL();
 		});
@@ -626,7 +625,7 @@ function showOrHideControlElements(id) {
 			$("li#gps_map_control").css("display", "block");
 		}
 	}
-	
+
 }
 
 function show_palette(id) {
@@ -679,7 +678,9 @@ function checkAndShowVisualisation(grid, id) {
 }
 
 function reloadElement(id) {
-	var reload_url = url + "&page=dashboard&ajax=1&type=" + dashboard_type + "&v=" + version;
+	var reload_url = url + "&page=dashboard&ajax=1&type=" + dashboard_type
+		+ "&v=" + version
+		+ "&open_new=" + ($("#open_new").prop("checked") ? 1 : 0);
 	if (typeof projectId !== 'undefined') {
 		reload_url += "&project_id=" + projectId;
 	}

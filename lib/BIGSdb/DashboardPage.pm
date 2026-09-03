@@ -1195,7 +1195,8 @@ sub _print_ajax_load_code {
 	my $version       = $self->{'prefs'}->{'version'} // 0;
 	my $user_id       = 0;
 	my $set_id        = $self->get_set_id;
-	my $set_clause    = defined $set_id ? qq(s=$set_id) : q();
+	my $set_clause    = defined $set_id                         ? qq(s=$set_id) : q();
+	my $open_new      = ( $self->{'prefs'}->{'open_new'} // 1 ) ? 1             : 0;
 
 	if ( $self->{'username'} ) {
 		my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -1222,7 +1223,7 @@ sub _print_ajax_load_code {
 			\$.ajax({
 		    	url:"$self->{'system'}->{'script_name'}?db=$self->{'instance'}&page=dashboard$qry_file_clause"
 		    	+ "$list_file_clause$filter_clause&type=$self->{'dashboard_type'}$project_clause&element=" + value
-		    	+ "&v=$version&u=$user_id$set_clause&ajax=1"
+		    	+ "&v=$version&u=$user_id$set_clause&open_new=${open_new}&ajax=1"
 		    }).done(function(json){
 		       	try {
 		       	    \$("div#element_" + value + " > .item-content > .ajax_content").html(JSON.parse(json).html);
@@ -3623,9 +3624,11 @@ sub _get_field_breakdown_top_values_content {
 		q(<div><table class="dashboard_table"><tr>)
 	  . qq(<th style="color:$header_colour;background:$header_background">Value</th>)
 	  . qq(<th style="color:$header_colour;background:$header_background">Frequency</th></tr>);
-	my $td     = 1;
-	my $count  = 0;
-	my $target = $self->{'prefs'}->{'open_new'} ? q( target="_blank") : q();
+	my $td       = 1;
+	my $count    = 0;
+	my $q        = $self->{'cgi'};
+	my $open_new = $q->param('open_new') ? 1                   : 0;
+	my $target   = $open_new             ? q( target="_blank") : q();
 
 	foreach my $value ( sort { $b->{'value'} <=> $a->{'value'} } @$data ) {
 		next if !defined $value->{'label'} || $value->{'label'} eq 'No value';
