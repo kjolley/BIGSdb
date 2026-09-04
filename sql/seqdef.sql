@@ -403,6 +403,7 @@ CREATE TABLE schemes (
 id int NOT NULL UNIQUE,
 name text NOT NULL,
 description text,
+NCBI_taxon int[];
 allow_missing_loci boolean NOT NULL DEFAULT FALSE,
 allow_presence boolean NOT NULL DEFAULT FALSE,
 max_missing int,

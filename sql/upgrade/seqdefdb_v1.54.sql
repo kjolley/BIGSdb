@@ -31,3 +31,5 @@ CREATE OR REPLACE FUNCTION update_locus_stats() RETURNS TRIGGER AS $update_locus
 		RETURN NULL;
 	END;
 $update_locus_stats$ LANGUAGE plpgsql;
+
+ALTER TABLE schemes ADD NCBI_taxon int[];

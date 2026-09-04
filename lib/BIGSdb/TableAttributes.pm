@@ -1234,6 +1234,20 @@ sub get_schemes_table_attributes {
 		},
 		{ name => 'description', type => 'text', hide => 1, length => 1000 }
 	];
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes, {
+			name     => 'NCBI_taxon',
+			type     => 'integer_list',
+			required => 0,
+			unique   => 0,
+			comments => 'Lookup ids at the '
+			  . '<a href="https://www.ncbi.nlm.nih.gov/datasets/taxonomy/browser/" target="_blank">'
+			  . 'NCBI Taxonomy Browser</a>.',
+			tooltip => 'NCBI_taxon - List of NCBI taxa that the scheme has been developed for use with. '
+			  . 'This is primarily for the convenience of third-party tools and will link out to the '
+			  . 'NCBI Taxonomy Browser entry for each taxon in the REST API and scheme description pages.'
+		};
+	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
 		  (
@@ -1564,7 +1578,8 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name     => 'index',
 				type     => 'bool',
@@ -1600,7 +1615,7 @@ sub get_scheme_fields_table_attributes {
 				  . 'include it. This should not be used for primary key fields as these are usually defined '
 				  . 'by the system rather than being provided by the submitter.'
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (
@@ -3083,7 +3098,8 @@ sub get_analysis_fields_table_attributes {
 			length   => 100,
 			tooltip  => 'This is a value in the format $.fields.species. '
 			  . 'See https://en.wikipedia.org/wiki/JSONPath for more details.',
-			regex => '^\$((?:\.[A-Za-z_][A-Za-z0-9_]*)|(?:\."(?:[^"\\\\]|\\\\.)*")|(?:\[\d+\])|(?:\[\*\])|(?:\[\?\(.*?\)\]))*$'
+			regex =>
+			  '^\$((?:\.[A-Za-z_][A-Za-z0-9_]*)|(?:\."(?:[^"\\\\]|\\\\.)*")|(?:\[\d+\])|(?:\[\*\])|(?:\[\?\(.*?\)\]))*$'
 		},
 		{
 			name     => 'data_type',

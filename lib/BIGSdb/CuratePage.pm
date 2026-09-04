@@ -156,12 +156,14 @@ sub _get_form_fields {
 				boolean        => sub { $self->_get_boolean_field($args) },
 				optlist        => sub { $self->_get_optlist_field($args) },
 				coded_field    => sub { $self->_get_coded_field($args) },
+				integer_list   => sub { $self->_get_integer_list_field($args) },
 				text_field     => sub { $self->_get_text_field($args) },
 			);
 			$buffer .= q(<div class="form_value">);
 		  FIELD_CHECK: foreach my $check (
 				qw(primary_key no_user_update sender allele_id non_admin_loci
-				foreign_key datestamp date_entered curator boolean optlist coded_field text_field)
+				foreign_key datestamp date_entered curator boolean optlist coded_field integer_list
+				text_field)
 			  )
 			{
 				my $check_buffer = $field_checks{$check}->();
@@ -636,6 +638,29 @@ sub _get_boolean_field {
 	return $q->radio_group( -name => $name, -values => [qw (true false)], -default => $default );
 }
 
+sub _get_integer_list_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $name, $newdata, $att ) = @$args{qw(name newdata att)};
+
+	return q() if $att->{'type'} ne 'integer_list';
+	my $q = $self->{'cgi'};
+	my $default;
+
+	if ( ref $newdata->{ lc( $att->{'name'} ) } ) {
+		local $" = qq(\n);
+		$default = qq(@{$newdata->{ lc($att->{'name'} )}});
+
+	}
+	return $q->textarea(
+		-name        => $name,
+		-id          => $name,
+		-style       => 'height:5em',
+		-placeholder => 'one per line...',
+		-default     => $default,
+	);
+
+}
+
 sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata ) = @_;
 	my $q = $self->{'cgi'};
@@ -1095,7 +1120,7 @@ sub check_record {
 				push @problems, qq(Invalid value for $att->{'name'}.);
 			}
 		}
-		my @checks = qw(integer float date regex foreign_key);
+		my @checks = qw(integer float date regex integer_list foreign_key);
 		foreach my $check (@checks) {
 			my $method  = "_check_$check";
 			my $message = $self->$method( $att, $newdata );
@@ -1254,6 +1279,31 @@ sub _check_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 		&& $newdata->{ $att->{'name'} } !~ /$att->{'regex'}/x )
 	{
 		return "Field '$att->{name}' does not conform to specified format.";
+	}
+	return;
+}
+
+sub _check_integer_list {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $att, $newdata ) = @_;
+	if (   $newdata->{ $att->{'name'} }
+		&& $att->{'type'} eq 'integer_list' )
+	{
+		my $list = [];
+		my %used;
+		foreach my $value ( split /\s+/x, $newdata->{ $att->{'name'} } ) {
+			$value =~ s/^\s*|\s*$//gx;
+			next if !$value;
+			if ( !BIGSdb::Utils::is_int($value) ) {
+				return "Field '$att->{name}' contains non-integer values.";
+			}
+			if ( !$used{$value} ) {
+				push @$list, $value;
+				$used{$value} = 1;
+			}
+		}
+		if (@$list) {
+			$newdata->{ $att->{'name'} } = BIGSdb::Utils::get_pg_array($list);
+		}
 	}
 	return;
 }
