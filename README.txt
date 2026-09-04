@@ -1,3 +1,4 @@
+v1.53.6: *Minor bug fixes.
 v1.53.5: *CSS reorganisation to make branding easier.
          *New dark mode.
          *Checks if autotag or scannew are already running with same arguments.
