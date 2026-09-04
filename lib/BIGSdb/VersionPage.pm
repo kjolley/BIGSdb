@@ -20,7 +20,7 @@ package BIGSdb::VersionPage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent        qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -132,8 +132,7 @@ sub _print_plugins {
 	my ( $enabled_buffer, $disabled_buffer, %disabled_reason );
 	my $etd = 1;
 	my $dtd = 1;
-	foreach my $plugin ( sort { lc $plugins->{$a}->{'name'} cmp lc $plugins->{$b}->{'name'} } keys %{$plugins} )
-	{
+	foreach my $plugin ( sort { lc $plugins->{$a}->{'name'} cmp lc $plugins->{$b}->{'name'} } keys %{$plugins} ) {
 		my $attr = $plugins->{$plugin};
 		$disabled_reason{$plugin} = $self->_reason_plugin_disabled($attr);
 		foreach my $att (qw(min max)) {
@@ -217,14 +216,15 @@ sub _reason_plugin_disabled {
 	my $dbtype = $self->{'system'}->{'dbtype'};
 	return 'Only for ' . ( $dbtype eq 'isolates' ? 'seqdef' : 'isolate' ) . ' databases.'
 	  if $attr->{'dbtype'} !~ /$dbtype/x;
-	return 'Not specifically enabled for this database.'
-	  if (
-		   !( ( $self->{'system'}->{'all_plugins'} // '' ) eq 'yes' )
-		&& $attr->{'system_flag'}
-		&& (  !$self->{'system'}->{ $attr->{'system_flag'} }
-			|| $self->{'system'}->{ $attr->{'system_flag'} } eq 'no' )
-		|| ( $attr->{'explicit_enable'} && ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes' )
-	  );
+	if ( $attr->{'system_flag'} ) {
+		return 'Explicitly disabled for this database.'
+		  if ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) eq 'no';
+		return 'Not specifically enabled for this database.'
+		  if $attr->{'explicit_enable'} && ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes';
+		return 'Not specifically enabled for this database.'
+		  if !( ( $self->{'system'}->{'all_plugins'} // q() ) eq 'yes' || $attr->{'enabled_by_default'} )
+		  && ( $self->{'system'}->{ $attr->{'system_flag'} } // q() ) ne 'yes';
+	}
 	return;
 }
 
