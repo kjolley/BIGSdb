@@ -1292,7 +1292,7 @@ sub create_temp_isolate_scheme_fields_view {
 	# scheme fields: copy the existing rows, excluding deleted isolates, then
 	# add the FK to the replacement table before swapping it into place.
 	my $legacy_migration = !$fk_exists && $table_exists;
-	my $replace_table    = $legacy_migration || $method eq 'full';
+	my $replace_table    = !$table_exists || $legacy_migration || $method eq 'full';
 	my $rename_table;
 	my $timestamp;
 	my $new_fk_name;
