@@ -20,10 +20,10 @@ package BIGSdb::Offline::BatchUploader;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Offline::Script);
-use BIGSdb::Constants qw(:limits);
+use parent                 qw(BIGSdb::Offline::Script);
+use BIGSdb::Constants      qw(:limits);
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
-use IO::Uncompress::Unzip qw(unzip $UnzipError);
+use IO::Uncompress::Unzip  qw(unzip $UnzipError);
 use Try::Tiny;
 use JSON;
 
@@ -69,6 +69,14 @@ sub upload {
 		my ( @extras, @ref_extras, $codon_table );
 		my $id;
 		my $sender = $self->_get_sender( $field_order, $data, $user_info->{'status'} );
+		if ( !defined $field_att && $table ne 'isolates' ) {
+			my $table_att = $self->{'datastore'}->get_table_field_attributes($table);
+			if ( ref $table_att ) {
+				foreach my $att (@$table_att) {
+					$field_att->{ $att->{'name'} } = $att;
+				}
+			}
+		}
 		foreach my $field (@$fields_to_include) {
 			$id = $data->[ $field_order->{$field} ] if $field eq 'id';
 			$self->_process_multivalues( $field_att, $field_order, $field, $data );
@@ -253,7 +261,7 @@ sub _set_embargo {
 		if ($@) {
 			$self->{'logger'}->error($@);
 			$self->{'db'}->rollback;
-		} 
+		}
 	}
 	return;
 }
@@ -334,7 +342,7 @@ sub _get_sender {
 sub _process_multivalues {
 	my ( $self, $field_att, $field_order, $field, $data ) = @_;
 	my $divider = q(;);
-	if (   ( $field_att->{$field}->{'multiple'} // q() ) eq 'yes'
+	if ( ( ( $field_att->{$field}->{'multiple'} // q() ) eq 'yes' || $field_att->{$field}->{'type'} eq 'integer_list' )
 		&& defined $field_order->{$field}
 		&& defined $data->[ $field_order->{$field} ] )
 	{

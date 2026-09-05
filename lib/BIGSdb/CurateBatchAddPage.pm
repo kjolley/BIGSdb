@@ -147,6 +147,9 @@ sub _print_interface {
 	if ( $table eq 'loci' && $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		say q(<li>Enter aliases (alternative names) for your locus as a semi-colon (;) separated list.</li>);
 	}
+	if ( $table eq 'schemes' && $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		say q(<li>Enter NCBI taxon for your scheme as a semi-colon (;) separated list of integers.</li>);
+	}
 	if ( $arg_ref->{'uses_integer_id'} ) {
 		say q(<li>You can choose whether or not to include an id number field - if it is omitted, the next )
 		  . q(available id will be used automatically.</li>);
@@ -830,10 +833,8 @@ sub _check_lincode_prefix_values {
 	if ( !defined $type ) {
 		$problems->{$pk_combination} .=
 		  "Field $data->[$file_header_pos->{'field'}] is not a valid field for this scheme.";
-	} elsif (
-		$type eq 'integer'
-		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] )
-	  )
+	} elsif ( $type eq 'integer'
+		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
 	{
 		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
 	} elsif ( !$self->is_admin ) {
@@ -990,6 +991,9 @@ sub _run_table_specific_field_checks {
 		},
 		dna_mutations => sub {
 			$self->_check_mutation_fields( $new_args, 'dna' );
+		},
+		schemes => sub {
+			$self->_check_schemes($new_args);
 		}
 	);
 	$further_checks{$table}->() if $further_checks{$table};
@@ -1356,6 +1360,24 @@ sub _check_data_refs {
 					}
 				}
 				$used{$ref} = 1;
+			}
+		}
+	}
+	return;
+}
+
+sub _check_schemes {
+	my ( $self, $arg_ref ) = @_;
+	my $field          = $arg_ref->{'field'};
+	my $value          = ${ $arg_ref->{'value'} };
+	my $pk_combination = $arg_ref->{'pk_combination'};
+	if ( $field eq 'NCBI_taxon' ) {
+		my @values = split /\s*;\s*/x, $value;
+		foreach my $id (@values) {
+			if ( !BIGSdb::Utils::is_int($id) ) {
+				$arg_ref->{'problems'}->{$pk_combination} .=
+				  'Taxon ids should be a semi-colon(;)-separated list of integers.';
+				return;
 			}
 		}
 	}
