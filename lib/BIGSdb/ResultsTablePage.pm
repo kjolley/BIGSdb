@@ -2063,6 +2063,11 @@ sub _print_record_field {
 		$self->_print_bool_field($args);
 		return;
 	}
+	if ( $table_info->{'type'}->{$field} eq 'integer_list' ) {
+		local $" = q(; );
+		print qq(<td>@{$data->{ lc($field) }}</td>);
+		return;
+	}
 	if ( ( $field =~ /sequence$/x || $field =~ /^primer/x ) && $field ne 'coding_sequence' ) {
 		if ( length( $data->{ lc($field) } ) > 60 ) {
 			my $full_seq = $data->{ lc($field) };

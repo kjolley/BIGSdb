@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2022, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,9 +20,9 @@ package BIGSdb::CurateDeletePage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::CuratePage);
+use parent          qw(BIGSdb::CuratePage);
 use List::MoreUtils qw(any);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use BIGSdb::Constants qw(DATABANKS :interface);
 
@@ -136,9 +136,12 @@ sub _get_display_values {
 		$field = $field_name;
 	}
 	if ( $att->{'type'} eq 'bool' ) {
-		$value = $data->{ $att->{'name'} } ? 'true' : 'false';
+		$value = $data->{ lc( $att->{'name'} ) } ? 'true' : 'false';
+	} elsif ( $att->{'type'} eq 'integer_list' ) {
+		local $" = q(; );
+		$value = qq(@{$data->{ lc($att->{'name'}) }});
 	} else {
-		$value = $data->{ $att->{'name'} };
+		$value = $data->{ lc( $att->{'name'} ) };
 	}
 	$value = BIGSdb::Utils::escape_html($value);
 	if ( $att->{'name'} =~ /sequence$/x && $att->{'name'} ne 'coding_sequence' ) {
@@ -344,7 +347,7 @@ sub _delete {
 			#cascade deletion of locus
 			next
 			  if $table eq 'loci' && any { $table_to_check eq $_ }
-			qw (locus_aliases locus_descriptions allele_designations
+			  qw (locus_aliases locus_descriptions allele_designations
 			  allele_sequences locus_curators client_dbase_loci locus_extended_attributes);
 
 			#cascade deletion of user
@@ -355,14 +358,14 @@ sub _delete {
 
 			#cascade deletion of validation rules
 			next if $table eq 'validation_rules' && $table_to_check eq 'validation_rule_conditions';
-			
+
 			#cascade deletion of query interface fields
 			next if $table eq 'query_interfaces' && $table_to_check eq 'query_interface_fields';
 
 			#cascade deletion of scheme group
 			next
 			  if $table eq 'scheme_groups' && any { $table_to_check eq $_ }
-			qw ( scheme_group_group_members scheme_group_scheme_members );
+			  qw ( scheme_group_group_members scheme_group_scheme_members );
 			my $num =
 			  $self->{'datastore'}
 			  ->run_query( "SELECT COUNT(*) FROM $table_to_check WHERE $tables_to_check{$table_to_check} =?",
