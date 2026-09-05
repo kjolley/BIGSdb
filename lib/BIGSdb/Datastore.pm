@@ -1303,7 +1303,7 @@ sub create_temp_isolate_scheme_fields_view {
 		$new_fk_name  = "${fk_name}_$timestamp";
 	}
 
-	if (!$table_exists || $replace_table) {
+	if ( !$table_exists || $replace_table ) {
 		my @fields;
 		foreach my $field (@$scheme_fields) {
 			my $field_info = $self->get_scheme_field_info( $scheme_id, $field );
@@ -1335,8 +1335,12 @@ sub create_temp_isolate_scheme_fields_view {
 			# not part of the requested renewal.
 			# A full renewal simply rebuilds the replacement table from scratch.
 			if ( $method ne 'full' ) {
-				$self->{'db'}
-				  ->do("INSERT INTO $table SELECT old.* FROM $rename_table old JOIN isolates ON isolates.id=old.id");
+				my @columns     = ( 'id', @$scheme_fields );
+				my @old_columns = map { "old.$_" } @columns;
+				local $" = q(,);
+				$self->{'db'}->do( "INSERT INTO $table (@columns) "
+					  . "SELECT @old_columns FROM $rename_table old "
+					  . 'JOIN isolates ON isolates.id=old.id' );
 			}
 		}
 
