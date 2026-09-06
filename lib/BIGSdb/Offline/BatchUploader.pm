@@ -341,10 +341,13 @@ sub _get_sender {
 #Convert from semi-colon separated list in to an arrayref.
 sub _process_multivalues {
 	my ( $self, $field_att, $field_order, $field, $data ) = @_;
-	my $divider = q(;);
-	if ( ( ( $field_att->{$field}->{'multiple'} // q() ) eq 'yes' || $field_att->{$field}->{'type'} eq 'integer_list' )
+	my $divider  = q(;);
+	my $multiple = $field_att->{$field}->{'multiple'} // q();
+	if (
+		( $multiple eq 'yes' || $multiple == 1 )
 		&& defined $field_order->{$field}
-		&& defined $data->[ $field_order->{$field} ] )
+		&& defined $data->[ $field_order->{$field} ]
+	  )
 	{
 		$data->[ $field_order->{$field} ] = [ split /$divider/x, $data->[ $field_order->{$field} ] ];
 		s/^\s+|\s+$//gx foreach @{ $data->[ $field_order->{$field} ] };

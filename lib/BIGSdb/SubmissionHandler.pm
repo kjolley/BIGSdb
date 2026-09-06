@@ -1699,7 +1699,7 @@ sub _check_other_required {    ## no critic (ProhibitUnusedPrivateSubroutines) #
 sub _check_other_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
 	return if !defined $value || $value eq q();
-	if ( $thisfield->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
+	if ( $thisfield->{'type'} eq 'int' && !$thisfield->{'multiple'} && !BIGSdb::Utils::is_int($value) ) {
 		return 'must be an integer.';
 	}
 	return;

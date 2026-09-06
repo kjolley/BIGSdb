@@ -1237,7 +1237,8 @@ sub get_schemes_table_attributes {
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
 		push @$attributes, {
 			name     => 'NCBI_taxon',
-			type     => 'integer_list',
+			type     => 'int',
+			multiple => 1,
 			required => 0,
 			unique   => 0,
 			comments => 'Lookup ids at the '

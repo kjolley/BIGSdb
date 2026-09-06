@@ -144,25 +144,25 @@ sub _get_form_fields {
 			my $label = $self->_get_label($args);
 			$buffer .= qq(<div class="form_label">$label</div>);
 			my %field_checks = (
-				primary_key    => sub { $self->_get_primary_key_field($args) },
-				no_user_update => sub { $self->_get_no_update_field($args) },
-				sender         => sub { $self->_get_user_field($args) },
-				allele_id      => sub { $self->_get_allele_id_field($args) },
-				non_admin_loci => sub { $self->_get_non_admin_locus_field($args) },
-				foreign_key    => sub { $self->_get_foreign_key_dropdown_field($args) },
-				datestamp      => sub { $self->_get_datestamp_field($args) },
-				date_entered   => sub { $self->_get_date_entered_field($args) },
-				curator        => sub { $self->_get_curator_field($args) },
-				boolean        => sub { $self->_get_boolean_field($args) },
-				optlist        => sub { $self->_get_optlist_field($args) },
-				coded_field    => sub { $self->_get_coded_field($args) },
-				integer_list   => sub { $self->_get_integer_list_field($args) },
-				text_field     => sub { $self->_get_text_field($args) },
+				primary_key      => sub { $self->_get_primary_key_field($args) },
+				no_user_update   => sub { $self->_get_no_update_field($args) },
+				sender           => sub { $self->_get_user_field($args) },
+				allele_id        => sub { $self->_get_allele_id_field($args) },
+				non_admin_loci   => sub { $self->_get_non_admin_locus_field($args) },
+				foreign_key      => sub { $self->_get_foreign_key_dropdown_field($args) },
+				datestamp        => sub { $self->_get_datestamp_field($args) },
+				date_entered     => sub { $self->_get_date_entered_field($args) },
+				curator          => sub { $self->_get_curator_field($args) },
+				boolean          => sub { $self->_get_boolean_field($args) },
+				optlist          => sub { $self->_get_optlist_field($args) },
+				coded_field      => sub { $self->_get_coded_field($args) },
+				multivalue_field => sub { $self->_get_multivalue_field($args) },
+				text_field       => sub { $self->_get_text_field($args) },
 			);
 			$buffer .= q(<div class="form_value">);
 		  FIELD_CHECK: foreach my $check (
 				qw(primary_key no_user_update sender allele_id non_admin_loci
-				foreign_key datestamp date_entered curator boolean optlist coded_field integer_list
+				foreign_key datestamp date_entered curator boolean optlist coded_field multivalue_field
 				text_field)
 			  )
 			{
@@ -638,11 +638,11 @@ sub _get_boolean_field {
 	return $q->radio_group( -name => $name, -values => [qw (true false)], -default => $default );
 }
 
-sub _get_integer_list_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _get_multivalue_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $args ) = @_;
 	my ( $name, $newdata, $att ) = @$args{qw(name newdata att)};
 
-	return q() if $att->{'type'} ne 'integer_list';
+	return q() if !$att->{'multiple'};
 	my $q = $self->{'cgi'};
 	my $default;
 
@@ -1120,7 +1120,7 @@ sub check_record {
 				push @problems, qq(Invalid value for $att->{'name'}.);
 			}
 		}
-		my @checks = qw(integer float date regex integer_list foreign_key);
+		my @checks = qw(integer float date regex multivalue_field foreign_key);
 		foreach my $check (@checks) {
 			my $method  = "_check_$check";
 			my $message = $self->$method( $att, $newdata );
@@ -1234,7 +1234,7 @@ sub _check_is_missing {
 sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
 	if ( defined $newdata->{ $att->{'name'} }
-		&& $att->{'type'} eq 'int' )
+		&& $att->{'type'} eq 'int' && !$att->{'multiple'} )
 	{
 		if ( !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) ) {
 			return "$att->{name} must be an integer.";
@@ -1283,17 +1283,19 @@ sub _check_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 	return;
 }
 
-sub _check_integer_list {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+sub _check_multivalue_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	if (   $newdata->{ $att->{'name'} }
-		&& $att->{'type'} eq 'integer_list' )
+	if (
+		$newdata->{ $att->{'name'} }
+		&& $att->{'multiple'}
+	  )
 	{
 		my $list = [];
 		my %used;
 		foreach my $value ( split /\s+/x, $newdata->{ $att->{'name'} } ) {
 			$value =~ s/^\s*|\s*$//gx;
 			next if !$value;
-			if ( !BIGSdb::Utils::is_int($value) ) {
+			if ( $att->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
 				return "Field '$att->{name}' contains non-integer values.";
 			}
 			if ( !$used{$value} ) {

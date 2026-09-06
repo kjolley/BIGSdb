@@ -137,7 +137,7 @@ sub _get_display_values {
 	}
 	if ( $att->{'type'} eq 'bool' ) {
 		$value = $data->{ lc( $att->{'name'} ) } ? 'true' : 'false';
-	} elsif ( $att->{'type'} eq 'integer_list' ) {
+	} elsif ( $att->{'multiple'} ) {
 		local $" = q(; );
 		$value = qq(@{$data->{ lc($att->{'name'}) }});
 	} else {

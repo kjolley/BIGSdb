@@ -1656,6 +1656,7 @@ sub _get_record_table_info {
 	my $display              = [];
 	my $qry_fields           = [];
 	my $type                 = {};
+	my $multiple = {};
 	my $foreign_key          = {};
 	my $labels               = {};
 	my $user_variable_fields = 0;
@@ -1685,6 +1686,7 @@ sub _get_record_table_info {
 		$type->{ $attr->{'name'} }        = $attr->{'type'};
 		$foreign_key->{ $attr->{'name'} } = $attr->{'foreign_key'};
 		$labels->{ $attr->{'name'} }      = $attr->{'labels'};
+		$multiple->{ $attr->{'name'} } = 1 if $attr->{'multiple'};
 	}
 	my $extended_attributes;
 	my $linked_data;
@@ -1717,6 +1719,7 @@ sub _get_record_table_info {
 			qry_fields           => $qry_fields,
 			display              => $display,
 			type                 => $type,
+			multiple => $multiple,
 			foreign_key          => $foreign_key,
 			labels               => $labels,
 			extended_attributes  => $extended_attributes,
@@ -2063,9 +2066,9 @@ sub _print_record_field {
 		$self->_print_bool_field($args);
 		return;
 	}
-	if ( $table_info->{'type'}->{$field} eq 'integer_list' ) {
+	if ( $table_info->{'multiple'}->{$field}  ) {
 		local $" = q(; );
-		print qq(<td>@{$data->{ lc($field) }}</td>);
+		print ref $data->{ lc($field) } ? qq(<td>@{$data->{ lc($field) }}</td>) : q(<td></td>);
 		return;
 	}
 	if ( ( $field =~ /sequence$/x || $field =~ /^primer/x ) && $field ne 'coding_sequence' ) {
