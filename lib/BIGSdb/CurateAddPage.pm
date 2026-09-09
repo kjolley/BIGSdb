@@ -148,9 +148,22 @@ sub print_content {
 	if ( $q->param('sent') ) {
 		$retval = $self->_insert( $table, $new_data );
 	}
-	if ( ( $retval // 0 ) != SUCCESS ) {
+	if ( ( $retval // 0 ) == SUCCESS ) {
+		$self->_run_post_insert_methods($table);
+	}
+	else {
 		print $buffer ;
 		$self->_print_copy_locus_record_form if $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'loci';
+	}
+	return;
+}
+
+sub _run_post_insert_methods {
+	my ($self, $table) = @_;
+	if (($self->{'system'}->{'dbtype'} // q()) eq 'sequences'){
+		if ($table eq 'schemes'){
+			$self->retrieve_ncbi_taxa;
+		}
 	}
 	return;
 }

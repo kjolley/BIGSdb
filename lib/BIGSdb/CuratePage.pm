@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Utils;
+use BIGSdb::Offline::RetrieveNcbiTaxa;
 use Log::Log4perl   qw(get_logger);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
@@ -35,6 +36,40 @@ sub initiate {
 }
 sub get_title     { return q(Curator's interface - BIGSdb) }
 sub print_content { }
+
+sub retrieve_ncbi_taxa {
+	my ( $self, $options ) = @_;
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) ne 'sequences' ) {
+		$logger->error('Can only retrieve NCBI taxa for seqdef databases.');
+		return;
+	}
+	$self->{'forked'} = 1;
+	defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
+	if ($grandkid) {
+		CORE::exit(0);
+	} else {
+		open STDIN,  '<',  '/dev/null' || $logger->error("Cannot detach STDIN: $!");
+		open STDOUT, '>',  '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
+		open STDERR, '>&', \*STDOUT    || $logger->error("Cannot detach STDERR: $!");
+		BIGSdb::Offline::RetrieveNcbiTaxa->new(
+			{
+				config_dir       => $self->{'config_dir'},
+				lib_dir          => $self->{'lib_dir'},
+				dbase_config_dir => $self->{'dbase_config_dir'},
+				host             => $self->{'system'}->{'host'},
+				port             => $self->{'system'}->{'port'},
+				user             => $self->{'system'}->{'user'},
+				password         => $self->{'system'}->{'password'},
+				options          => $options,
+				instance         => $self->{'instance'},
+				logger           => $logger
+			}
+		);
+		
+		CORE::exit(0);
+	}
+	return;
+}
 
 sub get_curator_name {
 	my ($self) = @_;
@@ -1233,8 +1268,9 @@ sub _check_is_missing {
 
 sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	if ( defined $newdata->{ $att->{'name'} }
-		&& $att->{'type'} eq 'int' && !$att->{'multiple'} )
+	if (   defined $newdata->{ $att->{'name'} }
+		&& $att->{'type'} eq 'int'
+		&& !$att->{'multiple'} )
 	{
 		if ( !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) ) {
 			return "$att->{name} must be an integer.";
@@ -1285,10 +1321,8 @@ sub _check_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 
 sub _check_multivalue_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	if (
-		$newdata->{ $att->{'name'} }
-		&& $att->{'multiple'}
-	  )
+	if (   $newdata->{ $att->{'name'} }
+		&& $att->{'multiple'} )
 	{
 		my $list = [];
 		my %used;

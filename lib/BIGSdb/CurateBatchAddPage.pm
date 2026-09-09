@@ -1860,10 +1860,21 @@ sub _upload_data {
 				}
 			);
 			$uploader->upload;
+			$self->_run_post_insert_methods($table);
 			CORE::exit(0);
 		}
 	}
 	$self->_load_status_page($status_file);
+	return;
+}
+
+sub _run_post_insert_methods {
+	my ( $self, $table ) = @_;
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences' ) {
+		if ( $table eq 'schemes' ) {
+			$self->retrieve_ncbi_taxa;
+		}
+	}
 	return;
 }
 

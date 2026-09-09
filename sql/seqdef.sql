@@ -403,7 +403,7 @@ CREATE TABLE schemes (
 id int NOT NULL UNIQUE,
 name text NOT NULL,
 description text,
-NCBI_taxon int[];
+NCBI_taxon int[],
 allow_missing_loci boolean NOT NULL DEFAULT FALSE,
 allow_presence boolean NOT NULL DEFAULT FALSE,
 max_missing int,
@@ -1767,6 +1767,18 @@ ON UPDATE CASCADE
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON sequences_dna_mutations TO apache;
 
+CREATE TABLE ncbi_taxa (
+id integer NOT NULL UNIQUE,
+scientific_name text,
+rank text,
+status text NOT NULL DEFAULT 'active',
+fetched date,
+last_checked date,
+PRIMARY KEY (id)
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON ncbi_taxa TO apache,bigsdb;
+
 GRANT USAGE, CREATE ON SCHEMA public TO apache;
 
 CREATE TABLE db_attributes (
@@ -1777,5 +1789,5 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','52');
+INSERT INTO db_attributes (field,value) VALUES ('version','54');
 INSERT INTO db_attributes (field,value) VALUES ('type','seqdef');

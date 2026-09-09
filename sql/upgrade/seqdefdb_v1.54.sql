@@ -1,3 +1,5 @@
+UPDATE db_attributes SET value='54' WHERE field='version';
+
 -- Use current datestamp when adding alleles
 CREATE OR REPLACE FUNCTION update_locus_stats() RETURNS TRIGGER AS $update_locus_stats$
 	DECLARE
@@ -33,3 +35,15 @@ CREATE OR REPLACE FUNCTION update_locus_stats() RETURNS TRIGGER AS $update_locus
 $update_locus_stats$ LANGUAGE plpgsql;
 
 ALTER TABLE schemes ADD NCBI_taxon int[];
+
+CREATE TABLE ncbi_taxa (
+id integer NOT NULL UNIQUE,
+scientific_name text,
+rank text,
+status text NOT NULL DEFAULT 'active',
+fetched date,
+last_checked date,
+PRIMARY KEY (id)
+);
+
+GRANT SELECT,UPDATE,INSERT,DELETE ON ncbi_taxa TO apache,bigsdb;
