@@ -1564,7 +1564,8 @@ sub get_scheme_fields_table_attributes {
 			}
 		  );
 	} else {
-		push @$attributes, (
+		push @$attributes,
+		  (
 			{
 				name     => 'index',
 				type     => 'bool',
@@ -1600,7 +1601,7 @@ sub get_scheme_fields_table_attributes {
 				  . 'include it. This should not be used for primary key fields as these are usually defined '
 				  . 'by the system rather than being provided by the submitter.'
 			}
-		);
+		  );
 	}
 	push @$attributes,
 	  (
@@ -2824,9 +2825,9 @@ sub get_geography_point_lookup_table_attributes {
 	}
 	local $" = q(;);
 	my $attributes = [
-		{ name => 'country_code', type => 'text', required => 1, primary_key => 1, optlist => qq(@optlist) },
-		{ name => 'field',        type => 'text', required => 1, primary_key => 1, optlist => qq(@field_opt_list) },
-		{ name => 'value',        type => 'text', required => 1, primary_key => 1 },
+		{ name => 'country_code', type => 'text', required => 1,   primary_key => 1, optlist => qq(@optlist) },
+		{ name => 'field',        type => 'text', required => 1,   primary_key => 1, optlist => qq(@field_opt_list) },
+		{ name => 'value',        type => 'text', length   => 250, required    => 1, primary_key => 1 },
 		{
 			name        => 'location',
 			type        => 'geography_point',
@@ -3083,7 +3084,8 @@ sub get_analysis_fields_table_attributes {
 			length   => 100,
 			tooltip  => 'This is a value in the format $.fields.species. '
 			  . 'See https://en.wikipedia.org/wiki/JSONPath for more details.',
-			regex => '^\$((?:\.[A-Za-z_][A-Za-z0-9_]*)|(?:\."(?:[^"\\\\]|\\\\.)*")|(?:\[\d+\])|(?:\[\*\])|(?:\[\?\(.*?\)\]))*$'
+			regex =>
+			  '^\$((?:\.[A-Za-z_][A-Za-z0-9_]*)|(?:\."(?:[^"\\\\]|\\\\.)*")|(?:\[\d+\])|(?:\[\*\])|(?:\[\?\(.*?\)\]))*$'
 		},
 		{
 			name     => 'data_type',
