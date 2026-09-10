@@ -71,7 +71,18 @@ sub main {
 		my @config_dirs = readdir($dh);
 		closedir $dh;
 		foreach my $dir (@config_dirs) {
-			next if !-e DBASE_CONFIG_DIR . "/$dir/config.xml";
+			my $config_file = DBASE_CONFIG_DIR . "/$dir/config.xml";
+			next if !-e $config_file;
+			my $is_seqdef;
+			open( my $fh, '<', $config_file ) or die "Cannot open $config_file $!\n";
+			while (<$fh>) {
+				if (/dbtype\s*=\s*"sequences"/x) {
+					$is_seqdef = 1;
+					last;
+				}
+			}
+			close $fh;
+			next if !$is_seqdef;
 			retrieve_taxa($dir);
 		}
 	}

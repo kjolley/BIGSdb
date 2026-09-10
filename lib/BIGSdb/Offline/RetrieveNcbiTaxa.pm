@@ -134,6 +134,7 @@ sub _refresh {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dis
 
 sub _update {
 	my ( $self, $taxon_ids, $results ) = @_;
+	my %rank_domain = map{$_ => 1}qw(2 2157 2759);#Bacteria, Archaea, Eukaryota
 	foreach my $id (@$taxon_ids) {
 		eval {
 			if ( $results->{'result'}->{$id} ) {
@@ -148,6 +149,10 @@ sub _update {
 						  . "Update scheme taxa to use id: $result->{'akataxid'} instead." );
 					next;
 				}
+				if (($result->{'rank'} // q()) eq 'acellular root' && $rank_domain{$id}){
+					$result->{'rank'} = 'domain';
+				}
+				
 
 				$self->{'db'}->do(
 					'INSERT INTO ncbi_taxa (id,scientific_name,rank,status,fetched,last_checked) VALUES (?,?,?,?,?,?) '
