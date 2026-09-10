@@ -1,4 +1,4 @@
-/*Version: 20260829*/
+/*Version: 20260910*/
 
 :root {
 	/* backgrounds */
@@ -4172,7 +4172,7 @@ div.form_value .select2-selection__rendered {
 		white-space: normal;
 		text-align: inherit;
 		font-weight: bold;
-		color: #404080;
+		color: var(--text-data-title);
 		margin: 0;
 		padding: 0;
 		background-color: initial;
@@ -4193,7 +4193,15 @@ div.form_value .select2-selection__rendered {
 		float: none;
 		clear: both;
 		width: initial;
-		text-align: initial
+		text-align: initial;
+	}
+	
+	.profile dt a {
+		color: var(--link)
+	}
+	
+	.profile dt a:hover {
+		color: var(--text-data-title);
 	}
 
 	.data dd {
