@@ -2827,7 +2827,7 @@ sub get_geography_point_lookup_table_attributes {
 	my $attributes = [
 		{ name => 'country_code', type => 'text', required => 1,   primary_key => 1, optlist => qq(@optlist) },
 		{ name => 'field',        type => 'text', required => 1,   primary_key => 1, optlist => qq(@field_opt_list) },
-		{ name => 'value',        type => 'text', length   => 250, required    => 1, primary_key => 1 },
+		{ name => 'value',        type => 'text', length   => 100, required    => 1, primary_key => 1 },
 		{
 			name        => 'location',
 			type        => 'geography_point',
