@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Update tables of scheme field values linked to isolate
 #Written by Keith Jolley
-#Copyright (c) 2014-2023, University of Oxford
+#Copyright (c) 2014-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20230620
+#Version: 20260910
 use strict;
 use warnings;
 use 5.010;
@@ -103,7 +103,7 @@ sub check_if_script_already_running {
 		my $pid_exists = kill( 0, $pid );
 		if ( !$pid_exists ) {
 			say 'Lock file exists but process is no longer running - deleting lock.'
-			  if !$opts{'quiet'};
+			  if !$opts{'q'};
 			unlink $lock_file;
 		} else {
 			undef $script;
