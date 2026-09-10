@@ -53,7 +53,7 @@ sub get_attributes {
 		buttontext          => 'ReporTree',
 		menutext            => 'ReporTree',
 		module              => 'ReporTree',
-		version             => '1.2.2',
+		version             => '1.2.3',
 		dbtype              => 'isolates',
 		section             => 'analysis,postquery',
 		input               => 'query',
@@ -402,7 +402,7 @@ sub get_plugin_javascript {
 	my $buffer = << "END";
 function enable_partitions(){
 	\$("#partitions").prop("disabled", \$("#stability_regions").prop("checked") ? true : false);
-	\$("#partitions_label").css("color", \$("#stability_regions").prop("checked") ? '#888' : '#000');
+	\$("#partitions_label").css("color", \$("#stability_regions").prop("checked") ? '#888' : 'var(--text)');
 }
 	
 \$(function () {
