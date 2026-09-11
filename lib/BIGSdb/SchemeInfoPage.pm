@@ -63,6 +63,7 @@ sub print_content {
 	say q(<div class="box" id="resultspanel">);
 	say $self->get_scheme_flags($scheme_id);
 	say qq(<p>$scheme_info->{'description'}</p>) if $scheme_info->{'description'};
+	$self->_print_taxa($scheme_id);
 	$self->_print_citations($scheme_id);
 	$self->_print_scheme_curators($scheme_id);
 	$self->_print_fields($scheme_id);
@@ -102,6 +103,29 @@ sub _print_citations {
 		say qq(<li>$citations->{$_}</li>) foreach @$refs;
 		say q(</ul>);
 	}
+	return;
+}
+
+sub _print_taxa {
+	my ( $self, $scheme_id ) = @_;
+	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'sequences';
+	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
+	my $taxa        = $scheme_info->{'ncbi_taxon'};
+	return if !@$taxa;
+	say q(<h2>Taxa</h2>);
+	my $name = @$taxa == 1 ? 'taxon' : 'taxa';
+	say qq(<p>This scheme is designed for the following $name:</p>);
+	say q(<ul>);
+
+	foreach my $taxon (@$taxa) {
+		my $taxon_info =
+		  $self->{'datastore'}->run_query( 'SELECT * FROM ncbi_taxa WHERE id=?', $taxon, { fetch => 'row_hashref' } );
+		if ( $taxon_info && $taxon_info->{'scientific_name'} ) {
+			say qq(<li>$taxon_info->{'scientific_name'} [NCBITaxon: )
+			  . qq(<a href="https://www.ncbi.nlm.nih.gov/datasets/taxonomy/$taxon/" target="_blank">$taxon</a>]</li>);
+		}
+	}
+	say q(</ul>);
 	return;
 }
 
