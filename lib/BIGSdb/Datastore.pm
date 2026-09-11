@@ -1277,6 +1277,8 @@ sub create_temp_isolate_scheme_fields_view {
 		}
 		$table_exists = 0;
 	}
+	my $fk_name     = "tisf_${scheme_id}_isolate_id";
+	my $fk_exists   = $self->_constraint_exists( $table, $fk_name );
 	my $scheme_info = $self->get_scheme_info($scheme_id);
 	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): importing definitions";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
@@ -1286,8 +1288,22 @@ sub create_temp_isolate_scheme_fields_view {
 		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 
-	if ( !$table_exists ) {
-		$options->{'method'} = 'full';
+	# A legacy cache without the FK can be migrated without recalculating the
+	# scheme fields: copy the existing rows, excluding deleted isolates, then
+	# add the FK to the replacement table before swapping it into place.
+	my $legacy_migration = !$fk_exists && $table_exists;
+	my $replace_table    = !$table_exists || $legacy_migration || $method eq 'full';
+	my $rename_table;
+	my $timestamp;
+	my $new_fk_name;
+	if ($replace_table) {
+		$rename_table = $table;
+		$timestamp    = BIGSdb::Utils::get_timestamp();
+		$table        = "${table}_$timestamp";
+		$new_fk_name  = "${fk_name}_$timestamp";
+	}
+
+	if ( !$table_exists || $replace_table ) {
 		my @fields;
 		foreach my $field (@$scheme_fields) {
 			my $field_info = $self->get_scheme_field_info( $scheme_id, $field );
@@ -1305,10 +1321,30 @@ sub create_temp_isolate_scheme_fields_view {
 	my @placeholders  = ('?') x ( @$scheme_fields + 1 );
 	my $last_progress = 0;
 	my $i             = 0;
-	$options->{'status'}->{'stage'} = "Scheme $scheme_id ($scheme_info->{'name'}): looking up profiles";
+	$options->{'status'}->{'stage'} =
+	  $legacy_migration
+	  ? "Scheme $scheme_id ($scheme_info->{'name'}): copying existing cache"
+	  : "Scheme $scheme_id ($scheme_info->{'name'}): looking up profiles";
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	eval {
-		if ( $options->{'method'} eq 'full' ) {
+		if ($legacy_migration) {
+
+			# Preserve the existing cache when doing an incremental/daily renewal.
+			# Remove rows for isolates that no longer exist while copying the
+			# legacy cache. This avoids recalculating scheme field values which are
+			# not part of the requested renewal.
+			# A full renewal simply rebuilds the replacement table from scratch.
+			if ( $method ne 'full' ) {
+				my @columns     = ( 'id', @$scheme_fields );
+				my @old_columns = map { "old.$_" } @columns;
+				local $" = q(,);
+				$self->{'db'}->do( "INSERT INTO $table (@columns) "
+					  . "SELECT @old_columns FROM $rename_table old "
+					  . 'JOIN isolates ON isolates.id=old.id' );
+			}
+		}
+
+		if ( $method eq 'full' ) {
 			$self->{'db'}->do("DELETE FROM $table");
 		}
 		my $insert_sql = $self->{'db'}->prepare("INSERT INTO $table (id,@$scheme_fields) VALUES (@placeholders)");
@@ -1335,7 +1371,7 @@ sub create_temp_isolate_scheme_fields_view {
 				);
 			}
 			$i++;
-			if ( $options->{'method'} =~ /^daily/x ) {
+			if ( $method =~ /^daily/x ) {
 				$delete_sql->execute($isolate_id);
 			}
 			foreach my $field_value (@$field_values) {
@@ -1352,20 +1388,41 @@ sub create_temp_isolate_scheme_fields_view {
 				$last_progress = $progress;
 			}
 		}
-		if ( !$table_exists ) {
+		if ( !$table_exists || $replace_table ) {
 			$self->{'db'}->do("GRANT SELECT ON $table TO apache");
 		}
 
 		#Check if all indexes are in place - create them if not.
 		foreach my $field ( 'id', @$scheme_fields ) {
-			if ( !$table_exists || !$self->_index_exists( $table, $field ) ) {
+			if ( $replace_table || !$self->_index_exists( $table, $field ) ) {
 				$self->{'db'}->do("CREATE INDEX ON $table($field)");
 			}
+		}
+		if ($replace_table) {
+			$self->{'db'}->do( "ALTER TABLE $table ADD CONSTRAINT $new_fk_name "
+				  . 'FOREIGN KEY (id) REFERENCES isolates(id) ON DELETE CASCADE' );
 		}
 	};
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
+		return;
+	}
+	if ($replace_table) {
+		eval {
+			#The expensive rebuild is complete. Only the final swap touches the
+			#currently-used cache table, so any lock is held only briefly.
+			$self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table");
+			$self->{'db'}->do("ALTER TABLE $rename_table RENAME CONSTRAINT $new_fk_name TO $fk_name");
+		};
+		if ($@) {
+			$logger->error($@);
+			$self->{'db'}->rollback;
+			return;
+		}
+		$self->{'db'}->commit;
+		$self->_delete_temp_tables("${rename_table}_");
+		$table = $rename_table;
 	}
 	$self->{'db'}->commit;
 	delete $options->{'status'}->{'stage_progress'};
@@ -1402,6 +1459,15 @@ sub _index_exists {
 	  . q[t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) ]
 	  . q[AND t.relkind = 'r' AND t.relname=? AND a.attname=?)];
 	return $self->run_query( $qry, [ $table, lc($column) ] );
+}
+
+sub _constraint_exists {
+	my ( $self, $table, $constraint ) = @_;
+	return $self->run_query(
+		'SELECT EXISTS(SELECT 1 FROM information_schema.table_constraints '
+		  . 'WHERE (table_schema,table_name,constraint_name)=(?,?,?))',
+		[ 'public', $table, $constraint ]
+	);
 }
 
 sub create_temp_cscheme_table {

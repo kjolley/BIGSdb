@@ -22,6 +22,7 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::Page);
 use BIGSdb::Utils;
+use BIGSdb::Offline::RetrieveNcbiTaxa;
 use Log::Log4perl   qw(get_logger);
 use List::MoreUtils qw(any);
 my $logger = get_logger('BIGSdb.Page');
@@ -35,6 +36,40 @@ sub initiate {
 }
 sub get_title     { return q(Curator's interface - BIGSdb) }
 sub print_content { }
+
+sub retrieve_ncbi_taxa {
+	my ( $self, $options ) = @_;
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) ne 'sequences' ) {
+		$logger->error('Can only retrieve NCBI taxa for seqdef databases.');
+		return;
+	}
+	$self->{'forked'} = 1;
+	defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
+	if ($grandkid) {
+		CORE::exit(0);
+	} else {
+		open STDIN,  '<',  '/dev/null' || $logger->error("Cannot detach STDIN: $!");
+		open STDOUT, '>',  '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
+		open STDERR, '>&', \*STDOUT    || $logger->error("Cannot detach STDERR: $!");
+		BIGSdb::Offline::RetrieveNcbiTaxa->new(
+			{
+				config_dir       => $self->{'config_dir'},
+				lib_dir          => $self->{'lib_dir'},
+				dbase_config_dir => $self->{'dbase_config_dir'},
+				host             => $self->{'system'}->{'host'},
+				port             => $self->{'system'}->{'port'},
+				user             => $self->{'system'}->{'user'},
+				password         => $self->{'system'}->{'password'},
+				options          => $options,
+				instance         => $self->{'instance'},
+				logger           => $logger
+			}
+		);
+		
+		CORE::exit(0);
+	}
+	return;
+}
 
 sub get_curator_name {
 	my ($self) = @_;
@@ -144,24 +179,26 @@ sub _get_form_fields {
 			my $label = $self->_get_label($args);
 			$buffer .= qq(<div class="form_label">$label</div>);
 			my %field_checks = (
-				primary_key    => sub { $self->_get_primary_key_field($args) },
-				no_user_update => sub { $self->_get_no_update_field($args) },
-				sender         => sub { $self->_get_user_field($args) },
-				allele_id      => sub { $self->_get_allele_id_field($args) },
-				non_admin_loci => sub { $self->_get_non_admin_locus_field($args) },
-				foreign_key    => sub { $self->_get_foreign_key_dropdown_field($args) },
-				datestamp      => sub { $self->_get_datestamp_field($args) },
-				date_entered   => sub { $self->_get_date_entered_field($args) },
-				curator        => sub { $self->_get_curator_field($args) },
-				boolean        => sub { $self->_get_boolean_field($args) },
-				optlist        => sub { $self->_get_optlist_field($args) },
-				coded_field    => sub { $self->_get_coded_field($args) },
-				text_field     => sub { $self->_get_text_field($args) },
+				primary_key      => sub { $self->_get_primary_key_field($args) },
+				no_user_update   => sub { $self->_get_no_update_field($args) },
+				sender           => sub { $self->_get_user_field($args) },
+				allele_id        => sub { $self->_get_allele_id_field($args) },
+				non_admin_loci   => sub { $self->_get_non_admin_locus_field($args) },
+				foreign_key      => sub { $self->_get_foreign_key_dropdown_field($args) },
+				datestamp        => sub { $self->_get_datestamp_field($args) },
+				date_entered     => sub { $self->_get_date_entered_field($args) },
+				curator          => sub { $self->_get_curator_field($args) },
+				boolean          => sub { $self->_get_boolean_field($args) },
+				optlist          => sub { $self->_get_optlist_field($args) },
+				coded_field      => sub { $self->_get_coded_field($args) },
+				multivalue_field => sub { $self->_get_multivalue_field($args) },
+				text_field       => sub { $self->_get_text_field($args) },
 			);
 			$buffer .= q(<div class="form_value">);
 		  FIELD_CHECK: foreach my $check (
 				qw(primary_key no_user_update sender allele_id non_admin_loci
-				foreign_key datestamp date_entered curator boolean optlist coded_field text_field)
+				foreign_key datestamp date_entered curator boolean optlist coded_field multivalue_field
+				text_field)
 			  )
 			{
 				my $check_buffer = $field_checks{$check}->();
@@ -636,6 +673,29 @@ sub _get_boolean_field {
 	return $q->radio_group( -name => $name, -values => [qw (true false)], -default => $default );
 }
 
+sub _get_multivalue_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $args ) = @_;
+	my ( $name, $newdata, $att ) = @$args{qw(name newdata att)};
+
+	return q() if !$att->{'multiple'};
+	my $q = $self->{'cgi'};
+	my $default;
+
+	if ( ref $newdata->{ lc( $att->{'name'} ) } ) {
+		local $" = qq(\n);
+		$default = qq(@{$newdata->{ lc($att->{'name'} )}});
+
+	}
+	return $q->textarea(
+		-name        => $name,
+		-id          => $name,
+		-style       => 'height:5em',
+		-placeholder => 'one per line...',
+		-default     => $default,
+	);
+
+}
+
 sub _create_extra_fields_for_sequences {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $newdata ) = @_;
 	my $q = $self->{'cgi'};
@@ -1095,7 +1155,7 @@ sub check_record {
 				push @problems, qq(Invalid value for $att->{'name'}.);
 			}
 		}
-		my @checks = qw(integer float date regex foreign_key);
+		my @checks = qw(integer float date regex multivalue_field foreign_key);
 		foreach my $check (@checks) {
 			my $method  = "_check_$check";
 			my $message = $self->$method( $att, $newdata );
@@ -1208,8 +1268,9 @@ sub _check_is_missing {
 
 sub _check_integer {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $att, $newdata ) = @_;
-	if ( defined $newdata->{ $att->{'name'} }
-		&& $att->{'type'} eq 'int' )
+	if (   defined $newdata->{ $att->{'name'} }
+		&& $att->{'type'} eq 'int'
+		&& !$att->{'multiple'} )
 	{
 		if ( !BIGSdb::Utils::is_int( $newdata->{ $att->{'name'} } ) ) {
 			return "$att->{name} must be an integer.";
@@ -1254,6 +1315,31 @@ sub _check_regex {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by
 		&& $newdata->{ $att->{'name'} } !~ /$att->{'regex'}/x )
 	{
 		return "Field '$att->{name}' does not conform to specified format.";
+	}
+	return;
+}
+
+sub _check_multivalue_field {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
+	my ( $self, $att, $newdata ) = @_;
+	if (   $newdata->{ $att->{'name'} }
+		&& $att->{'multiple'} )
+	{
+		my $list = [];
+		my %used;
+		foreach my $value ( split /\s+/x, $newdata->{ $att->{'name'} } ) {
+			$value =~ s/^\s*|\s*$//gx;
+			next if !$value;
+			if ( $att->{'type'} eq 'int' && !BIGSdb::Utils::is_int($value) ) {
+				return "Field '$att->{name}' contains non-integer values.";
+			}
+			if ( !$used{$value} ) {
+				push @$list, $value;
+				$used{$value} = 1;
+			}
+		}
+		if (@$list) {
+			$newdata->{ $att->{'name'} } = BIGSdb::Utils::get_pg_array($list);
+		}
 	}
 	return;
 }

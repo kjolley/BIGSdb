@@ -159,6 +159,7 @@ CREATE INDEX i_i1 ON isolates (datestamp);
 CREATE INDEX i_i2 ON isolates(new_version);
 CREATE INDEX i_i_date_entered ON isolates(date_entered);
 GRANT SELECT,UPDATE,INSERT,DELETE ON isolates TO apache;
+GRANT REFERENCES ON isolates TO apache,bigsdb;
 
 CREATE TABLE isolate_aliases (
 isolate_id integer NOT NULL,
@@ -2305,6 +2306,6 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','51');
+INSERT INTO db_attributes (field,value) VALUES ('version','54');
 INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
 

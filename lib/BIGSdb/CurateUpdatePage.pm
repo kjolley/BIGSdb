@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -22,9 +22,9 @@ use warnings;
 use 5.010;
 use parent qw(BIGSdb::CuratePage);
 use BIGSdb::Utils;
-use List::MoreUtils qw(any none);
+use List::MoreUtils   qw(any none);
 use BIGSdb::Constants qw(:interface ALLELE_FLAGS SUBMITTER_ALLOWED_PERMISSIONS DATABANKS SCHEME_FLAGS);
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use constant FAILURE => 2;
 
@@ -340,14 +340,26 @@ sub _upload {
 						  . qq(page=tableQuery&amp;table=$table)
 					}
 				);
+				$self->_run_post_insert_methods($table);
 				if ( $table eq 'allele_designations' ) {
 					$self->update_history( $data->{'isolate_id'},
 						"$data->{'locus'}: $data->{'allele_id'} -> $new_value{'allele_id'}" );
 				}
+
 			}
 		}
 	}
 	return $status;
+}
+
+sub _run_post_insert_methods {
+	my ( $self, $table ) = @_;
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences' ) {
+		if ( $table eq 'schemes' ) {
+			$self->retrieve_ncbi_taxa;
+		}
+	}
+	return;
 }
 
 #If user data is stored in separate user database we need to import these values.

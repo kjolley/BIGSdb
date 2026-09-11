@@ -936,10 +936,13 @@ sub _modify_query_standard_field {
 	my ( $table, $field, $text, $modifier, $operator, $thisfield, $qry_ref ) =
 	  @{$args}{qw(table field text modifier operator thisfield qry_ref)};
 	my $sub_qry = q();
+	my $rand    = 'x' . int( rand(99999999) );
 	my %methods = (
 		'NOT' => sub {
 			if ( lc($text) eq 'null' ) {
 				$sub_qry .= "$table.$field is not null";
+			} elsif ( $thisfield->{'multiple'} ) {
+				$sub_qry .= "(NOT E'$text' = ANY($table.$field) OR $table.$field IS NULL)";
 			} else {
 				$sub_qry .=
 				  $thisfield->{'type'} ne 'text'
@@ -949,32 +952,63 @@ sub _modify_query_standard_field {
 			}
 		},
 		'contains' => sub {
-			$sub_qry .=
-			  $thisfield->{'type'} ne 'text'
-			  ? "CAST($table.$field AS text) LIKE '\%$text\%'"
-			  : "$table.$field ILIKE E'\%$text\%'";
+			if ( $thisfield->{'multiple'} ) {
+				$sub_qry .=
+					"EXISTS(SELECT 1 FROM unnest($table.$field) AS $rand WHERE "
+				  . "CAST($rand AS text) ILIKE E'\%$text\%')";
+
+			} else {
+				$sub_qry .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "CAST($table.$field AS text) LIKE '\%$text\%'"
+				  : "$table.$field ILIKE E'\%$text\%'";
+			}
 		},
 		'starts with' => sub {
-			$sub_qry .=
-			  $thisfield->{'type'} ne 'text'
-			  ? "CAST($table.$field AS text) LIKE '$text\%'"
-			  : "$table.$field ILIKE E'$text\%'";
+			if ( $thisfield->{'multiple'} ) {
+
+				$sub_qry .=
+					"EXISTS(SELECT 1 FROM unnest($table.$field) AS $rand WHERE "
+				  . "CAST($rand AS text) ILIKE E'$text\%')";
+
+			} else {
+				$sub_qry .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "CAST($table.$field AS text) LIKE '$text\%'"
+				  : "$table.$field ILIKE E'$text\%'";
+			}
 		},
 		'ends with' => sub {
-			$sub_qry .=
-			  $thisfield->{'type'} ne 'text'
-			  ? "CAST($table.$field AS text) LIKE '\%$text'"
-			  : "$table.$field ILIKE E'\%$text'";
+			if ( $thisfield->{'multiple'} ) {
+				$sub_qry .=
+					"EXISTS(SELECT 1 FROM unnest($table.$field) AS $rand WHERE "
+				  . "CAST($rand AS text) ILIKE E'\%$text')";
+
+			} else {
+				$sub_qry .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "CAST($table.$field AS text) LIKE '\%$text'"
+				  : "$table.$field ILIKE E'\%$text'";
+			}
 		},
 		'NOT contain' => sub {
-			$sub_qry .=
-			  $thisfield->{'type'} ne 'text'
-			  ? "(NOT CAST($table.$field AS text) LIKE '\%$text\%'"
-			  : "(NOT $table.$field ILIKE E'\%$text\%'";
-			$sub_qry .= " OR $table.$field IS NULL)";
+			if ( $thisfield->{'multiple'} ) {
+				$sub_qry .=
+					"NOT EXISTS(SELECT 1 FROM unnest($table.$field) AS $rand WHERE "
+				  . "CAST($rand AS text) ILIKE E'\%$text\%')";
+
+			} else {
+				$sub_qry .=
+				  $thisfield->{'type'} ne 'text'
+				  ? "(NOT CAST($table.$field AS text) LIKE '\%$text\%'"
+				  : "(NOT $table.$field ILIKE E'\%$text\%'";
+				$sub_qry .= " OR $table.$field IS NULL)";
+			}
 		},
 		'=' => sub {
-			if ( $thisfield->{'type'} eq 'text' ) {
+			if ( $thisfield->{'multiple'} ) {
+				$sub_qry .= ( lc($text) eq 'null' ? "$table.$field is null" : "E'$text' = ANY($table.$field)" );
+			} elsif ( $thisfield->{'type'} eq 'text' ) {
 				$sub_qry .=
 				  ( lc($text) eq 'null' ? "$table.$field is null" : "upper($table.$field) = upper(E'$text')" );
 			} else {
@@ -982,6 +1016,7 @@ sub _modify_query_standard_field {
 			}
 		}
 	);
+
 	if ( $methods{$operator} ) {
 		$methods{$operator}->();
 	} else {
@@ -992,6 +1027,16 @@ sub _modify_query_standard_field {
 				$sub_qry .= "$table.$field";
 			}
 			$sub_qry .= " $operator E'$text'";
+		} elsif ( $thisfield->{'multiple'} ) {
+
+			#We have to write the query the other way round when using ARRAYs.
+			my %rev_operator = (
+				'>'  => '<',
+				'<'  => '>',
+				'>=' => '<=',
+				'<=' => '>='
+			);
+			$sub_qry .= "E'$text' $rev_operator{$operator} ANY($table.$field)";
 		} else {
 			$sub_qry .= "$table.$field $operator E'$text'";
 		}

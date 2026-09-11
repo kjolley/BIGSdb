@@ -1234,6 +1234,21 @@ sub get_schemes_table_attributes {
 		},
 		{ name => 'description', type => 'text', hide => 1, length => 1000 }
 	];
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
+		push @$attributes, {
+			name     => 'NCBI_taxon',
+			type     => 'int',
+			multiple => 1,
+			required => 0,
+			unique   => 0,
+			comments => 'Lookup ids at the '
+			  . '<a href="https://www.ncbi.nlm.nih.gov/datasets/taxonomy/browser/" target="_blank">'
+			  . 'NCBI Taxonomy Browser</a>.',
+			tooltip => 'NCBI_taxon - List of NCBI taxa that the scheme has been developed for use with. '
+			  . 'This is primarily for the convenience of third-party tools and will link out to the '
+			  . 'NCBI Taxonomy Browser entry for each taxon in the REST API and scheme description pages.'
+		};
+	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
 		  (
