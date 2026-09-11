@@ -457,7 +457,7 @@ sub _create_query_fasta_file {
 		{ fetch => 'all_arrayref', slice => {}, cache => 'Scan::blast_create_fasta::remote' } );
 	flock( $infile_fh, LOCK_EX ) or $logger->error("Can't flock $temp_infile: $!");
 	if ( !@$contigs && !@$remote_contigs ) {
-		$logger->error("No contigs for id-$isolate_id");
+		$logger->error("$self->{'instance'}: No contigs for id-$isolate_id");
 	}
 	foreach my $contig (@$contigs) {
 		say $infile_fh ">$contig->[0]\n$contig->[1]";
