@@ -111,7 +111,7 @@ sub _print_taxa {
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'sequences';
 	my $scheme_info = $self->{'datastore'}->get_scheme_info($scheme_id);
 	my $taxa        = $scheme_info->{'ncbi_taxon'};
-	return if !@$taxa;
+	return if !$taxa;
 	say q(<h2>Taxa</h2>);
 	my $name = @$taxa == 1 ? 'taxon' : 'taxa';
 	say qq(<p>This scheme is designed for the following $name:</p>);
@@ -123,6 +123,9 @@ sub _print_taxa {
 		if ( $taxon_info && $taxon_info->{'scientific_name'} ) {
 			say qq(<li>$taxon_info->{'scientific_name'} [NCBITaxon: )
 			  . qq(<a href="https://www.ncbi.nlm.nih.gov/datasets/taxonomy/$taxon/" target="_blank">$taxon</a>]</li>);
+		} elsif ( !$taxon_info || $taxon_info->{'status'} eq 'error' ) {
+			say q(<li>NCBITaxon: )
+			  . qq(<a href="https://www.ncbi.nlm.nih.gov/datasets/taxonomy/$taxon/" target="_blank">$taxon</a></li>);
 		}
 	}
 	say q(</ul>);

@@ -118,6 +118,25 @@ sub _get_scheme {
 		$values->{'last_added'}   = $last_added;
 		$values->{'max_missing'}  = $scheme_info->{'max_missing'} if defined $scheme_info->{'max_missing'};
 	}
+	if ( $self->{'system'}->{'dbtype'} eq 'sequences' && $scheme_info->{'ncbi_taxon'} ) {
+		my $taxa = [];
+		foreach my $taxon ( @{ $scheme_info->{'ncbi_taxon'} } ) {
+			my $taxon_info = $self->{'datastore'}
+			  ->run_query( 'SELECT * FROM ncbi_taxa WHERE id=?', $taxon, { fetch => 'row_hashref' } );
+			if ( $taxon_info && $taxon_info->{'scientific_name'} ) {
+				push @$taxa, {
+					taxid => $taxon,
+					name => $taxon_info->{'scientific_name'},
+					rank => $taxon_info->{'rank'}
+				};
+			} elsif ( !$taxon_info || $taxon_info->{'status'} eq 'error' ) {
+				push @$taxa, {
+					taxid => $taxon
+				}
+			}
+		}
+		$values->{'ncbi_taxon'} = $taxa;
+	}
 	my @boolean = qw(allow_missing_loci allow_presence);
 	$values->{$_} = ( $scheme_info->{$_} ? JSON::true : JSON::false ) foreach @boolean;
 	$values->{'display_order'} = $scheme_info->{'display_order'} if defined $scheme_info->{'display_order'};
@@ -154,7 +173,8 @@ sub _get_scheme {
 		my $curators = $self->{'datastore'}->run_query(
 			'SELECT curator_id FROM scheme_curators WHERE scheme_id=? AND hide_public '
 			  . 'IS NOT TRUE ORDER BY curator_id',
-			$scheme_id, { fetch => 'col_arrayref' }
+			$scheme_id,
+			{ fetch => 'col_arrayref' }
 		);
 		my @curator_links;
 		foreach my $user_id (@$curators) {
