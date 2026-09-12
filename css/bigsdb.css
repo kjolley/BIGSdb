@@ -1,4 +1,4 @@
-/*Version: 20260910*/
+/*Version: 20260912*/
 
 :root {
 	/* backgrounds */
@@ -1195,7 +1195,7 @@ table.tablesorter {
 }
 
 table.tablesorter tr.even td {
-	background: transparent;
+	background: var(--table-row-alt);
 	text-align: center
 }
 
