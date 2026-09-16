@@ -43,30 +43,36 @@ sub retrieve_ncbi_taxa {
 		$logger->error('Can only retrieve NCBI taxa for seqdef databases.');
 		return;
 	}
-	$self->{'forked'} = 1;
-	defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
-	if ($grandkid) {
-		CORE::exit(0);
+
+	#Use double fork to prevent zombie processes on apache2-mpm-worker
+	defined( my $kid = fork ) or $logger->error('cannot fork');
+	if ($kid) {
+		waitpid( $kid, 0 );
 	} else {
-		open STDIN,  '<',  '/dev/null' || $logger->error("Cannot detach STDIN: $!");
-		open STDOUT, '>',  '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
-		open STDERR, '>&', \*STDOUT    || $logger->error("Cannot detach STDERR: $!");
-		BIGSdb::Offline::RetrieveNcbiTaxa->new(
-			{
-				config_dir       => $self->{'config_dir'},
-				lib_dir          => $self->{'lib_dir'},
-				dbase_config_dir => $self->{'dbase_config_dir'},
-				host             => $self->{'system'}->{'host'},
-				port             => $self->{'system'}->{'port'},
-				user             => $self->{'system'}->{'user'},
-				password         => $self->{'system'}->{'password'},
-				options          => $options,
-				instance         => $self->{'instance'},
-				logger           => $logger
-			}
-		);
-		
-		CORE::exit(0);
+		defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
+		if ($grandkid) {
+			CORE::exit(0);
+		} else {
+			open STDIN,  '<',  '/dev/null' || $logger->error("Cannot detach STDIN: $!");
+			open STDOUT, '>',  '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
+			open STDERR, '>&', \*STDOUT    || $logger->error("Cannot detach STDERR: $!");
+			BIGSdb::Offline::RetrieveNcbiTaxa->new(
+				{
+					config_dir       => $self->{'config_dir'},
+					lib_dir          => $self->{'lib_dir'},
+					dbase_config_dir => $self->{'dbase_config_dir'},
+					host             => $self->{'system'}->{'host'},
+					port             => $self->{'system'}->{'port'},
+					user             => $self->{'system'}->{'user'},
+					password         => $self->{'system'}->{'password'},
+					options          => $options,
+					instance         => $self->{'instance'},
+					logger           => $logger
+				}
+			);
+
+			CORE::exit(0);
+		}
 	}
 	return;
 }
