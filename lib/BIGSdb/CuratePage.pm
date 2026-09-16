@@ -45,11 +45,21 @@ sub retrieve_ncbi_taxa {
 	}
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
-	defined( my $kid = fork ) or $logger->error('cannot fork');
+	my $kid = fork;
+
+	if ( !defined $kid ) {
+		$logger->error("Cannot fork: $!");
+		return;
+	}
+
 	if ($kid) {
 		waitpid( $kid, 0 );
 	} else {
-		defined( my $grandkid = fork ) or $logger->error('Kid cannot fork');
+		my $grandkid = fork;
+		if ( !defined $grandkid ) {
+			$logger->error("Kid cannot fork: $!");
+			CORE::exit(1);
+		}
 		if ($grandkid) {
 			CORE::exit(0);
 		} else {
