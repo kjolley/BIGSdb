@@ -63,9 +63,9 @@ sub retrieve_ncbi_taxa {
 		if ($grandkid) {
 			CORE::exit(0);
 		} else {
-			open STDIN,  '<',  '/dev/null' || $logger->error("Cannot detach STDIN: $!");
-			open STDOUT, '>',  '/dev/null' || $logger->error("Cannot detach STDOUT: $!");
-			open STDERR, '>&', \*STDOUT    || $logger->error("Cannot detach STDERR: $!");
+			open STDIN,  '<',  '/dev/null' or $logger->error("Cannot detach STDIN: $!");
+			open STDOUT, '>',  '/dev/null' or $logger->error("Cannot detach STDOUT: $!");
+			open STDERR, '>&', \*STDOUT    or $logger->error("Cannot detach STDERR: $!");
 			BIGSdb::Offline::RetrieveNcbiTaxa->new(
 				{
 					config_dir       => $self->{'config_dir'},
