@@ -53,7 +53,7 @@ sub get_attributes {
 		menutext    => 'Sequence bin breakdown',
 		module      => 'SeqbinBreakdown',
 		url         => "$self->{'config'}->{'doclink'}/data_analysis/seqbin_breakdown.html",
-		version     => '1.9.1',
+		version     => '1.9.2',
 		dbtype      => 'isolates',
 		section     => 'breakdown,postquery',
 		input       => 'query',
@@ -183,7 +183,6 @@ sub run_job {
 	my $isolate_ids = $self->{'jobManager'}->get_job_isolates($job_id);
 	my $loci        = $self->{'jobManager'}->get_job_loci($job_id);
 	my ( $html_buffer, $text_buffer );
-	my $td            = 1;
 	my $data          = {};
 	my $row           = 0;
 	my $row_with_data = 0;
@@ -202,9 +201,8 @@ sub run_job {
 		$row++;
 		next if !$contig_info->{'contigs'};
 		$row_with_data++;
-		$html_buffer .= $self->_get_html_table_row( $id, $contig_info, $td, $params ) . "\n";
+		$html_buffer .= $self->_get_html_table_row( $id, $contig_info, $params ) . "\n";
 		$text_buffer .= $self->_get_text_table_row( $id, $contig_info, $params ) . "\n";
-		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
 		$html_message =
 			qq(<p>Loci selected: $locus_count</p>)
@@ -355,7 +353,7 @@ sub _print_table {
 			say $self->_get_html_table_header($params);
 			$header_displayed = 1;
 		}
-		say $self->_get_html_table_row( $id, $contig_info, $td, $params );
+		say $self->_get_html_table_row( $id, $contig_info, $params );
 		say $fh $self->_get_text_table_row( $id, $contig_info, $params );
 		$td = $td == 1 ? 2 : 1;
 		$self->_update_totals( $data, $contig_info );
@@ -421,7 +419,7 @@ sub _get_html_table_header {
 }
 
 sub _get_html_table_row {
-	my ( $self, $isolate_id, $contig_info, $td, $options ) = @_;
+	my ( $self, $isolate_id, $contig_info, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my ( $isolate_name, $contigs, $sum, $min, $max, $mean, $stddev, $single_isolate_lengths, $gc, $Ns, $gaps,
 		$allele_designations, $percent_alleles, $tagged, $percent_tagged, $n_stats )
@@ -430,7 +428,7 @@ sub _get_html_table_row {
 		  allele_designations percent_alleles tagged percent_tagged n_stats)
 	  };
 	my $q      = $self->{'cgi'};
-	my $buffer = qq(<tr class="td$td"><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td>) . qq(<td>$sum</td>);
+	my $buffer = qq(<tr><td>$isolate_id</td><td>$isolate_name</td><td>$contigs</td><td>$sum</td>);
 	if ( $options->{'contig_analysis'} ) {
 		$buffer .= qq(<td>$min</td><td>$max</td><td>$mean</td>);
 		$buffer .= defined $stddev ? qq(<td>$stddev</td>) : q(<td></td>);
