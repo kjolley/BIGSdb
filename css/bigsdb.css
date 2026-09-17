@@ -1,4 +1,4 @@
-/*Version: 20260912*/
+/*Version: 20260917*/
 
 :root {
 	/* backgrounds */
@@ -3759,7 +3759,7 @@ g .legend-bg {
 	fill: var(--chart-bg) !important;
 }
 
-g.legend text {
+g.legend text, .bb-legend-item text {
 	fill: var(--text) !important;
 }
 
