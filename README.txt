@@ -1,3 +1,8 @@
+v1.54.0: *Support adding NCBI taxa to typing database schemes to indicate the
+          organisms for which they were developed.
+         *Added foreign keys to isolate database scheme field cache tables to
+          ensure that cached values are removed if an isolate record is deleted
+          and the id subsequently re-used.
 v1.53.6: *Minor bug fixes.
 v1.53.5: *CSS reorganisation to make branding easier.
          *New dark mode.

@@ -59,6 +59,7 @@ Version 1.50: Change of isolate database structure.
 Version 1.51: Change of seqdef, isolate, auth, and users database structures.
 Version 1.52: Change of seqdef database structure.
 Version 1.53: Change of auth database structure.
+Version 1.54: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -718,3 +719,12 @@ Version 1.53
 There are changes to the auth database to support personal API keys.
 
 Please run the auth_v1.53.sql script against the auth database.
+
+Version 1.54
+------------
+There are changes to the sequence definition and isolate database structures
+to allow foreign keys on cache tables and to support adding NCBI taxa 
+information to schemes in the typing database.
+
+Please run the isolatedb_v1.54.sql script against isolate databases and the
+seqdefdb_v1.54.sql script against sequence definition databases.
