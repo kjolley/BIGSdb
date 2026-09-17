@@ -48,7 +48,7 @@ sub get_attributes {
 		buttontext => 'Fields',
 		menutext   => 'Field breakdown',
 		module     => 'FieldBreakdown',
-		version    => '2.11.0',
+		version    => '2.11.1',
 		dbtype     => 'isolates',
 		section    => 'breakdown,postquery',
 		url        => "$self->{'config'}->{'doclink'}/data_analysis/field_breakdown.html",
@@ -376,6 +376,7 @@ sub run {
 	say q(<div class="box" id="resultspanel" style="position:relative">);
 	my $record_count = BIGSdb::Utils::commify( $self->_get_id_count );
 	say qq(<p><b>Isolate records:</b> $record_count</p>);
+	say q(<div class="scrollable">);
 	say q(<fieldset><legend>Field selection</legend><div class="form_container">);
 	say q(<div class="form_label"><label for="field" class="label">Select field:</label></div>);
 	say q(<div class="form_value">);
@@ -390,7 +391,7 @@ sub run {
 	push @$types, 'schemes' if @$schemes;
 	say q(<div class="form_value">);
 	say $q->radio_group( -name => 'field_type', -values => $types, -default => 'fields' );
-	say q(</div></div></fieldset>);
+	say q(</div></div></fieldset></div>);
 	say q(<div id="waiting" style="position:absolute;top:15em;left:1em;display:none">)
 	  . q(<span class="wait_icon fas fa-sync-alt fa-spin fa-2x"></span></div>);
 	say q(<div id="bb_chart" style="min-height:400px;display:flex;justify-content:center">);
@@ -433,7 +434,7 @@ sub _print_export_buttons {
 sub _print_map_controls {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	say q(<fieldset id="map_controls" class="bb_controls" )
+	say q(<div class="scrollable"><fieldset id="map_controls" class="bb_controls" )
 	  . q(style="position:absolute;top:1em;right:1em;display:none"><legend>Controls</legend>);
 	say q(<div class="form_container">);
 	$self->_print_chart_types;
@@ -492,7 +493,7 @@ sub _print_map_controls {
 		-default => 'Natural Earth'
 	);
 	say q(</div>);
-	say q(</div></fieldset>);
+	say q(</div></fieldset></div>);
 	return;
 }
 
