@@ -467,12 +467,12 @@ sub _increment_id {
 }
 
 sub _check_data {
-	my ( $self,  $args )  = @_;
+	my ( $self, $args ) = @_;
 	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
 	my $q = $self->{'cgi'};
 	if ( !$q->param('data') ) {
-		if (defined $uploaded){
-			$q->param( 'data', $$uploaded);
+		if ( defined $uploaded ) {
+			$q->param( 'data', $$uploaded );
 		} else {
 			$q->param( 'data', $self->_convert_query( scalar $q->param('table'), scalar $q->param('query') ) );
 		}
@@ -1485,7 +1485,8 @@ sub _check_data_aliases {
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
-	if ( $field eq 'aliases' ) {
+	if ( $field eq 'aliases' && defined $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } )
+	{
 		my $isolate_name = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ];
 		my %null_terms   = map { lc($_) => 1 } NULL_TERMS;
 		if ( defined $value ) {
