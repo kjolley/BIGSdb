@@ -100,6 +100,15 @@ sub print_content {
 		$self->_upload_data($args);
 	} elsif ( $q->param('data') || $q->param('query') ) {
 		$self->_check_data($args);
+	} elsif ( $q->param('file_upload') ) {
+		my $upload_file = $self->_upload_file;
+		my $full_path   = "$self->{'config'}->{'secure_tmp_dir'}/$upload_file";
+		if ( -e $full_path ) {
+			my $contents_ref = BIGSdb::Utils::slurp($full_path);
+			unlink $full_path;
+			$args->{'uploaded_file_contents'} = $contents_ref;
+			$self->_check_data($args);
+		}
 	} else {
 		if ( $q->param('submission_id') ) {
 			$self->_set_submission_params( scalar $q->param('submission_id') );
@@ -177,12 +186,38 @@ sub _print_interface {
 	  . q((<strong>include a field header as the first line</strong>).</legend>);
 	say $q->textarea( -name => 'data', -rows => 20, -columns => 80 );
 	say q(</fieldset>);
+	say qq(<fieldset style="float:left">\n<legend>Alternatively upload tab-delimited text file</legend>);
+	say q(Select TSV file: );
+	say q(<div class="file_upload">);
+	say $q->filefield(
+		-name     => 'file_upload',
+		-id       => 'file_upload',
+		-onchange => '$("input#fakefile").val(this.files[0].name)'
+	);
+	say q(<div class="fakefile"><input id='fakefile' placeholder="Click to select or drag and drop..." /></div>);
+	say q(</div>);
+	say q(</fieldset>);
 	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id user_header);
 	$self->print_action_fieldset( { table => $table, %$options } );
 	say $q->end_form;
 	my $script = $q->param('user_header') ? $self->{'system'}->{'query_script'} : $self->{'system'}->{'script_name'};
 	say q(</div></div>);
 	return;
+}
+
+sub _upload_file {
+	my ($self)   = @_;
+	my $temp     = BIGSdb::Utils::get_random();
+	my $filename = "$self->{'config'}->{'secure_tmp_dir'}/${temp}_upload.tsv";
+	my $buffer;
+	my $fh2 = $self->{'cgi'}->upload('file_upload');
+	binmode $fh2;
+	read( $fh2, $buffer, $self->{'config'}->{'max_upload_size'} );
+	open( my $fh, '>', $filename ) || $logger->error("Cannot open $filename for writing.");
+	binmode $fh;
+	print $fh $buffer;
+	close $fh;
+	return "${temp}_upload.tsv";
 }
 
 sub _get_private_project_id {
@@ -433,10 +468,14 @@ sub _increment_id {
 
 sub _check_data {
 	my ( $self,  $args )  = @_;
-	my ( $table, $locus ) = @{$args}{qw (table locus)};
+	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
 	my $q = $self->{'cgi'};
 	if ( !$q->param('data') ) {
-		$q->param( 'data', $self->_convert_query( scalar $q->param('table'), scalar $q->param('query') ) );
+		if (defined $uploaded){
+			$q->param( 'data', $$uploaded);
+		} else {
+			$q->param( 'data', $self->_convert_query( scalar $q->param('table'), scalar $q->param('query') ) );
+		}
 	}
 	my @checked_buffer;
 	my $fields = $self->_get_fields_in_order( $table, $locus );
