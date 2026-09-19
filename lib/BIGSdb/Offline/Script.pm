@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2011-2025, University of Oxford
+#Copyright (c) 2011-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -24,7 +24,7 @@ use parent qw(BIGSdb::BaseApplication);
 use CGI;
 use DBI;
 use Try::Tiny;
-use Log::Log4perl qw(get_logger);
+use Log::Log4perl   qw(get_logger);
 use List::MoreUtils qw(any uniq);
 use Carp;
 use BIGSdb::Dataconnector;
@@ -390,6 +390,7 @@ sub get_selected_loci {
 
 	#options set in $self->{'options'}
 	#$self->{'options'}->{'s'}: comma-separated list of schemes
+	#$self->{'options'}->{'S'}: comma-separated list of schemes to ignore
 	#$self->{'options'}->{'l'}: comma-separated list of loci (ignored if 's' used)
 	#$self->{'options'}->{'L'}: comma-separated list of loci to ignore
 	#$self->{'options'}->{'R'}: Regex for locus names
@@ -399,6 +400,15 @@ sub get_selected_loci {
 	if ( $self->{'options'}->{'L'} ) {
 		my @ignore = split /\s*,\s*/x, $self->{'options'}->{'L'};
 		%ignore = map { $_ => 1 } @ignore;
+	}
+	if ( $self->{'options'}->{'S'} ) {
+		my @exclude_schemes = split /\s*,\s*/x, $self->{'options'}->{'S'};
+		die "Invalid excluded scheme list.\n" if any { !BIGSdb::Utils::is_int($_) } @exclude_schemes;
+		local $" = ',';
+		my $scheme_loci =
+		  $self->{'datastore'}->run_query( "SELECT locus FROM scheme_members WHERE scheme_id IN (@exclude_schemes)",
+			undef, { fetch => 'col_arrayref' } );
+		$ignore{$_} = 1 foreach @$scheme_loci;
 	}
 	my $qry;
 	my $loci_qry = 'SELECT id FROM loci';
@@ -495,7 +505,7 @@ sub add_job {
 			no_progress  => 1
 		}
 	);
-	if ($options->{'temp_init'}){
+	if ( $options->{'temp_init'} ) {
 		$self->{'jobManager'}->{'dataConnector'}->drop_all_connections;
 		undef $self->{'jobManager'};
 	}

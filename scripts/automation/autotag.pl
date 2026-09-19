@@ -19,7 +19,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20260823
+#Version: 20260919
 use strict;
 use warnings;
 use 5.010;
@@ -58,6 +58,7 @@ GetOptions(
 	'P|exclude_projects=s' => \$opts{'P'},
 	'R|locus_regex=s'      => \$opts{'R'},
 	's|schemes=s'          => \$opts{'s'},
+	'S|exclude_schemes=s' => \$opts{'S'},
 	't|time=i'             => \$opts{'t'},
 	'threads=i'            => \$opts{'threads'},
 	'w|word_size=i'        => \$opts{'w'},
@@ -271,6 +272,9 @@ ${bold}--exclude_loci, -L$norm ${under}LIST$norm
     
 ${bold}--exclude_projects, -P$norm ${under}LIST$norm
     Comma-separated list of projects whose isolates will be excluded.
+    
+${bold}--exclude_schemes, -S$norm ${under}LIST$norm
+    Comma-separated list of schemes whose loci to exclude
     
 ${bold}--exemplar, -e$norm
     Only use alleles with the 'exemplar' flag set in BLAST searches to identify
