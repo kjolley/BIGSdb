@@ -31,7 +31,10 @@ use Bio::Seq;
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Scan');
 use BIGSdb::Constants qw(SEQ_METHODS SEQ_FLAGS LOCUS_PATTERN);
-use constant INF => 9**99;
+use constant INF                     => 9**99;
+use constant BLAST_SSEQ_LENGTH_FIELD => 12;
+use constant BLAST_OUTFMT =>
+  '6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore slen';
 
 sub _get_word_size {
 	my ( $self, $program, $locus, $params ) = @_;
@@ -113,7 +116,7 @@ sub blast_multiple_loci {
 			-db        => $temp_fastafile,
 			-query     => $temp_infile,
 			-out       => $temp_outfile,
-			-outfmt    => 6,
+			-outfmt    => BLAST_OUTFMT,
 			-$filter   => 'no',
 		);
 
@@ -215,7 +218,7 @@ sub blast {
 		-db        => $temp_fastafile,
 		-query     => $temp_infile,
 		-out       => $temp_outfile,
-		-outfmt    => 6,
+		-outfmt    => BLAST_OUTFMT,
 		-$filter   => 'no'
 	);
 
@@ -1496,14 +1499,18 @@ sub _parse_blast_exact {
 			if ( !$locus_info->{$locus} ) {
 				$locus_info->{$locus} = $self->{'datastore'}->get_locus_info($locus);
 			}
-			my $ref_length;
-			if ( $allele_id eq 'ref' ) {
-				$ref_length = length( $locus_info->{$locus}->{'reference_sequence'} );
-			} else {
-				my $ref_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-				$ref_length = length($$ref_seq);
-			}
-			next if !defined $ref_length;
+
+			#			my $ref_length;
+			#			if ( $allele_id eq 'ref' ) {
+			#				$ref_length = length( $locus_info->{$locus}->{'reference_sequence'} );
+			#			} else {
+			#				my $ref_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
+			#				$ref_length = length($$ref_seq);
+			#			}
+			#			next if !defined $ref_length;
+			my $ref_length = $record->[BLAST_SSEQ_LENGTH_FIELD];
+			next if !defined $ref_length || $ref_length !~ /^\d+$/x;
+			$ref_length = int $ref_length;
 			if ( $self->_does_blast_record_match( $record, $ref_length ) ) {
 				$match->{'seqbin_id'} = $record->[0];
 				$match->{'allele'}    = $allele_id;
@@ -1548,7 +1555,8 @@ sub _parse_blast_exact {
 	return $matches, $region_matched_already;
 }
 
-#Record represents field values from BLAST output
+#Record represents:
+# qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore slen
 sub _is_match_reversed {
 	my ( $self, $record ) = @_;
 	if (   ( $record->[8] > $record->[9] && $record->[7] > $record->[6] )
@@ -1610,18 +1618,24 @@ sub _predict_allele_ends {
 
 sub _read_blast_file_into_structure {
 	my ( $self, $blast_file ) = @_;
-	if ( !$self->{'records'} ) {
-		my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
-		open( my $blast_fh, '<', $full_path )
-		  || ( $logger->error("Can't open BLAST output file $full_path. $!"), return \$; );
-		$self->{'records'} = [];
-		my @lines = <$blast_fh>;
-		foreach my $line (@lines) {
-			my @record = split /\s+/x, $line;
-			push @{ $self->{'records'} }, \@record;
+	return if $self->{'records'};
+	my $full_path = "$self->{'config'}->{'secure_tmp_dir'}/$blast_file";
+	open( my $blast_fh, '<', $full_path )
+	  or ( $logger->error("Cannot open BLAST output file $full_path. $!"), return \$; );
+	my $records = [];
+	while ( my $line = <$blast_fh> ) {
+		chomp $line;
+		next if !$line;
+		my @record = split /\s+/x, $line;
+		if ( @record != 13 ) {
+			$logger->error( "Invalid BLAST output in $full_path - expected 13 columns, got " . scalar(@record) );
+			close $blast_fh;
+			return;
 		}
-		close $blast_fh;
+		push @$records, \@record;
 	}
+	close $blast_fh;
+	$self->{'records'} = $records;
 	return;
 }
 
@@ -1665,9 +1679,13 @@ sub _parse_blast_partial {
 		} else {
 			$allele_id = $record->[1];
 		}
-		$self->_cache_match_allele_length( $lengths, $locus, $allele_id );
-		next if !defined $lengths->{$locus}->{$allele_id};
-		my $length = $lengths->{$locus}->{$allele_id};
+
+		#		$self->_cache_match_allele_length( $lengths, $locus, $allele_id );
+		#		next if !defined $lengths->{$locus}->{$allele_id};
+		#		my $length = $lengths->{$locus}->{$allele_id};
+		my $length = $record->[BLAST_SSEQ_LENGTH_FIELD];
+		next if !defined $length || $length !~ /^\d+$/x;
+		$length = int $length;
 		if ( $params->{'tblastx'} ) {
 			$record->[3] *= 3;
 		}
@@ -1730,21 +1748,6 @@ sub _parse_blast_partial {
 	}
 	undef $self->{'records'} if !$options->{'keep_data'};
 	return $matches;
-}
-
-sub _cache_match_allele_length {
-	my ( $self, $lengths, $locus, $allele_id ) = @_;
-	return if $lengths->{$locus}->{$allele_id};
-	if ( $allele_id eq 'ref' ) {
-		$lengths->{$locus}->{$allele_id} =
-		  $self->{'datastore'}->run_query( 'SELECT length(reference_sequence) FROM loci WHERE id=?',
-			$locus, { cache => 'Scan::parse_blast_partial' } );
-	} else {
-		my $seq_ref = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-		return if !$$seq_ref;
-		$lengths->{$locus}->{$allele_id} = length($$seq_ref);
-	}
-	return;
 }
 
 sub _check_introns {
