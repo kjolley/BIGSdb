@@ -1499,15 +1499,6 @@ sub _parse_blast_exact {
 			if ( !$locus_info->{$locus} ) {
 				$locus_info->{$locus} = $self->{'datastore'}->get_locus_info($locus);
 			}
-
-			#			my $ref_length;
-			#			if ( $allele_id eq 'ref' ) {
-			#				$ref_length = length( $locus_info->{$locus}->{'reference_sequence'} );
-			#			} else {
-			#				my $ref_seq = $self->{'datastore'}->get_locus($locus)->get_allele_sequence($allele_id);
-			#				$ref_length = length($$ref_seq);
-			#			}
-			#			next if !defined $ref_length;
 			my $ref_length = $record->[BLAST_SSEQ_LENGTH_FIELD];
 			next if !defined $ref_length || $ref_length !~ /^\d+$/x;
 			$ref_length = int $ref_length;
@@ -1667,7 +1658,6 @@ sub _parse_blast_partial {
 	my $alignment = $params->{'alignment'};
 	$identity  = 70 if !BIGSdb::Utils::is_int($identity);
 	$alignment = 50 if !BIGSdb::Utils::is_int($alignment);
-	my $lengths = {};
 	$self->_read_blast_file_into_structure($blast_file);
   RECORD: foreach my $record ( @{ $self->{'records'} } ) {
 		my $allele_id;
@@ -1679,10 +1669,6 @@ sub _parse_blast_partial {
 		} else {
 			$allele_id = $record->[1];
 		}
-
-		#		$self->_cache_match_allele_length( $lengths, $locus, $allele_id );
-		#		next if !defined $lengths->{$locus}->{$allele_id};
-		#		my $length = $lengths->{$locus}->{$allele_id};
 		my $length = $record->[BLAST_SSEQ_LENGTH_FIELD];
 		next if !defined $length || $length !~ /^\d+$/x;
 		$length = int $length;
