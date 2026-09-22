@@ -172,43 +172,42 @@ sub start_element {
 			$self->{'_in_optlist'} = 1;
 		},
 		option => sub {
-			$self->{'_in_option'}     = 1;
-			$self->{'_option_buffer'} = '';
-
-			# also accept attribute values on option start
-			my $attrs = $element->{'Attributes'} || {};
-			my $val;
-
-			# Attributes may be in different forms; try to extract any value-like attribute
-			for my $k ( keys %$attrs ) {
-				my $v;
-				if ( ref $attrs->{$k} eq 'HASH' ) {
-					$v = $attrs->{$k}{'Value'} // $attrs->{$k}{'value'} // q();
-				} else {
-					$v = $attrs->{$k} // q();
-				}
-				$v =~ s/^\s+|\s+$//gx if defined $v;
-				next unless defined $v and length $v;
-				$val = $v;
-				last;
-			}
-			if ( defined $val ) {
-				$self->{'_field_stack'} ||= [];
-				if ( @{ $self->{'_field_stack'} } ) {
-					push @{ $self->{'_field_stack'}->[-1]{'options'} }, $val;
-					$self->{'_option_from_attr'} = 1;
-				} else {
-					$self->{'options'}{ $self->{'field_name'} // '_unknown' } ||= [];
-					push @{ $self->{'options'}{ $self->{'field_name'} // '_unknown' } }, $val;
-					$self->{'_option_from_attr'} = 1;
-				}
-			} else {
-				$self->{'_option_from_attr'} = 0;
-			}
+			$self->{'_in_option'}         = 1;
+			$self->{'_option_buffer'}     = '';
+			$self->{'_option_attributes'} = $element->{'Attributes'} || {};
 		},
 	);
 	$methods{ $element->{'Name'} }->() if $methods{ $element->{'Name'} };
 	return;
+}
+
+sub _get_attribute_value {
+	my ( $self, $attributes, $name ) = @_;
+	return if !exists $attributes->{$name};
+	return ref $attributes->{$name} eq 'HASH'
+	  ? ( $attributes->{$name}{'Value'} // $attributes->{$name}{'value'} )
+	  : $attributes->{$name};
+}
+
+sub _get_explicit_options {
+	my ( $self, $options, $sort ) = @_;
+	my ( @sortable, @unsorted );
+	my %seen;
+	for my $option (@$options) {
+		my $value = $option->{'value'};
+		next if !defined $value;
+		$value =~ s/^\s+|\s+$//gx;
+		next if !length $value || $seen{$value}++;
+		if ( $sort eq 'yes' && ( $option->{'sort'} // q() ) eq 'no' ) {
+			push @unsorted, $value;
+		} else {
+			push @sortable, $value;
+		}
+	}
+	if ( $sort eq 'yes' ) {
+		@sortable = @{ BIGSdb::Utils::unicode_dictionary_sort( \@sortable ) };
+	}
+	return ( \@sortable, \@unsorted );
 }
 
 sub _add_special_optlist_values {
@@ -228,22 +227,25 @@ sub end_element {
 		option => sub {
 			$self->{'_in_option'} = 0;
 
-			# if attribute provided value already pushed, skip char buffer
-			if ( $self->{'_option_from_attr'} ) {
-				$self->{'_option_from_attr'} = 0;
-				delete $self->{'_option_buffer'};
-				return;
-			}
-			my $opt = $self->{'_option_buffer'} // q();
+			my $opt   = $self->{'_option_buffer'} // q();
+			my $attrs = $self->{'_option_attributes'} || {};
+			my $value = $self->_get_attribute_value( $attrs, 'value' );
+			$opt = $value if defined $value;
 			$opt =~ s/^\s+|\s+$//gx;
 			if ( length $opt ) {
+				my $sort   = $self->_get_attribute_value( $attrs, 'sort' );
+				my $option = {
+					value => $opt,
+					defined $sort ? ( sort => $sort ) : (),
+				};
 				if ( $self->{'_field_stack'} && @{ $self->{'_field_stack'} } ) {
-					push @{ $self->{'_field_stack'}->[-1]{'options'} }, $opt;
+					push @{ $self->{'_field_stack'}->[-1]{'options'} }, $option;
 				} else {
 					push @{ $self->{'options'}{ $self->{'field_name'} // '_unknown' } }, $opt;
 				}
 			}
 			delete $self->{'_option_buffer'};
+			delete $self->{'_option_attributes'};
 		},
 		optlist => sub {
 			$self->{'_in_optlist'} = 0;
@@ -268,8 +270,9 @@ sub end_element {
 			$self->{'attributes'}{ $self->{'field_name'} } = $ctx->{'these'};
 
 			# Clean explicit options
-			my @explicit = @{ $ctx->{options} // [] };
-			@explicit = map { s/^\s+|\s+$//rx } grep { defined && length } @explicit;
+			my $sort = $self->{'attributes'}{ $self->{'field_name'} }{'sort'} // q();
+			my ( $explicit, $unsorted ) =
+			  $self->_get_explicit_options( $ctx->{'options'} // [], $sort );
 
 			# If special-values exist, generate and merge (special first), then append explicit options
 			if ( ( $ctx->{'these'}{'optlist'} // q() ) eq 'yes' && $ctx->{'these'}{'values'} ) {
@@ -288,32 +291,26 @@ sub end_element {
 					push @clean_special, $o unless $seen{$o}++;
 				}
 
-				# optional sort of special values
-				if ( ( $self->{'attributes'}{ $self->{'field_name'} }{'sort'} // q() ) eq 'yes' ) {
+				# Merge sortable explicit options with special values.
+				for my $o (@$explicit) {
+					push @clean_special, $o unless $seen{$o}++;
+				}
+				if ( $sort eq 'yes' ) {
 					@clean_special = @{ BIGSdb::Utils::unicode_dictionary_sort( \@clean_special ) };
 				}
 
-				# append explicit options at end, skipping duplicates
-				for my $o (@explicit) {
+				# Options marked sort="no" follow sorted options in written order.
+				for my $o (@$unsorted) {
 					push @clean_special, $o unless $seen{$o}++;
 				}
 				$self->{'options'}{ $self->{'field_name'} } = \@clean_special if @clean_special;
 			} else {
-
-				# no special values: use explicit options cleaned and deduped
-				my %s2;
-				my @clean = grep { !$s2{$_}++ } @explicit;
-
-				# optional sort
-				if ( ( $self->{'attributes'}{ $self->{'field_name'} }{'sort'} // q() ) eq 'yes' ) {
-					@clean = @{ BIGSdb::Utils::unicode_dictionary_sort( \@clean ) };
-				}
+				my @clean = ( @$explicit, @$unsorted );
 				$self->{'options'}{ $self->{'field_name'} } = \@clean if @clean;
 			}
 
 			# special-values helper for values in attributes (legacy)
 			if ( ( $ctx->{'these'}{'optlist'} // q() ) eq 'yes' && $ctx->{'these'}{'values'} ) {
-
 				# already handled above
 			}
 
