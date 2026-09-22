@@ -17,9 +17,9 @@
 </system>
 <field type="int" required="yes" length="5" maindisplay="yes" comments="primary key">id</field>
 <field type="text" required="yes" length="20" maindisplay="yes" comments="isolate name">isolate</field>
-<field type="text" required="yes" maindisplay="yes" comments="country where strain was isolated" optlist="yes" values="COUNTRIES" sort="no">country
+<field type="text" required="yes" maindisplay="yes" comments="country where strain was isolated" optlist="yes" values="COUNTRIES" sort="yes">country
   <optlist>
-    <option>Unknown</option>
+    <option sort="no">Unknown</option>
   </optlist>
 </field>
 <field type="int" required="expected" length="4" maindisplay="yes" comments="year of isolation" min="1900" max="CURRENT_YEAR">year</field>
