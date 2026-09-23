@@ -2125,6 +2125,11 @@ sub create_temp_scheme_table {
 	my ( $self, $id, $options ) = @_;
 	$self->_check_connection;
 	$options = {} if ref $options ne 'HASH';
+
+	# Serialize warehouse-index rebuilds for this scheme, but allow
+	# different schemes to be rebuilt concurrently.
+	$self->{'db'}->do( q(SELECT pg_advisory_xact_lock(hashtext('BIGSdb.scheme_warehouse_indices'), ?)), undef, $id );
+
 	my $scheme_info = $self->get_scheme_info($id);
 	my $scheme      = $self->get_scheme($id);
 	my $scheme_db   = $scheme->get_db;
@@ -2158,7 +2163,7 @@ sub create_temp_scheme_table {
 	push @table_fields, 'profile text[]';
 	my $locus_indices = $scheme->get_locus_indices;
 	eval {
-		$self->{'db'}->do( 'LOCK TABLE scheme_warehouse_indices;DELETE FROM scheme_warehouse_indices WHERE scheme_id=?',
+		$self->{'db'}->do( 'DELETE FROM scheme_warehouse_indices WHERE scheme_id=?',
 			undef, $id );
 		foreach my $profile_locus ( keys %$locus_indices ) {
 			my $locus_name = $self->run_query(

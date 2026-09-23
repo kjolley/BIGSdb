@@ -1140,6 +1140,12 @@ CREATE OR REPLACE FUNCTION set_scheme_warehouse_indices(i_id int) RETURNS VOID A
 		i int;
 		x record;
 	BEGIN
+	    -- Serialize warehouse-index rebuilds for this scheme only.
+        PERFORM pg_advisory_xact_lock(
+            hashtext('BIGSdb.scheme_warehouse_indices'),
+            i_id
+        );
+
 		DELETE FROM scheme_warehouse_indices WHERE scheme_id=i_id;
 		i:=1;
 		FOR x IN SELECT * FROM scheme_members WHERE scheme_id=i_id ORDER BY locus LOOP
@@ -1263,10 +1269,15 @@ CREATE OR REPLACE FUNCTION modify_scheme() RETURNS TRIGGER AS $modify_scheme$
 		ELSE
 			i_scheme_id = OLD.scheme_id;
 		END IF;
+				
 		--Make sure scheme has a primary key and member loci	
 		IF NOT EXISTS(SELECT * FROM scheme_fields WHERE scheme_id=i_scheme_id AND primary_key) 
 		OR NOT EXISTS(SELECT * FROM scheme_members WHERE scheme_id=i_scheme_id) THEN	
 			IF (TG_OP = 'DELETE' OR TG_OP = 'UPDATE') THEN
+				PERFORM pg_advisory_xact_lock(
+		            hashtext('BIGSdb.scheme_warehouse_indices'),
+		            i_scheme_id
+		        );
 				scheme_table := 'mv_scheme_' || i_scheme_id;
 				EXECUTE FORMAT('DROP TABLE IF EXISTS %I',scheme_table); 
 				DELETE FROM scheme_warehouse_indices WHERE scheme_id=i_scheme_id;
