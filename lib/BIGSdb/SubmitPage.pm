@@ -2060,7 +2060,9 @@ sub _presubmit_isolates {
 		$self->_start_isolate_submission( $submission_id, $isolates, $positions );
 	}
 	if ( !$options->{'genomes'} ) {
-		if ( !$self->_are_any_alleles_designated($submission_id) ) {
+		if ( !$self->_are_any_alleles_designated($submission_id)
+			&& ( $self->{'system'}->{'nowarn_no_designations'} // q() ) ne 'yes' )
+		{
 			say q(<div class="box statuswarn"><p>Your isolate submission does not include any allele designations. )
 			  . q(Please make sure that this is your intent. If it is not, then please abort the submission and )
 			  . q(restart.</p></div>);
@@ -2192,7 +2194,9 @@ sub _print_advisories {
 	my ( $self, $submission_id, $options ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	if ( $submission->{'type'} eq 'isolates' ) {
-		if ( !$self->_are_any_alleles_designated($submission_id) ) {
+		if ( !$self->_are_any_alleles_designated($submission_id)
+			&& ( $self->{'system'}->{'nowarn_no_designations'} // q() ) ne 'yes' )
+		{
 			say q(<fieldset style="float:left;max-width:300px"><legend>Advisories</legend>);
 			say q(<p class="warning">This isolate submission does not include any allele designations.</p>);
 			say q(</fieldset>);
