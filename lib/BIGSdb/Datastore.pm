@@ -1290,7 +1290,7 @@ sub create_temp_isolate_scheme_fields_view {
 			method               => $method,
 			cache_type           => 'fields',
 			reldate              => $options->{'reldate'},
-			missing              => $options->{'max_missing'},
+			max_missing          => $options->{'max_missing'},
 			ignore_multiple_hits => $options->{'ignore_multiple_hits'}
 		}
 	);
@@ -2416,7 +2416,7 @@ sub _get_isolate_ids_for_cache {
 				  . qq[FROM allele_designations ad JOIN scheme_members sm ON sm.scheme_id=$scheme_id ]
 				  . q[AND sm.locus=ad.locus ORDER BY ad.isolate_id,ad.locus,ad.status,]
 				  . q[(substring(ad.allele_id,'^[0-9]+'))::int,ad.allele_id) d ]
-				  . qq[GROUP BY d.isolate_id HAVING COUNT(*) FILTER (WHERE $non_missing_condition>=$required_loci)];
+				  . qq[GROUP BY d.isolate_id HAVING COUNT(*) FILTER (WHERE $non_missing_condition>=$required_loci) ];
 			}
 		}
 
