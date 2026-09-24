@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20260108
+#Version: 20260924
 use strict;
 use warnings;
 use 5.010;
@@ -520,8 +520,15 @@ sub get_seqdef_db {
 sub refresh_caches {
 	return                     if !$opts{'cache'};
 	say 'Refreshing caches...' if !$opts{'quiet'};
-	$script->{'datastore'}
-	  ->create_temp_isolate_scheme_fields_view( $opts{'scheme_id'}, { cache => 1, method => 'incremental' } );
+	$script->{'datastore'}->create_temp_isolate_scheme_fields_view(
+		$opts{'scheme_id'},
+		{
+			cache                => 1,
+			method               => 'incremental',
+			max_missing          => $opts{'missing'},
+			ignore_multiple_hits => $opts{'ignore_multiple_hits'}
+		}
+	);
 	$script->{'datastore'}
 	  ->create_temp_scheme_status_table( $opts{'scheme_id'}, { cache => 1, method => 'incremental' } );
 	return;

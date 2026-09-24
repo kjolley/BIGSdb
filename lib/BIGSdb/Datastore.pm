@@ -1284,8 +1284,16 @@ sub create_temp_isolate_scheme_fields_view {
 	$self->_write_status_file( $options->{'status_file'}, $options->{'status'} );
 	my $scheme_table = $self->create_temp_scheme_table( $scheme_id, $options );
 	my $method       = $options->{'method'} // 'full';
-	my $isolates     = $self->_get_isolate_ids_for_cache( $scheme_id,
-		{ method => $method, cache_type => 'fields', reldate => $options->{'reldate'} } );
+	my $isolates     = $self->_get_isolate_ids_for_cache(
+		$scheme_id,
+		{
+			method               => $method,
+			cache_type           => 'fields',
+			reldate              => $options->{'reldate'},
+			missing              => $options->{'max_missing'},
+			ignore_multiple_hits => $options->{'ignore_multiple_hits'}
+		}
+	);
 	my $scheme_fields = $self->get_scheme_fields($scheme_id);
 
 	# A legacy cache without the FK can be migrated without recalculating the
@@ -2163,8 +2171,7 @@ sub create_temp_scheme_table {
 	push @table_fields, 'profile text[]';
 	my $locus_indices = $scheme->get_locus_indices;
 	eval {
-		$self->{'db'}->do( 'DELETE FROM scheme_warehouse_indices WHERE scheme_id=?',
-			undef, $id );
+		$self->{'db'}->do( 'DELETE FROM scheme_warehouse_indices WHERE scheme_id=?', undef, $id );
 		foreach my $profile_locus ( keys %$locus_indices ) {
 			my $locus_name = $self->run_query(
 				'SELECT locus FROM scheme_members WHERE profile_name=? AND scheme_id=?',
@@ -2385,6 +2392,34 @@ sub _get_isolate_ids_for_cache {
 	my $qry = "SELECT t1.id FROM $view t1 ";
 	if ( $options->{'method'} eq 'incremental' ) {
 		$qry .= qq(LEFT JOIN $table{$options->{'cache_type'}} t2 ON t1.id=t2.id WHERE t2.id IS NULL );
+
+		# max_missing is supplied by define_profiles.pl. The limit is stored in
+		# the sequence definition database rather than the isolate database.
+		# Do not select isolates that cannot have a profile defined because they
+		# exceed the permitted number of missing loci.
+		if (   $options->{'cache_type'} eq 'fields'
+			&& $scheme_info->{'allow_missing_loci'}
+			&& defined $options->{'max_missing'} )
+		{
+			my $scheme_locus_count =
+			  $self->run_query( 'SELECT COUNT(*) FROM scheme_members WHERE scheme_id=?', $scheme_id );
+			my $required_loci = $scheme_locus_count - $options->{'max_missing'};
+
+			if ( $required_loci > 0 ) {
+				my $non_missing_condition = q(d.allele_id NOT IN ('0','N'));
+				$non_missing_condition .= q( AND d.designation_count=1)
+				  if $options->{'ignore_multiple_hits'};
+				$qry .=
+					q[AND t1.id IN (SELECT d.isolate_id FROM ]
+				  . q[(SELECT DISTINCT ON (ad.isolate_id,ad.locus) ad.isolate_id,ad.locus,ad.allele_id,]
+				  . q[COUNT(*) OVER (PARTITION BY ad.isolate_id,ad.locus) AS designation_count ]
+				  . qq[FROM allele_designations ad JOIN scheme_members sm ON sm.scheme_id=$scheme_id ]
+				  . q[AND sm.locus=ad.locus ORDER BY ad.isolate_id,ad.locus,ad.status,]
+				  . q[(substring(ad.allele_id,'^[0-9]+'))::int,ad.allele_id) d ]
+				  . qq[GROUP BY d.isolate_id HAVING COUNT(*) FILTER (WHERE $non_missing_condition>=$required_loci)];
+			}
+		}
+
 		if ( $options->{'reldate'} && $options->{'reldate'} > 0 ) {
 			$qry .= qq(AND datestamp > now()-interval '$options->{'reldate'} days');
 		}
