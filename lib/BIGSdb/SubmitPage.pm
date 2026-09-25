@@ -1971,14 +1971,18 @@ sub _print_file_upload_fieldset {
 	my $files = $self->_get_submission_files($submission_id);
 
 	if (@$files) {
+		my $allow_delete =
+		  $submission->{'status'} eq 'started'
+		  || ( $submission->{'status'} eq 'pending'
+			&& $submission->{'type'} ne 'genomes'
+			&& $submission->{'type'} ne 'assemblies' );
 		say $q->start_form;
 		say q(<h2>Uploaded files</h2>);
-		$self->_print_submission_file_table( $submission_id,
-			{ delete_checkbox => $submission->{'status'} eq 'started' ? 1 : 0 } );
+		$self->_print_submission_file_table( $submission_id, { delete_checkbox => $allow_delete } );
 		$q->param( delete => 1 );
 		say $q->hidden($_)
 		  foreach qw(db page alleles profiles isolates genomes assemblies locus submission_id delete no_check view);
-		if ( $submission->{'status'} eq 'started' ) {
+		if ($allow_delete) {
 			say $q->submit( -label => 'Delete selected files', -class => 'small_submit' );
 		}
 		say $q->end_form;
