@@ -1,4 +1,4 @@
-/*Version: 20260917*/
+/*Version: 20260925*/
 
 :root {
 	/* backgrounds */
@@ -3652,7 +3652,7 @@ button.plugin:hover {
 .dropzone {
 	border: dashed 3px #666;
 	border-radius: 25px;
-	background-color: #f0f0ff;
+	background-color: var(--table-row-dark);
 }
 
 .dropzone .dz-message {
