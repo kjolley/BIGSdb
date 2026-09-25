@@ -2077,7 +2077,9 @@ sub _presubmit_isolates {
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$options->{'download_link'} = 1;
-	$self->_print_file_upload_fieldset( $submission_id, $options ) if $options->{'genomes'};
+	$self->_print_file_upload_fieldset( $submission_id, $options )
+	  if $options->{'genomes'}
+	  || ( $self->{'system'}->{'isolate_submission_supporting_files'} // q() ) eq 'yes';
 	$self->_print_isolate_table_fieldset( $submission_id, $options );
 	$self->_print_message_fieldset($submission_id);
 	say $q->start_form;
@@ -3486,7 +3488,8 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_sequence_table_fieldset($submission_id);
 	$self->_print_profile_table_fieldset($submission_id);
 	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } )
-	  if $submission->{'type'} ne 'isolates';
+	  if $submission->{'type'} ne 'isolates'
+	  || ( $self->{'system'}->{'isolate_submission_supporting_files'} // q() ) eq 'yes';
 	$self->_print_assembly_table_fieldset( $submission_id, { download_link => 1 } );
 	$self->_print_advisories( $submission_id, { view => 1 } );
 	$self->_print_isolate_table_fieldset($submission_id);
