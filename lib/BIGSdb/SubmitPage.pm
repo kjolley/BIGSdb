@@ -64,6 +64,7 @@ sub get_javascript {
 		}
 	}
 	my $submission_id = $q->param('submission_id') // q();
+	my $view          = $q->param('view') ? 1 : 0;
 	my $links         = $self->get_related_databases;
 	my $db_trigger    = q();
 	if ( @$links > 1 ) {
@@ -115,6 +116,9 @@ END
 	         			url += "&$submit_type=1";
 	         		} else if ('$submission_id'.length){
 	         			url += "&submission_id=$submission_id";
+	         			if ($view) {
+        					url += "&view=1";
+    					}
 	         		}
 	             	location.href = url;
          		}
