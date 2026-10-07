@@ -730,6 +730,7 @@ pre {
 .fail {
 	background: #fcc;
 	border: 2px solid red;
+	color: black;
 }
 
 .incomplete {
