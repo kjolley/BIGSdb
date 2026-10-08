@@ -64,6 +64,7 @@ sub get_javascript {
 		}
 	}
 	my $submission_id = $q->param('submission_id') // q();
+	my $view          = $q->param('view') ? 1 : 0;
 	my $links         = $self->get_related_databases;
 	my $db_trigger    = q();
 	if ( @$links > 1 ) {
@@ -115,6 +116,9 @@ END
 	         			url += "&$submit_type=1";
 	         		} else if ('$submission_id'.length){
 	         			url += "&submission_id=$submission_id";
+	         			if ($view) {
+        					url += "&view=1";
+    					}
 	         		}
 	             	location.href = url;
          		}
@@ -1971,14 +1975,18 @@ sub _print_file_upload_fieldset {
 	my $files = $self->_get_submission_files($submission_id);
 
 	if (@$files) {
+		my $allow_delete =
+		  $submission->{'status'} eq 'started'
+		  || ( $submission->{'status'} eq 'pending'
+			&& $submission->{'type'} ne 'genomes'
+			&& $submission->{'type'} ne 'assemblies' );
 		say $q->start_form;
 		say q(<h2>Uploaded files</h2>);
-		$self->_print_submission_file_table( $submission_id,
-			{ delete_checkbox => $submission->{'status'} eq 'started' ? 1 : 0 } );
+		$self->_print_submission_file_table( $submission_id, { delete_checkbox => $allow_delete } );
 		$q->param( delete => 1 );
 		say $q->hidden($_)
 		  foreach qw(db page alleles profiles isolates genomes assemblies locus submission_id delete no_check view);
-		if ( $submission->{'status'} eq 'started' ) {
+		if ($allow_delete) {
 			say $q->submit( -label => 'Delete selected files', -class => 'small_submit' );
 		}
 		say $q->end_form;
@@ -2077,7 +2085,9 @@ sub _presubmit_isolates {
 	$self->_print_abort_form($submission_id);
 	say qq(<h2>Submission: $submission_id</h2>);
 	$options->{'download_link'} = 1;
-	$self->_print_file_upload_fieldset( $submission_id, $options ) if $options->{'genomes'};
+	$self->_print_file_upload_fieldset( $submission_id, $options )
+	  if $options->{'genomes'}
+	  || ( $self->{'system'}->{'isolate_submission_supporting_files'} // q() ) eq 'yes';
 	$self->_print_isolate_table_fieldset( $submission_id, $options );
 	$self->_print_message_fieldset($submission_id);
 	say $q->start_form;
@@ -3486,7 +3496,8 @@ sub _view_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Calle
 	$self->_print_sequence_table_fieldset($submission_id);
 	$self->_print_profile_table_fieldset($submission_id);
 	$self->_print_file_upload_fieldset( $submission_id, { no_add => $submission->{'status'} eq 'closed' ? 1 : 0 } )
-	  if $submission->{'type'} ne 'isolates';
+	  if $submission->{'type'} ne 'isolates'
+	  || ( $self->{'system'}->{'isolate_submission_supporting_files'} // q() ) eq 'yes';
 	$self->_print_assembly_table_fieldset( $submission_id, { download_link => 1 } );
 	$self->_print_advisories( $submission_id, { view => 1 } );
 	$self->_print_isolate_table_fieldset($submission_id);

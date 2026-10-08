@@ -20,7 +20,8 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20260924
+#Version: 20261008
+
 use strict;
 use warnings;
 use 5.010;
@@ -55,6 +56,7 @@ Log::Log4perl->init( \$log_conf );
 my $logger = Log::Log4perl::get_logger('BIGSdb.Script');
 my %opts;
 GetOptions(
+	'allow_allele_0'       => \$opts{'allow_allele_0'},
 	'cache'                => \$opts{'cache'},
 	'database=s'           => \$opts{'database'},
 	'exclude_isolates=s'   => \$opts{'I'},
@@ -126,7 +128,7 @@ sub main {
 		next if $missing > $opts{'missing'};
 		my $field_values =
 		  $scheme->get_field_values_by_designations( $designations,
-			{ dont_match_missing_loci => $opts{'match_missing'} ? 0 : 1 } );
+			{ dont_match_missing_loci => $opts{'match_missing'} || $opts{'allow_allele_0'} ? 0 : 1 } );
 		next if @$field_values;    #Already defined
 
 		my $sender = lookup_sender_in_seqdefdb($isolate_id);
@@ -140,9 +142,6 @@ sub main {
 			$need_to_refresh_cache = 1;
 		} else {
 			if ( $retval->{'message'} =~ /Profile\ already\ defined/x ) {
-
-				#Profile already exists - this may be because the allele designation counts
-				#include allele '0' which is treated as a 'N' in profile definitions.
 				my $defined_zero = $script->{'datastore'}->run_query(
 					'SELECT COUNT(*) FROM allele_designations WHERE (isolate_id,allele_id)=(?,?) AND '
 					  . 'locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)',
@@ -151,7 +150,7 @@ sub main {
 				);
 
 				#We can skip if it's because of this, otherwise report the error.
-				if ($defined_zero) {
+				if ( $defined_zero && !$opts{'allow_allele_0'} ) {
 					next;
 				} else {
 					$logger->error("Isolate id: $isolate_id; Cannot define cgST - profile already defined!");
@@ -222,7 +221,7 @@ sub define_new_profile {
 		foreach my $locus (@$loci) {
 			my $locus_name = $locus->{'profile_name'} // $locus->{'locus'};
 			my $allele_id  = $designations->{$locus_name}->[0]->{'allele_id'};
-			$allele_id = 'N' if $allele_id eq '0';
+			$allele_id = 'N' if $allele_id eq '0' && !$opts{'allow_allele_0'};
 			if ( allele_exists( $locus_name, $allele_id ) ) {
 				push @allele_data, [ $locus_name, $scheme_id, $next_pk, $allele_id, DEFINER_USER, 'now' ];
 			} else {
@@ -267,8 +266,8 @@ sub define_new_profile {
 	}
 	$db->commit;
 	if ( @{ $script->{'new_missing_awaiting_commit'} } ) {
-		foreach my $locus ( @{ $script->{'new_missing_awaiting_commit'} } ) {
-			$script->{'existing'}->{$locus}->{'N'} = 1;
+		foreach my $allele ( @{ $script->{'new_missing_awaiting_commit'} } ) {
+			$script->{'existing'}->{ $allele->[0] }->{ $allele->[1] } = 1;
 		}
 		$script->{'new_missing_awaiting_commit'} = [];
 	}
@@ -282,22 +281,24 @@ sub define_new_profile {
 sub allele_exists {
 	my ( $locus, $allele_id ) = @_;
 	return 1 if $script->{'existing'}->{$locus}->{$allele_id};
-	if ( $allele_id eq 'N' ) {
-		define_missing_allele($locus);
+	if ( $allele_id eq 'N' || ( $allele_id eq '0' && $opts{'allow_allele_0'} ) ) {
+		define_missing_allele( $locus, $allele_id );
 		return 1;
 	}
 	return;
 }
 
 sub define_missing_allele {
-	my ($locus) = @_;
-	my $db = get_seqdef_db();
+	my ( $locus, $allele_id ) = @_;
+	my $db       = get_seqdef_db();
+	my $sequence = $allele_id eq '0' ? 'null allele' : 'arbitrary allele';
+
 	$db->do(
 		'INSERT INTO sequences (locus,allele_id,sequence,sender,curator,date_entered,datestamp,status) '
 		  . 'VALUES (?,?,?,?,?,?,?,?)',
-		undef, $locus, 'N', 'arbitrary allele', 0, 0, 'now', 'now', ''
+		undef, $locus, $allele_id, $sequence, 0, 0, 'now', 'now', ''
 	);
-	push @{ $script->{'new_missing_awaiting_commit'} }, $locus;
+	push @{ $script->{'new_missing_awaiting_commit'} }, [ $locus, $allele_id ];
 
 	#Don't commit here - this is part of the transaction and errors are trapped in calling method.
 	return;
@@ -310,11 +311,10 @@ sub get_next_pk {
 		'SELECT CAST(profile_id AS int) FROM profiles WHERE scheme_id=? AND '
 	  . 'CAST(profile_id AS int)>0 UNION SELECT CAST(profile_id AS int) FROM retired_profiles '
 	  . 'WHERE scheme_id=? ORDER BY profile_id';
-	my $test = 0;
-	my $next = 0;
-	my $id   = 0;
-	my $profiles =
-	  $script->{'datastore'}
+	my $test     = 0;
+	my $next     = 0;
+	my $id       = 0;
+	my $profiles = $script->{'datastore'}
 	  ->run_query( $qry, [ $scheme_id, $scheme_id ], { db => $db, fetch => 'col_arrayref', cache => 'get_next_pk' } );
 	foreach my $profile_id (@$profiles) {
 		$test++;
@@ -332,7 +332,8 @@ sub get_next_pk {
 
 sub get_profile {
 	my ($isolate_id) = @_;
-	my $all_designations = $script->{'datastore'}->get_scheme_allele_designations( $isolate_id, $opts{'scheme_id'} );
+	my $all_designations =
+	  $script->{'datastore'}->get_scheme_allele_designations( $isolate_id, $opts{'scheme_id'} );
 	my @profile;
 	my $designations = {};
 	my $missing      = 0;
@@ -366,7 +367,7 @@ sub get_profile {
 			$value = $opts{'ignore_multiple_hits'} ? 'N' : $locus_designations->[0]->{'allele_id'};
 		}
 		push @profile, $value;
-		$missing++ if $value eq 'N' || $value eq '0';
+		$missing++ if $value eq 'N' || ( $value eq '0' && !$opts{'allow_allele_0'} );
 		$designations->{ $script->{'cache'}->{'locus_labels'}->{$locus} } =
 		  [ { allele_id => $value, status => 'confirmed' } ];
 	}
@@ -483,6 +484,9 @@ sub check_allowed_missing {
 	my $remote_scheme =
 	  $script->{'datastore'}
 	  ->run_query( 'SELECT * FROM schemes WHERE id=?', $remote_scheme_id, { db => $db, fetch => 'row_hashref' } );
+	if ( $opts{'allow_allele_0'} && !$remote_scheme->{'allow_missing_loci'} ) {
+		die "--allow_allele_0 requires the remote scheme to allow missing loci.\n";
+	}
 	if ( !$remote_scheme->{'allow_missing_loci'} && $opts{'missing'} ) {
 		say "The remote scheme does not allow missing alleles in the profile - \n" . 'setting --missing to 0.';
 		$opts{'missing'} = 0;
@@ -535,7 +539,8 @@ sub refresh_caches {
 }
 
 sub defined_in_cache {
-	my ($isolate_id)       = @_;
+	my ($isolate_id) = @_;
+	return if $opts{'allow_allele_0'};
 	my $cache_tables       = get_cache_table_names();
 	my $scheme_loci        = $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
 	my $scheme_locus_count = scalar @$scheme_loci;
@@ -580,7 +585,8 @@ sub remove_lock_file {
 sub check_if_script_already_running {
 	my $lock_file = get_lock_file();
 	if ( -e $lock_file ) {
-		open( my $fh, '<', $lock_file ) || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
+		open( my $fh, '<', $lock_file )
+		  || $script->{'logger'}->error("Cannot open lock file $lock_file for reading");
 		my $pid = <$fh>;
 		close $fh;
 		my $pid_exists = kill( 0, $pid );
@@ -614,6 +620,10 @@ ${bold}SYNOPSIS$norm
     ${bold}define_profiles.pl --database ${under}NAME$norm${bold} --scheme ${under}SCHEME_ID$norm [${under}options$norm]
 
 ${bold}OPTIONS$norm
+
+${bold}--allow_allele_0$norm
+    Treat allele '0' as a genuine profile allele rather than converting it to
+    'N'. The remote scheme must allow missing loci. Default: disabled.
 
 ${bold}--cache$norm
     Update scheme field cache in isolate database.
