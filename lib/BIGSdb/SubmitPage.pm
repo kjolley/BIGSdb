@@ -69,10 +69,27 @@ sub get_javascript {
 	my $db_trigger    = q();
 	if ( @$links > 1 ) {
 		$db_trigger = << "END";
-+\$("#related_db_trigger,#close_related_db").click(function(){		
-		\$("#related_db_panel").toggle("slide",{direction:"right"},"fast");
-		return false;
++\$("#related_db_trigger,#close_related_db").click(function(){	
+	\$("#related_db_panel").toggle("slide", { direction: "right" }, "fast", function() {
+		if (\$("#related_db_panel").is(":visible")) {
+			\$("#modal_overlay").addClass("open");
+		} else {
+			\$("#modal_overlay").removeClass("open");
+		}
 	});	
+	return false;
+});	
+\$(document).mouseup(function(e) {
+	// if the target of the click isn't the container nor a
+	// descendant of the container
+	var trigger = \$("#related_db_trigger");
+	var container = \$("#related_db_panel");
+	if (!container.is(e.target) && container.has(e.target).length === 0 &&
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+		container.hide();
+		\$("#modal_overlay").removeClass("open");
+	}
+});
 END
 	}
 	my $buffer = << "END";
@@ -3479,6 +3496,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	say q(<div style="clear:both"></div>);
 	my $page = $self->{'curate'} ? 'index' : 'submit';
 	say q(</div></div>);
+	$self->print_related_database_panel;
 	return;
 }
 

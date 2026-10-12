@@ -1,4 +1,4 @@
-/*Version: 20260925*/
+/*Version: 20261012*/
 
 :root {
 	/* backgrounds */
@@ -372,6 +372,7 @@ h2 {
 	font-weight: 500;
 	font-size: 24px;
 	color: var(--text-heading);
+	line-height: 110%;
 }
 
 h2 a {
