@@ -571,14 +571,18 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 			EXIT insert_update;
 		END LOOP insert_update;
 
-		IF EXISTS (SELECT 1 FROM seqbin_stats WHERE isolate_id=delta_isolate_id) THEN
-			UPDATE seqbin_stats SET methods =
-				COALESCE(
-					(SELECT array_agg(DISTINCT method ORDER BY method)
-					 FROM sequence_bin
-					 WHERE isolate_id=delta_isolate_id AND method IS NOT NULL),
-					ARRAY[]::text[])
-				WHERE isolate_id=delta_isolate_id;
+		IF (TG_OP = 'INSERT'
+			OR TG_OP = 'DELETE'
+			OR (TG_OP = 'UPDATE' AND OLD.method IS DISTINCT FROM NEW.method)) THEN
+			IF EXISTS (SELECT 1 FROM seqbin_stats WHERE isolate_id=delta_isolate_id) THEN
+				UPDATE seqbin_stats SET methods =
+					COALESCE(
+						(SELECT array_agg(DISTINCT method ORDER BY method)
+						 FROM sequence_bin
+						 WHERE isolate_id=delta_isolate_id AND method IS NOT NULL),
+						ARRAY[]::text[])
+					WHERE isolate_id=delta_isolate_id;
+			END IF;
 		END IF;
 
 		RETURN NULL;
