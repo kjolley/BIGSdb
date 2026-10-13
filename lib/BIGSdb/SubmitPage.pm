@@ -69,10 +69,27 @@ sub get_javascript {
 	my $db_trigger    = q();
 	if ( @$links > 1 ) {
 		$db_trigger = << "END";
-+\$("#related_db_trigger,#close_related_db").click(function(){		
-		\$("#related_db_panel").toggle("slide",{direction:"right"},"fast");
-		return false;
++\$("#related_db_trigger,#close_related_db").click(function(){	
+	\$("#related_db_panel").toggle("slide", { direction: "right" }, "fast", function() {
+		if (\$("#related_db_panel").is(":visible")) {
+			\$("#modal_overlay").addClass("open");
+		} else {
+			\$("#modal_overlay").removeClass("open");
+		}
 	});	
+	return false;
+});	
+\$(document).mouseup(function(e) {
+	// if the target of the click isn't the container nor a
+	// descendant of the container
+	var trigger = \$("#related_db_trigger");
+	var container = \$("#related_db_panel");
+	if (!container.is(e.target) && container.has(e.target).length === 0 &&
+		!trigger.is(e.target) && trigger.has(e.target).length === 0) {
+		container.hide();
+		\$("#modal_overlay").removeClass("open");
+	}
+});
 END
 	}
 	my $buffer = << "END";
@@ -955,6 +972,16 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 	my $q          = $self->{'cgi'};
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
 	return if !$submission || $submission->{'status'} ne 'started';
+	if ( $submission->{'type'} eq 'genomes' || $submission->{'type'} eq 'assemblies' ) {
+		my $missing = $self->{'submissionHandler'}->get_missing_assembly_filenames($submission_id);
+		if (@$missing) {
+			local $" = q(, );
+			$logger->warn(
+"$self->{'instance'}: Refusing to finalize submission $submission_id - missing assembly files: @$missing"
+			);
+			return;
+		}
+	}
 	$self->_check_invalid_embargo;
 	$logger->info("$self->{'instance'}: New $submission->{'type'} submission");
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
@@ -1975,8 +2002,7 @@ sub _print_file_upload_fieldset {
 	my $files = $self->_get_submission_files($submission_id);
 
 	if (@$files) {
-		my $allow_delete =
-		  $submission->{'status'} eq 'started'
+		my $allow_delete = $submission->{'status'} eq 'started'
 		  || ( $submission->{'status'} eq 'pending'
 			&& $submission->{'type'} ne 'genomes'
 			&& $submission->{'type'} ne 'assemblies' );
@@ -2660,9 +2686,8 @@ sub _print_isolate_table {
 	say q(</tr>);
 	my $td = 1;
 	local $" = q(</td><td>);
-	my $files       = $self->_get_submission_files($submission_id);
-	my %file_exists = map { $_->{'filename'} => 1 } @$files;
-	my $dir         = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
+	my $missing = $self->{'submissionHandler'}->get_missing_assembly_filenames($submission_id);
+	my %missing = map { $_ => 1 } @$missing;
 	my %filename_already_used;
 	my $index = 0;
 
@@ -2671,7 +2696,7 @@ sub _print_isolate_table {
 		my @values;
 		foreach my $field (@$fields) {
 			if ( $field eq 'assembly_filename' ) {
-				if ( !-e "$dir/$isolate->{$field}" ) {
+				if ( $missing{ $isolate->{$field} } ) {
 					push @values, qq(<span style="color:red">$isolate->{$field}</span>);
 					$self->{'contigs_missing'} = 1;
 				} else {
@@ -2727,16 +2752,13 @@ sub _print_assembly_table {
 	say q(</tr>);
 	my $td = 1;
 	local $" = q(</td><td>);
-	my $files       = $self->_get_submission_files($submission_id);
-	my %file_exists = map { $_->{'filename'} => 1 } @$files;
-	my $dir         = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
-	my %filename_already_used;
-	my $index = 0;
+	my $missing = $self->{'submissionHandler'}->get_missing_assembly_filenames($submission_id);
+	my %missing = map { $_ => 1 } @$missing;
 
 	foreach my $record (@$assembly_submission) {
 		my @values;
 		push @values, ( $record->{$_} ) foreach qw(isolate_id isolate sequence_method);
-		if ( !-e "$dir/$record->{'filename'}" ) {
+		if ( $missing{ $record->{'filename'} } ) {
 			push @values, qq(<span style="color:red">$record->{'filename'}</span>);
 			$self->{'contigs_missing'} = 1;
 		} else {
@@ -3479,6 +3501,7 @@ sub _curate_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #Cal
 	say q(<div style="clear:both"></div>);
 	my $page = $self->{'curate'} ? 'index' : 'submit';
 	say q(</div></div>);
+	$self->print_related_database_panel;
 	return;
 }
 

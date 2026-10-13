@@ -52,6 +52,32 @@ sub get_submission_dir {
 	return "$self->{'config'}->{'submission_dir'}/$submission_id";
 }
 
+sub get_missing_assembly_filenames {
+	my ( $self, $submission_id ) = @_;
+	my $submission = $self->get_submission($submission_id);
+	return [] if !$submission;
+	return [] if $submission->{'type'} ne 'genomes' && $submission->{'type'} ne 'assemblies';
+
+	my $filenames;
+	if ( $submission->{'type'} eq 'genomes' ) {
+		$filenames = $self->{'datastore'}->run_query(
+			'SELECT value FROM isolate_submission_isolates WHERE (submission_id,field)=(?,?)',
+			[ $submission_id, 'assembly_filename' ],
+			{ fetch => 'col_arrayref' }
+		);
+	} else {
+		$filenames = $self->{'datastore'}->run_query(
+			'SELECT filename FROM assembly_submissions WHERE submission_id=?',
+			$submission_id,
+			{ fetch => 'col_arrayref' }
+		);
+	}
+
+	my $dir = $self->get_submission_dir($submission_id) . '/supporting_files';
+	my @missing = grep { !-e "$dir/$_" } @$filenames;
+	return \@missing;
+}
+
 sub delete_submission {
 	my ( $self, $submission_id ) = @_;
 	eval { $self->{'db'}->do( 'DELETE FROM submissions WHERE id=?', undef, $submission_id ) };

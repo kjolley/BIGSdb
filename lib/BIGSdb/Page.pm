@@ -875,7 +875,7 @@ sub _get_meta_data {
 sub _get_stylesheets {
 	my ($self)  = @_;
 	my $system  = $self->{'system'};
-	my $version = '20260925';
+	my $version = '20261013';
 	my @filenames;
 	push @filenames, q(dropzone.css)                                          if $self->{'dropzone'};
 	push @filenames, q(billboard.min.css)                                     if $self->{'billboard'};
@@ -4103,6 +4103,7 @@ sub get_related_databases {
 
 sub print_related_database_panel {
 	my ($self) = @_;
+	return if $self->{'related_db_panel_shown'};
 	my $links = $self->get_related_databases;
 	return if @$links < 2;
 	say q(<div id="related_db_panel" class="panel" style="display:none">);
@@ -4114,6 +4115,7 @@ sub print_related_database_panel {
 	}
 	say q(</ul></div>);
 	say q(</div></div>);
+	$self->{'related_db_panel_shown'} = 1;
 	return;
 }
 

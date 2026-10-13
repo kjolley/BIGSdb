@@ -203,10 +203,10 @@ sub _add_isolate_data {
 sub _add_missing_contig_files {
 	my ( $submission_id, $values ) = @_;
 	my $self                 = setting('self');
-	my $missing_contig_files = _get_missing_contig_filenames($submission_id);
+	my $missing_contig_files = $self->{'submissionHandler'}->get_missing_assembly_filenames($submission_id);
 	if (@$missing_contig_files) {
 		local $" = q(, );
-		$values->{'missing_files'} = \@$missing_contig_files;
+		$values->{'missing_files'} = $missing_contig_files;
 		$values->{'message'}       = 'Please upload missing contig files to complete submission.';
 	}
 	return;
@@ -303,7 +303,7 @@ sub _create_submission {
 		isolates => sub { $self->{'submissionHandler'}->write_isolate_csv($submission_id) },
 		genomes  => sub {
 			$self->{'submissionHandler'}->write_isolate_csv($submission_id);
-			$missing_contig_files = _get_missing_contig_filenames($submission_id);
+			$missing_contig_files = $self->{'submissionHandler'}->get_missing_assembly_filenames($submission_id);
 		}
 	);
 	$write_file{$type}->() if $write_file{$type};
@@ -318,22 +318,6 @@ sub _create_submission {
 		};
 	}
 	return { submission => request->uri_for("$subdir/db/$db/submissions/$submission_id") };
-}
-
-sub _get_missing_contig_filenames {
-	my ($submission_id) = @_;
-	my $self            = setting('self');
-	my $filenames       = $self->{'datastore'}->run_query(
-		'SELECT value FROM isolate_submission_isolates WHERE (submission_id,field)=(?,?)',
-		[ $submission_id, 'assembly_filename' ],
-		{ fetch => 'col_arrayref' }
-	);
-	my $dir = $self->{'submissionHandler'}->get_submission_dir($submission_id) . '/supporting_files';
-	my @missing_files;
-	foreach my $filename (@$filenames) {
-		push @missing_files, $filename if !-e "$dir/$filename";
-	}
-	return \@missing_files;
 }
 
 sub _prepare_allele_submission {

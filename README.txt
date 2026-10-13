@@ -1,3 +1,8 @@
+v1.54.1: *Autotagger performance improvement.
+         *Added option to exclude loci from autotagger.
+         *Added file upload option for isolate metadata.
+         *Added option to not sort individual option list values in config.xml.
+         *Added option to define_profiles.pl to allow '0' as valid allele.
 v1.54.0: *Support adding NCBI taxa to typing database schemes to indicate the
           organisms for which they were developed.
          *Added foreign keys to isolate database scheme field cache tables to

@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2013-2022, University of Oxford
+#Copyright (c) 2013-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -23,8 +23,8 @@ use 5.010;
 use parent qw(BIGSdb::CurateProfileUpdatePage);
 use BIGSdb::Utils;
 use BIGSdb::Constants qw(:interface);
-use List::MoreUtils qw(none any uniq);
-use Log::Log4perl qw(get_logger);
+use List::MoreUtils   qw(none any uniq);
+use Log::Log4perl     qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -84,7 +84,7 @@ sub _check {
 	my $q         = $self->{'cgi'};
 	my $scheme_id = $q->param('scheme_id');
 	my $data      = $q->param('data');
-	my @rows = split /\n/x, $data;
+	my @rows      = split /\n/x, $data;
 	if ( @rows < 2 ) {
 		$self->print_bad_status( { message => q(Nothing entered. Make sure you include a header line.) } );
 		$self->_print_interface;
@@ -110,18 +110,21 @@ sub _check {
 		$mapped{$field}         = $field;
 		$reverse_mapped{$field} = $field;
 	}
+	$mapped{'sender'}         = 'sender';
+	$reverse_mapped{'sender'} = 'sender';
 	my @validated_actions;
 	shift @rows;    #Remove header
 	my $td = 1;
 	my $buffer;
 	my $indices = $self->{'datastore'}->get_scheme_locus_indices( $scheme_info->{'id'} );
+
 	foreach my $row (@rows) {
 		my @columns = split /\t/x, $row;
 		BIGSdb::Utils::remove_trailing_spaces_from_list( \@columns );
 		my ( $pk, $display_field, $value ) = @columns;
 		$display_field //= q();
 		$value         //= q();
-		my $field = $reverse_mapped{$display_field} // q();
+		my $field         = $reverse_mapped{$display_field} // q();
 		my $display_value = $self->_get_display_value($value);
 		my $problem;
 		my $args = {
@@ -134,7 +137,7 @@ sub _check {
 			problem     => \$problem
 		};
 
-		#Check field is locus or scheme field
+		#Check field is locus or scheme field, or sender
 		$args->{'field_type'} = $self->_check_field($args);
 
 		#Check record exists
@@ -175,6 +178,9 @@ sub _check {
 
 		#If int field, check field format
 		$self->_check_field_format($args);
+
+		#Check sender format
+		$self->_check_sender_format($args);
 
 		#If pk, check that profile_id not already defined or retired
 		$self->_check_existing_profile_id($args);
@@ -225,10 +231,10 @@ sub _check {
 }
 
 sub _print_interface {
-	my ($self)    = @_;
-	my $q         = $self->{'cgi'};
-	my $scheme_id = $q->param('scheme_id');
-	my $set_id    = $self->get_set_id;
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $scheme_id   = $q->param('scheme_id');
+	my $set_id      = $self->get_set_id;
 	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { set_id => $set_id, get_pk => 1 } );
 	say q(<div class="box" id="queryform"><p>This page allows you to batch update allelic combinations )
 	  . q(or associated fields for multiple profiles.</p>)
@@ -236,11 +242,7 @@ sub _print_interface {
 	  . qq(<li>The first column should be the primary key ($scheme_info->{'primary_key'}).</li>)
 	  . q(<li>The next column should contain the field/locus name and then the final column should )
 	  . q(contain the value to be entered, e.g.<br />);
-	say qq(<pre>\n)
-	  . qq(ST  field   value\n)
-	  . qq(5   abcZ    7\n)
-	  . qq(5   adk     3\n)
-	  . q(</pre>);
+	say qq(<pre>\n) . qq(ST  field   value\n) . qq(5   abcZ    7\n) . qq(5   adk     3\n) . q(</pre>);
 	say q(</li><li>The columns should be separated by tabs. Any other columns will be ignored.</li>)
 	  . q(<li>If you wish to blank a field, enter '&lt;blank&gt;' as the value.</li></ul>);
 	say $q->start_form;
@@ -267,6 +269,7 @@ sub _get_display_value {
 sub _check_field {
 	my ( $self, $args ) = @_;
 	my ( $field, $fields, $loci, $problem ) = @$args{qw(field fields loci problem)};
+	return 'sender' if $field eq 'sender';
 	my %fields = map { $_ => 1 } @$fields;
 	return 'field' if $fields{$field};
 	my %loci = map { $_ => 1 } @$loci;
@@ -362,7 +365,7 @@ sub _check_existing_profile {
 	$new_profile{"locus:$field"}                        = $value;
 	$new_profile{"field:$scheme_info->{'primary_key'}"} = $pk;
 	my %designations = map { $_ => $new_profile{"locus:$_"} } @$loci;
-	my $ret = $self->{'datastore'}->check_new_profile( $scheme_info->{'id'}, \%designations, $pk );
+	my $ret          = $self->{'datastore'}->check_new_profile( $scheme_info->{'id'}, \%designations, $pk );
 	if ( $ret->{'exists'} ) {
 		$$problem = qq(would result in duplicate profile. $ret->{'msg'});
 	} elsif ( $ret->{'err'} ) {
@@ -404,11 +407,21 @@ sub _check_field_format {
 	my $field_info = $self->{'datastore'}->get_scheme_field_info( $scheme_info->{'id'}, $field );
 	if ( $field_info->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
 		$$problem = q(invalid field value (must be an integer));
-	}
-	elsif ( defined $field_info->{'option_list'} && $value ne q() ) {
+	} elsif ( defined $field_info->{'option_list'} && $value ne q() ) {
 		my @optlist = split /\|/x, $field_info->{'option_list'};
 		my %optlist = map { $_ => 1 } @optlist;
 		$$problem = q(Field value not in allowed list.) if !$optlist{$value};
+	}
+	return;
+}
+
+sub _check_sender_format {
+	my ( $self, $args ) = @_;
+	my ( $field_type, $value, $problem ) = @$args{qw(field_type value problem)};
+	return if $$problem;
+	return if ( $field_type // q() ) ne 'sender';
+	if ( !BIGSdb::Utils::is_int($value) ) {
+		$$problem = q(invalid sender (must be an integer));
 	}
 	return;
 }
@@ -459,6 +472,7 @@ sub _update {
 		$mapped{$locus} = $self->clean_locus( $locus, { text_output => 1, no_common_name => 1 } );
 	}
 	map { $mapped{$_} = $_ } @$scheme_fields;
+	$mapped{'sender'} = 'sender';
 	say q(<div class="box" id="resultsheader">);
 	say q(<h2>Updating database ...</h2>);
 	my $curator_id   = $self->get_curator_id;
@@ -487,7 +501,14 @@ sub _update {
 			$old_value = $old_record->{ lc($field) };
 		}
 		my @updates;
-		if ($is_locus) {
+		if ( $field eq 'sender' ) {
+			push @updates,
+			  {
+				statement => 'UPDATE profiles SET (sender,curator,datestamp)=(?,?,?) '
+				  . 'WHERE (scheme_id,profile_id)=(?,?)',
+				arguments => [ $value, $curator_id, 'now', $scheme_id, $id ]
+			  };
+		} elsif ($is_locus) {
 			push @updates,
 			  {
 				statement => 'UPDATE profile_members SET (allele_id,curator,datestamp)=(?,?,?) '
