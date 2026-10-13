@@ -1,4 +1,4 @@
-/*Version: 20261012*/
+/*Version: 20261013*/
 
 :root {
 	/* backgrounds */
@@ -1976,7 +1976,12 @@ div.curategroup.sequences.scheme.expanded h2 {
 }
 
 div.curategroup.sequences.schemes.expanded h2 span.title {
-	margin-right: 5px
+	margin-right: 5px;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
 }
 
 div.curategroup.expanded div.curate_buttonbar {
@@ -3761,7 +3766,8 @@ g .legend-bg {
 	fill: var(--chart-bg) !important;
 }
 
-g.legend text, .bb-legend-item text {
+g.legend text,
+.bb-legend-item text {
 	fill: var(--text) !important;
 }
 
@@ -4197,11 +4203,11 @@ div.form_value .select2-selection__rendered {
 		width: initial;
 		text-align: initial;
 	}
-	
+
 	.profile dt a {
 		color: var(--link)
 	}
-	
+
 	.profile dt a:hover {
 		color: var(--text-data-title);
 	}
