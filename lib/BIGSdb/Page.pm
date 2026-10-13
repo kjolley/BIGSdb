@@ -2208,13 +2208,53 @@ sub get_project_filter {
 	return '';
 }
 
+sub get_sequence_methods {
+	my ($self) = @_;
+	return $self->{'cache'}->{'sequence_methods'} if $self->{'cache'}->{'sequence_methods'};
+
+	my @methods;
+	my @files;
+	if ( $self->{'config_dir'} ) {
+		push @files, "$self->{'config_dir'}/sequencing_technologies.conf";
+		if ( $self->{'instance'} && $self->{'dbase_config_dir'} ) {
+			push @files, "$self->{'dbase_config_dir'}/$self->{'instance'}/sequencing_technologies.conf";
+		}
+	}
+
+	# A database-specific file overrides a global file. The last existing
+	# file in @files therefore wins.
+	foreach my $file (@files) {
+		next if !-e $file;
+		my $contents = BIGSdb::Utils::slurp($file);
+		@methods = ();
+		foreach my $line ( split /\R/x, $$contents ) {
+			$line =~ s/^\s+|\s+$//gx;
+			next if $line eq q() || $line =~ /^\#/x;
+			push @methods, $line;
+		}
+	}
+
+	# bigsdb.conf provides a convenient inline override when no separate
+	# sequencing technologies file has been defined.
+	if ( !@methods && $self->{'config'}->{'sequencing_technologies'} ) {
+		foreach my $method ( split /,/x, $self->{'config'}->{'sequencing_technologies'} ) {
+			$method =~ s/^\s+|\s+$//gx;
+			push @methods, $method if $method ne q();
+		}
+	}
+	@methods = SEQ_METHODS if !@methods;
+	@methods = uniq @methods;
+	$self->{'cache'}->{'sequence_methods'} = \@methods;
+	return $self->{'cache'}->{'sequence_methods'};
+}
+
 sub get_sequence_method_filter {
 	my ( $self, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
 	my $class = $options->{'class'} || 'filter';
 	return $self->get_filter(
 		'seq_method',
-		[SEQ_METHODS],
+		[ @{ $self->get_sequence_methods } ],
 		{
 			text    => 'Sequence method',
 			tooltip => 'sequence method filter - Only include sequences generated from the selected method.',

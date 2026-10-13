@@ -1800,5 +1800,5 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','54');
+INSERT INTO db_attributes (field,value) VALUES ('version','55');
 INSERT INTO db_attributes (field,value) VALUES ('type','seqdef');

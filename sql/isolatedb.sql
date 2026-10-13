@@ -356,6 +356,7 @@ CREATE TABLE seqbin_stats (
 isolate_id int NOT NULL,
 contigs integer NOT NULL,
 total_length integer NOT NULL,
+methods text[] NOT NULL DEFAULT '{}',
 n50 integer,
 l50 integer,
 updated boolean,
@@ -366,6 +367,8 @@ ON UPDATE CASCADE
 );
 CREATE INDEX ON seqbin_stats(contigs);
 CREATE INDEX ON seqbin_stats(total_length);
+CREATE INDEX seqbin_stats_methods_idx
+    ON seqbin_stats USING GIN(methods);
 --CREATE INDEX ON seqbin_stats(n50);
 --CREATE INDEX ON seqbin_stats(l50);
 
@@ -512,10 +515,13 @@ CREATE OR REPLACE FUNCTION refresh_seqbin_stats() RETURNS VOID AS $refresh_seqbi
 	BEGIN
 		RAISE NOTICE 'Updating contig counts and total lengths...';
 		DELETE FROM seqbin_stats;
-		INSERT INTO seqbin_stats (isolate_id,contigs,total_length) 
-			SELECT s.isolate_id,COUNT(s.id),SUM(length(s.sequence)) + SUM(COALESCE(r.length,0)) 
-			FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id GROUP BY 
-			s.isolate_id ORDER BY s.isolate_id;
+		INSERT INTO seqbin_stats (isolate_id,contigs,total_length,methods)
+			SELECT s.isolate_id,COUNT(s.id),SUM(length(s.sequence)) + SUM(COALESCE(r.length,0)),
+				COALESCE(
+					array_agg(DISTINCT s.method ORDER BY s.method) FILTER (WHERE s.method IS NOT NULL),
+					ARRAY[]::text[])
+			FROM sequence_bin s LEFT JOIN remote_contigs r ON s.id=r.seqbin_id
+			GROUP BY s.isolate_id ORDER BY s.isolate_id;
 		PERFORM update_n50_all();
 	END;
 $refresh_seqbin_stats$ LANGUAGE plpgsql;
@@ -534,11 +540,11 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 			END IF;
 			delta_isolate_id = OLD.isolate_id;
 			delta_contigs = - 1;
-			SELECT length FROM remote_contigs WHERE seqbin_id=OLD.id INTO remote_contig_length;	
+			SELECT length FROM remote_contigs WHERE seqbin_id=OLD.id INTO remote_contig_length;
 			IF (remote_contig_length IS NULL) THEN
 				remote_contig_length = 0;
 			END IF;
-			delta_total_length = - length(OLD.sequence) - remote_contig_length;	
+			delta_total_length = - length(OLD.sequence) - remote_contig_length;
 		ELSIF (TG_OP = 'UPDATE') THEN
 			delta_isolate_id = OLD.isolate_id;
 			delta_total_length = length(NEW.sequence) - length(OLD.sequence);
@@ -548,23 +554,36 @@ CREATE OR REPLACE FUNCTION maint_seqbin_stats() RETURNS TRIGGER AS $maint_seqbin
 			delta_contigs = + 1;
 			delta_total_length = + length(NEW.sequence);
 		END IF;
-		
+
 		<<insert_update>>
 		LOOP
 			IF (TG_OP = 'DELETE') THEN
 				DELETE FROM seqbin_stats WHERE isolate_id = delta_isolate_id AND contigs + delta_contigs = 0;
 				EXIT insert_update WHEN found;
 			END IF;
-			UPDATE seqbin_stats SET contigs = contigs + delta_contigs,total_length = total_length + delta_total_length 
+			UPDATE seqbin_stats SET
+				contigs = contigs + delta_contigs,
+				total_length = total_length + delta_total_length
 				WHERE isolate_id = delta_isolate_id;
 			EXIT insert_update WHEN found;
 			INSERT INTO seqbin_stats (isolate_id,contigs,total_length)
 				VALUES (delta_isolate_id,delta_contigs,delta_total_length);
 			EXIT insert_update;
 		END LOOP insert_update;
+
+		IF EXISTS (SELECT 1 FROM seqbin_stats WHERE isolate_id=delta_isolate_id) THEN
+			UPDATE seqbin_stats SET methods =
+				COALESCE(
+					(SELECT array_agg(DISTINCT method ORDER BY method)
+					 FROM sequence_bin
+					 WHERE isolate_id=delta_isolate_id AND method IS NOT NULL),
+					ARRAY[]::text[])
+				WHERE isolate_id=delta_isolate_id;
+		END IF;
+
 		RETURN NULL;
 	END;
-$maint_seqbin_stats$ LANGUAGE plpgsql;	
+$maint_seqbin_stats$ LANGUAGE plpgsql;
 
 CREATE TRIGGER maint_seqbin_stats AFTER INSERT OR UPDATE OR DELETE ON sequence_bin
 	FOR EACH ROW
@@ -630,8 +649,8 @@ CREATE CONSTRAINT TRIGGER upaft_seqbin_stats_change_3
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW
     WHEN (NEW.updated)                 --
-    EXECUTE PROCEDURE trg_seqbin_stats_after_change_3();    
-	
+    EXECUTE PROCEDURE trg_seqbin_stats_after_change_3(); 
+    
 CREATE TABLE oauth_credentials (
 base_uri text NOT NULL UNIQUE,
 consumer_key text NOT NULL,
@@ -2306,6 +2325,6 @@ PRIMARY KEY(field)
 
 GRANT SELECT,UPDATE,INSERT,DELETE ON db_attributes TO apache;
 
-INSERT INTO db_attributes (field,value) VALUES ('version','54');
+INSERT INTO db_attributes (field,value) VALUES ('version','55');
 INSERT INTO db_attributes (field,value) VALUES ('type','isolates');
 

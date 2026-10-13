@@ -1175,6 +1175,8 @@ sub _print_filters_fieldset_contents {
 	my @filters;
 	my $buffer = $self->get_isolate_publication_filter( { any => 1, multiple => 1, grid => 1 } );
 	push @filters, $buffer if $buffer;
+	$buffer = $self->_get_sequencing_technology_filter;
+	push @filters, $buffer if $buffer;
 	$buffer = $self->get_project_filter( { any => 1, multiple => 1, grid => 1 } );
 	push @filters, $buffer if $buffer;
 
@@ -1215,6 +1217,28 @@ sub _print_filters_fieldset_contents {
 	}
 	say q(</div>);
 	return;
+}
+
+sub _get_sequencing_technology_filter {
+	my ($self) = @_;
+	my @values = ( 'any', 'none', @{ $self->get_sequence_methods } );
+	my %labels = (
+		any  => 'any sequencing technology',
+		none => 'no sequencing technology specified'
+	);
+	return $self->get_filter(
+		'sequencing_technology',
+		\@values,
+		{
+			labels   => \%labels,
+			text     => 'Sequencing technology',
+			multiple => 1,
+			noblank  => 1,
+			tooltip  => q(sequencing technology filter - Select one or more sequencing technologies to )
+			  . q(filter your search to isolates with contigs generated using them.),
+			grid => 1
+		}
+	);
 }
 
 sub _print_modify_search_fieldset {
@@ -2227,7 +2251,7 @@ sub get_hidden_attributes {
 			}
 		}
 	}
-	push @hidden_attributes, qw(publication_list project_list private_records_list
+	push @hidden_attributes, qw(publication_list sequencing_technology_list project_list private_records_list
 	  include_old list list_file attribute datatype interface);
 	my $schemes = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	foreach my $scheme_id (@$schemes) {
@@ -2702,6 +2726,7 @@ sub _modify_query_for_filters {
 	}
 	$self->_modify_query_by_membership(
 		{ qry_ref => \$qry, table => 'refs', param => 'publication_list', query_field => 'pubmed_id' } );
+	$self->_modify_query_by_sequencing_technology( \$qry );
 	$self->_modify_query_by_membership(
 		{ qry_ref => \$qry, table => 'project_members', param => 'project_list', query_field => 'project_id' } );
 	$self->_modify_query_by_profile_status( \$qry );
@@ -2808,6 +2833,53 @@ sub _modify_query_by_private_status {
 	} else {
 		$$qry_ref = "SELECT * FROM $view WHERE $clause";
 	}
+	return;
+}
+
+sub _modify_query_by_sequencing_technology {
+	my ( $self, $qry_ref ) = @_;
+	my $q = $self->{'cgi'};
+
+	return if !$q->param('sequencing_technology_list');
+
+	my @list = $q->multi_param('sequencing_technology_list');
+	my $view = $self->{'system'}->{'view'};
+	my @clauses;
+
+	if ( any { $_ eq 'any' } @list ) {
+		push @clauses, "$view.id IN (SELECT isolate_id FROM seqbin_stats WHERE cardinality(methods)>0)";
+	}
+
+	if ( any { $_ eq 'none' } @list ) {
+		push @clauses, "$view.id IN (SELECT isolate_id FROM seqbin_stats WHERE cardinality(methods)=0)";
+	}
+
+	my %valid_method =
+	  map { $_ => 1 } @{ $self->get_sequence_methods };
+
+	my @methods = grep { $valid_method{$_} } @list;
+
+	if (@methods) {
+		my @quoted_methods =
+		  map { $self->{'db'}->quote($_) } @methods;
+
+		local $" = ',';
+
+		push @clauses,
+		  "$view.id IN (SELECT isolate_id FROM seqbin_stats WHERE methods && ARRAY[@quoted_methods]::text[])";
+	}
+
+	return if !@clauses;
+
+	local $" = ' OR ';
+	my $clause = "(@clauses)";
+
+	if ( $$qry_ref !~ /WHERE\ \(\)\s*$/x ) {
+		$$qry_ref .= " AND $clause";
+	} else {
+		$$qry_ref = "SELECT * FROM $view WHERE $clause";
+	}
+
 	return;
 }
 
