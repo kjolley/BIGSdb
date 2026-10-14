@@ -1,3 +1,7 @@
+v1.55.0: *Deadlock prevention when renewing multiple scheme caches.
+         *Sequencing technologies are now listed in a config file for easy 
+          modification.
+         *Search isolates by sequencing technology.
 v1.54.1: *Autotagger performance improvement.
          *Added option to exclude loci from autotagger.
          *Added file upload option for isolate metadata.
