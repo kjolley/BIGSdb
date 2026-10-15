@@ -160,7 +160,7 @@ sub _get_linked_data_values {
 			foreach my $entry ( @{ $linked->{'detailed_values'}->{$db}->{$field} } ) {
 				push @field_values, qq($entry->{'value'} [n=$entry->{'frequency'}]);
 			}
-			push @values, qq($db $field: @field_values);
+			push @values, qq($db - $field: @field_values);
 		}
 	}
 	return qq(@values);
