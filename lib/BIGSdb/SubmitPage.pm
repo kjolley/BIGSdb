@@ -2144,6 +2144,10 @@ sub _presubmit_isolates {
 		  . q(failed basic validation</span> checks. This submission cannot be finalized. Please )
 		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . qq(submission_id=$submission_id&amp;abort=1&amp;confirm=1">abort this submission</a>.</p></div>);
+	} elsif ( $self->{'open_sharing_confirmation_error'} ) {
+		say q(<div style="clear:both"></div>);
+		say q(<p class="statusbad">This submission cannot currently be finalized because the )
+		  . q(open sharing declaration is unavailable. Please contact the database administrator.</p>);
 	} elsif ( !$self->{'contigs_missing'} ) {
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 		$q->param( finalize => 1 );
@@ -2207,6 +2211,10 @@ sub _presubmit_assemblies {
 		  . q(failed basic validation</span> checks. This submission cannot be finalized. Please )
 		  . qq(<a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=submit&amp;)
 		  . qq(submission_id=$submission_id&amp;abort=1&amp;confirm=1">abort this submission</a>.</p></div>);
+	} elsif ( $self->{'open_sharing_confirmation_error'} ) {
+		say q(<div style="clear:both"></div>);
+		say q(<p class="statusbad">This submission cannot currently be finalized because the )
+		  . q(open sharing declaration is unavailable. Please contact the database administrator.</p>);
 	} elsif ( !$self->{'contigs_missing'} ) {
 		$self->print_action_fieldset( { no_reset => 1, submit_label => 'Finalize submission!' } );
 		$q->param( finalize => 1 );
@@ -2353,6 +2361,7 @@ sub _print_open_sharing_confirmation {
 	if ( !$template_path ) {
 		$logger->error( 'Open sharing confirmation message has not been defined. '
 			  . "Add message to template file $self->{'config_dir'}/templates/open_sharing_confirmation.tt." );
+		$self->{'open_sharing_confirmation_error'} = 1;
 		return;
 	}
 	my $template = Template->new(
@@ -2371,10 +2380,13 @@ sub _print_open_sharing_confirmation {
 		name             => $self->{'config'}->{'website_name'} // 'BIGSdb',
 		data_description => $description{ $submission->{'type'} }
 	};
-	$template->process( $template_path, $data, \$template_output ) || $logger->error( $template->error );
+	if ( !$template->process( $template_path, $data, \$template_output ) ) {
+		$logger->error( $template->error );
+		$self->{'open_sharing_confirmation_error'} = 1;
+		return;
+	}
 	say q(<fieldset style="float:left;max-width:95%"><legend>Open sharing</legend>);
 	my $q = $self->{'cgi'};
-
 	say $q->checkbox( -id => 'open_sharing', -name => 'open_sharing', -required => 1, -label => q() );
 	say qq(<label for="open_sharing" style="cursor:pointer">$template_output</label>);
 	say q(</fieldset>);
