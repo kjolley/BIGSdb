@@ -28,6 +28,7 @@ use BIGSdb::Constants qw(SEQ_METHODS :submissions :interface :design);
 use List::MoreUtils   qw(none);
 use POSIX;
 use JSON;
+use Template;
 use constant LIMIT       => 500;
 use constant INF         => 9**99;
 use constant MIN_EMBARGO => 3;
@@ -234,6 +235,7 @@ sub print_content {
 	}
 	my $q = $self->{'cgi'};
 	$self->choose_set;
+	say q(<h1>Manage submissions</h1>);
 	my $submission_id = $q->param('submission_id');
 	if ($submission_id) {
 		if ( $q->param('reopen') ) {
@@ -244,9 +246,21 @@ sub print_content {
 		foreach my $action (qw (abort finalize close remove tar view curate cancel)) {
 			if ( $q->param($action) ) {
 				my $method = "_${action}_submission";
-				$self->$method($submission_id);
-				$action_performed = 1;
-				return if $return_after{$action};
+				my $error  = $self->$method($submission_id);
+				if ( $action eq 'finalize' && $error ) {
+					$self->print_bad_status(
+						{
+							message =>
+							  'You must agree to the open sharing declaration before you can finalize your submission.'
+						}
+					);
+					$q->delete('finalize');
+					my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
+					$q->param( $submission->{'type'} => 1 );
+				} else {
+					$action_performed = 1;
+					return if $return_after{$action};
+				}
 				last;
 			}
 		}
@@ -261,7 +275,7 @@ sub print_content {
 			}
 		}
 	}
-	say q(<h1>Manage submissions</h1>);
+
 	my $user_info = $self->{'datastore'}->get_user_info_from_username( $self->{'username'} );
 	if ( !$user_info ) {
 		$self->print_bad_status( { message => q(You are not a recognized user. Submissions are disabled.) } );
@@ -976,11 +990,14 @@ sub _finalize_submission {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 		my $missing = $self->{'submissionHandler'}->get_missing_assembly_filenames($submission_id);
 		if (@$missing) {
 			local $" = q(, );
-			$logger->warn(
-"$self->{'instance'}: Refusing to finalize submission $submission_id - missing assembly files: @$missing"
-			);
+			$logger->warn( "$self->{'instance'}: Refusing to finalize submission $submission_id - "
+				  . "missing assembly files: @$missing" );
 			return;
 		}
+	}
+	my %open_sharing_type = map { $_ => 1 } qw(isolates genomes assemblies);
+	if ( $self->_open_sharing_required && $open_sharing_type{ $submission->{'type'} } && !$q->param('open_sharing') ) {
+		return 1;
 	}
 	$self->_check_invalid_embargo;
 	$logger->info("$self->{'instance'}: New $submission->{'type'} submission");
@@ -2119,6 +2136,7 @@ sub _presubmit_isolates {
 	say $q->start_form;
 	$self->_print_email_fieldset($submission_id);
 	$self->_print_embargo_fieldset($submission_id);
+	$self->_print_open_sharing_confirmation($submission_id);
 	my @hidden = qw(db page submit submission_id);
 
 	if ( $self->{'failed_validation'} ) {
@@ -2181,6 +2199,7 @@ sub _presubmit_assemblies {
 	$self->_print_message_fieldset($submission_id);
 	say $q->start_form;
 	$self->_print_email_fieldset($submission_id);
+	$self->_print_open_sharing_confirmation($submission_id);
 	my @hidden = qw(db page submit submission_id);
 
 	if ( $self->{'failed_validation'} ) {
@@ -2307,6 +2326,57 @@ sub _print_embargo_fieldset {
 		value => $embargo->{'default_embargo'}
 	);
 	say q(months</li></ul>);
+	say q(</fieldset>);
+	return;
+}
+
+sub _open_sharing_required {
+	my ($self) = @_;
+	return   if ( $self->{'system'}->{'require_open_sharing_confirmation'} // q() ) eq 'no';
+	return 1 if ( $self->{'system'}->{'require_open_sharing_confirmation'} // q() ) eq 'yes';
+	return $self->{'config'}->{'require_open_sharing_confirmation'};
+}
+
+sub _print_open_sharing_confirmation {
+	my ( $self, $submission_id ) = @_;
+	return if !$self->_open_sharing_required;
+	my $submission        = $self->{'submissionHandler'}->get_submission($submission_id);
+	my $template_dirs     = [ "$self->{'config_dir'}/dbases/$self->{'instance'}", "$self->{'config_dir'}/templates" ];
+	my $template_filename = 'open_sharing_confirmation.tt';
+	my $template_path;
+	foreach my $dir (@$template_dirs) {
+		if ( -e "$dir/$template_filename" ) {
+			$template_path = "$dir/$template_filename";
+			last;
+		}
+	}
+	if ( !$template_path ) {
+		$logger->error( 'Open sharing confirmation message has not been defined. '
+			  . "Add message to template file $self->{'config_dir'}/templates/open_sharing_confirmation.tt." );
+		return;
+	}
+	my $template = Template->new(
+		{
+			ABSOLUTE => 1,
+			TRIM     => 1
+		}
+	);
+	my $template_output = q();
+	my %description     = (
+		isolates   => 'isolate metadata',
+		genomes    => 'genome and provenance data, including the genome assembly and associated isolate metadata',
+		assemblies => 'genome assembly data'
+	);
+	my $data = {
+		name             => $self->{'config'}->{'website_name'} // 'BIGSdb',
+		data_description => $description{ $submission->{'type'} }
+	};
+	$template->process( $template_path, $data, \$template_output ) || $logger->error( $template->error );
+	say q(<fieldset style="float:left;max-width:95%"><legend>Open sharing</legend>);
+	my $q = $self->{'cgi'};
+
+	say $q->checkbox( -id => 'open_sharing', -name => 'open_sharing', -required => 1, -label => q() );
+	say qq(<label for="open_sharing" style="cursor:pointer">$template_output</label>);
 	say q(</fieldset>);
 	return;
 }
