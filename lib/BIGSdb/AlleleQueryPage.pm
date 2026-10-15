@@ -76,6 +76,7 @@ function render_filters(){
 		width: '240px',
 		dropdownAutoWidth: true,
 		placeholder: '',
+		allowClear: true
 	});
 }
 

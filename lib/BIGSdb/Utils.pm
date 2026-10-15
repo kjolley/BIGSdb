@@ -105,7 +105,7 @@ sub is_complete_cds {
 sub sequence_type {
 	my ($sequence) = @_;
 	my $seq = ref $sequence ? $$sequence : $sequence;
-	$seq =~ s/^>.*(?:\n|$)//gmx;                                #Remove any FASTA header lines
+	$seq =~ s/^>.*(?:\n|$)//gmx;    #Remove any FASTA header lines
 	$seq =~ tr/ //;
 	return 'DNA' if !$seq;
 	my $AGTC_count = $seq =~ tr/[G|A|T|C|U|g|a|t|c|u|N|n]//;
@@ -407,7 +407,7 @@ sub xmfa2fasta {
 sub text2excel {
 	my ( $text_file, $options ) = @_;
 	$options = {} if ref $options ne 'HASH';
-	my ( %text_fields, %text_cols );
+	my ( %text_fields, %text_cols, %field_cols );
 	if ( $options->{'text_fields'} ) {
 		%text_fields = map { $_ => 1 } split /,/x, $options->{'text_fields'};
 	}
@@ -437,6 +437,17 @@ sub text2excel {
 	$header_format->set_bold;
 	my $cell_format = $workbook->add_format;
 	$cell_format->set_align('center');
+
+	my %field_formats;
+	if ( ref $options->{'field_options'} eq 'HASH' ) {
+		foreach my $field ( keys %{ $options->{'field_options'} } ) {
+			my $field_options = $options->{'field_options'}->{$field};
+			next if ref $field_options ne 'HASH' || !$field_options->{'align'};
+			$field_formats{$field} = $workbook->add_format;
+			$field_formats{$field}->set_align( $field_options->{'align'} );
+		}
+	}
+
 	open( my $text_fh, '<:encoding(utf8)', $text_file )
 	  || BIGSdb::Exception::File::CannotOpen->throw("Cannot open $text_file for reading");
 	my ( $row, $col ) = ( 0, 0 );
@@ -451,16 +462,31 @@ sub text2excel {
 		my $format = !$options->{'no_header'} && $row == 0 ? $header_format : $cell_format;
 		my @values = split /\t/x, $line;
 		foreach my $value (@values) {
+			if (  !$options->{'no_header'}
+				&& $first_line
+				&& ref $options->{'field_options'} eq 'HASH'
+				&& exists $options->{'field_options'}->{$value} )
+			{
+				$field_cols{$col} = $value;
+			}
 			if ( !$options->{'no_header'} && $first_line && $text_fields{$value} ) {
 				$text_cols{$col} = 1;
 			}
 			if ( !$first_line && $text_cols{$col} ) {
-				$worksheet->write_string( $row, $col, $value, $text_format );
+				my $this_format =
+					$field_cols{$col} && $field_formats{ $field_cols{$col} }
+				  ? $field_formats{ $field_cols{$col} }
+				  : $text_format;
+				$worksheet->write_string( $row, $col, $value, $this_format );
 			} else {
+				my $this_format =
+				   !$first_line && $field_cols{$col} && $field_formats{ $field_cols{$col} }
+				  ? $field_formats{ $field_cols{$col} }
+				  : $format;
 				if ( $special_values{$value} ) {
-					$worksheet->write_string( $row, $col, $value, $format );
+					$worksheet->write_string( $row, $col, $value, $this_format );
 				} else {
-					$worksheet->write( $row, $col, $value, $format );
+					$worksheet->write( $row, $col, $value, $this_format );
 				}
 			}
 			$widths{$col} = length $value if length $value > ( $widths{$col} // 0 );
@@ -473,7 +499,13 @@ sub text2excel {
 	}
 	foreach my $col ( keys %widths ) {
 		my $width = my $value_width = int( 0.9 * ( $widths{$col} ) + 2 );
-		if ( $options->{'max_width'} ) {
+		my $field_max_width =
+			$field_cols{$col} && ref $options->{'field_options'} eq 'HASH'
+		  ? $options->{'field_options'}->{ $field_cols{$col} }->{'max_width'}
+		  : undef;
+		if ($field_max_width) {
+			$width = $field_max_width if $width > $field_max_width;
+		} elsif ( $options->{'max_width'} ) {
 			$width = $options->{'max_width'} if $width > $options->{'max_width'};
 		}
 		$worksheet->set_column( $col, $col, $width );

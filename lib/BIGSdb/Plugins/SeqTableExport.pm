@@ -41,7 +41,7 @@ sub get_attributes {
 		menutext    => 'Export table',
 		buttontext  => 'Table',
 		module      => 'SeqTableExport',
-		version     => '1.2.3',
+		version     => '1.3.0',
 		dbtype      => 'sequences',
 		seqdb_type  => 'sequences',
 		input       => 'query',
@@ -78,7 +78,15 @@ sub run {
 		say q(<p>);
 		my $text_file_icon = TEXT_FILE;
 		print qq(<li><a href="/tmp/$filename" title="Tab-delimited text">$text_file_icon</a>);
-		my $excel = BIGSdb::Utils::text2excel( $full_path, { max_width => 25 } );
+		my $excel = BIGSdb::Utils::text2excel(
+			$full_path,
+			{
+				max_width     => 25,
+				field_options => {
+					'linked data values' => { max_width => 60, align => 'left' }
+				}
+			}
+		);
 		if ( -e $excel ) {
 			my $excel_file_icon = EXCEL_FILE;
 			( my $excel_file = $filename ) =~ s/txt/xlsx/;
@@ -123,6 +131,10 @@ sub _create_table {
 		push @results, @$databank_values;
 		my $pubmed_values = $self->_get_allele_pubmed_values( $header_exists, $locus, $allele_id );
 		push @results, $pubmed_values if $header_exists->{'PubMed'};
+
+		if ( $header_exists->{'linked data values'} ) {
+			push @results, $self->_get_linked_data_values( $locus, $allele_id );
+		}
 		my $flags = $self->{'datastore'}->get_allele_flags( $locus, $allele_id );
 		local $" = q(; );
 		push @results, qq(@$flags);
@@ -131,6 +143,27 @@ sub _create_table {
 	}
 	close $fh;
 	return $filename;
+}
+
+sub _get_linked_data_values {
+	my ( $self, $locus, $allele_id ) = @_;
+
+	my $linked = $self->{'datastore'}->get_client_data_linked_to_allele( $locus, $allele_id );
+
+	return q() if !$linked || !$linked->{'detailed_values'};
+
+	my @values;
+	local $" = q(; );
+	foreach my $db ( sort keys %{ $linked->{'detailed_values'} } ) {
+		foreach my $field ( sort keys %{ $linked->{'detailed_values'}->{$db} } ) {
+			my @field_values;
+			foreach my $entry ( @{ $linked->{'detailed_values'}->{$db}->{$field} } ) {
+				push @field_values, qq($entry->{'value'} [n=$entry->{'frequency'}]);
+			}
+			push @values, qq($db $field: @field_values);
+		}
+	}
+	return qq(@values);
 }
 
 sub _get_allele_attributes {
@@ -304,6 +337,14 @@ sub _get_headers {
 	push @$headers, @$databanks;
 	if ( $self->{'datastore'}->run_query( 'SELECT EXISTS(SELECT * FROM sequence_refs WHERE locus=?)', $locus ) ) {
 		push @$headers, 'PubMed';
+	}
+	if (
+		$self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM client_dbase_loci_fields ' . 'WHERE locus=? AND allele_query)', $locus
+		)
+	  )
+	{
+		push @$headers, 'linked data values';
 	}
 	if ( ( $self->{'system'}->{'allele_flags'} // q() ) eq 'yes' ) {
 		push @$headers, 'flags';
