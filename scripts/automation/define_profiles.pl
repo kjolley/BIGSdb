@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20261008
+#Version: 20261016
 
 use strict;
 use warnings;
@@ -122,44 +122,50 @@ sub main {
 
 	foreach my $isolate_id (@$isolate_list) {
 		last if $EXIT;
-		next if defined_in_cache($isolate_id);
-		next if filtered_out_by_view( $view, $isolate_id );
-		my ( $profile, $designations, $missing ) = get_profile($isolate_id);
-		next if $missing > $opts{'missing'};
-		my $field_values =
-		  $scheme->get_field_values_by_designations( $designations,
-			{ dont_match_missing_loci => $opts{'match_missing'} || $opts{'allow_allele_0'} ? 0 : 1 } );
-		next if @$field_values;    #Already defined
+	  PROCESS_ISOLATE: {
+			last PROCESS_ISOLATE if defined_in_cache($isolate_id);
+			last PROCESS_ISOLATE if filtered_out_by_view( $view, $isolate_id );
+			my ( $profile, $designations, $missing ) = get_profile($isolate_id);
+			last PROCESS_ISOLATE if $missing > $opts{'missing'};
+			my $field_values =
+			  $scheme->get_field_values_by_designations( $designations,
+				{ dont_match_missing_loci => $opts{'match_missing'} || $opts{'allow_allele_0'} ? 0 : 1 } );
+			last PROCESS_ISOLATE if @$field_values;                               #Already defined
 
-		my $sender = lookup_sender_in_seqdefdb($isolate_id);
-		my $retval = define_new_profile( $designations, $sender );
+			my $sender = lookup_sender_in_seqdefdb($isolate_id);
+			my $retval = define_new_profile( $designations, $sender );
 
-		if ( $retval->{'status'} == 1 ) {
-			if ( !$opts{'quiet'} ) {
-				print "Isolate id: $isolate_id; ";
-				say $retval->{'message'};
-			}
-			$need_to_refresh_cache = 1;
-		} else {
-			if ( $retval->{'message'} =~ /Profile\ already\ defined/x ) {
-				my $defined_zero = $script->{'datastore'}->run_query(
-					'SELECT COUNT(*) FROM allele_designations WHERE (isolate_id,allele_id)=(?,?) AND '
-					  . 'locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)',
-					[ $isolate_id, '0', $opts{'scheme_id'} ],
-					{ cache => 'check_for_zeroes' }
-				);
-
-				#We can skip if it's because of this, otherwise report the error.
-				if ( $defined_zero && !$opts{'allow_allele_0'} ) {
-					next;
-				} else {
-					$logger->error("Isolate id: $isolate_id; Cannot define cgST - profile already defined!");
+			if ( $retval->{'status'} == 1 ) {
+				if ( !$opts{'quiet'} ) {
+					print "Isolate id: $isolate_id; ";
+					say $retval->{'message'};
 				}
+				$need_to_refresh_cache = 1;
 			} else {
-				$logger->error("Isolate id: $isolate_id; $retval->{'message'}");
+				if ( $retval->{'message'} =~ /Profile\ already\ defined/x ) {
+					my $defined_zero = $script->{'datastore'}->run_query(
+						'SELECT COUNT(*) FROM allele_designations WHERE (isolate_id,allele_id)=(?,?) AND '
+						  . 'locus IN (SELECT locus FROM scheme_members WHERE scheme_id=?)',
+						[ $isolate_id, '0', $opts{'scheme_id'} ],
+						{ cache => 'check_for_zeroes' }
+					);
+
+					#We can skip if it's because of this, otherwise report the error.
+					if ( $defined_zero && !$opts{'allow_allele_0'} ) {
+						last PROCESS_ISOLATE;
+					} else {
+						$logger->error("Isolate id: $isolate_id; Cannot define cgST - profile already defined!");
+					}
+				} else {
+					$logger->error("Isolate id: $isolate_id; $retval->{'message'}");
+				}
 			}
 		}
+
+		# Release read locks on the isolate database between isolates.
+		$script->{'datastore'}->{'db'}->commit;
 	}
+	$script->{'datastore'}->{'db'}->commit;
 	refresh_caches() if $need_to_refresh_cache && !$EXIT;
 	return;
 }
