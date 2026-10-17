@@ -2134,6 +2134,14 @@ sub create_temp_scheme_table {
 	$self->_check_connection;
 	$options = {} if ref $options ne 'HASH';
 
+	my $table = "temp_scheme_$id";
+
+	#Test if table already exists. This check should precede advisory lock.
+	if ( !$options->{'cache'} ) {
+		return $table
+		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
+	}
+
 	# Serialize warehouse-index rebuilds for this scheme, but allow
 	# different schemes to be rebuilt concurrently.
 	$self->{'db'}->do( q(SELECT pg_advisory_xact_lock(hashtext('BIGSdb.scheme_warehouse_indices'), ?)), undef, $id );
@@ -2144,13 +2152,6 @@ sub create_temp_scheme_table {
 	if ( !$scheme_db ) {
 		$logger->error("No scheme database for scheme $id");
 		BIGSdb::Exception::Database::Connection->throw('Database does not exist');
-	}
-	my $table = "temp_scheme_$id";
-
-	#Test if table already exists
-	if ( !$options->{'cache'} ) {
-		return $table
-		  if $self->run_query( 'SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_name=?)', $table );
 	}
 	my $fields     = $self->get_scheme_fields($id);
 	my $table_type = 'TEMP TABLE';
