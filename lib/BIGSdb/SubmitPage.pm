@@ -235,7 +235,7 @@ sub print_content {
 	}
 	my $q = $self->{'cgi'};
 	$self->choose_set;
-	say q(<h1>Manage submissions</h1>);
+	say q(<h1>Manage submissions</h1>) if !$q->param('curate') && !$q->param('view');
 	my $submission_id = $q->param('submission_id');
 	if ($submission_id) {
 		if ( $q->param('reopen') ) {
