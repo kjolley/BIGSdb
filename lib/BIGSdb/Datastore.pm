@@ -1417,18 +1417,41 @@ sub create_temp_isolate_scheme_fields_view {
 		return;
 	}
 	if ($replace_table) {
-		eval {
-			#The expensive rebuild is complete. Only the final swap touches the
-			#currently-used cache table, so any lock is held only briefly.
-			$self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table");
-			$self->{'db'}->do("ALTER TABLE $rename_table RENAME CONSTRAINT $new_fk_name TO $fk_name");
-		};
-		if ($@) {
-			$logger->error($@);
-			$self->{'db'}->rollback;
+
+		# Commit the completed replacement table before attempting the swap.
+		# A deadlock or lock timeout must not undo the expensive rebuild.
+		$self->{'db'}->commit;
+
+		my $max_attempts = 60;
+		my $swapped      = 0;
+		for my $attempt ( 1 .. $max_attempts ) {
+			my ( $error, $sqlstate );
+			eval {
+				$self->{'db'}->do(q[SET LOCAL lock_timeout = '5s']);
+				$self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table");
+				$self->{'db'}->do("ALTER TABLE $rename_table RENAME CONSTRAINT $new_fk_name TO $fk_name");
+				$self->{'db'}->commit;
+			};
+			if ($@) {
+				$error    = $@;
+				$sqlstate = $self->{'db'}->state;
+				$self->{'db'}->rollback;
+				if ( $sqlstate ne '40P01' && $sqlstate ne '55P03' ) {
+					$logger->error("Cannot replace $rename_table: $error");
+					return;
+				}
+				$logger->warn("Cache swap attempt $attempt/$max_attempts failed for $rename_table: $error");
+				sleep 2 if $attempt < $max_attempts;
+			} else {
+				$swapped = 1;
+				last;
+			}
+		}
+		if ( !$swapped ) {
+			$logger->error( "Cannot replace $rename_table after $max_attempts attempts. "
+				  . "Replacement table $table has been retained for later cleanup." );
 			return;
 		}
-		$self->{'db'}->commit;
 		$self->_delete_temp_tables("${rename_table}_");
 		$table = $rename_table;
 	}
