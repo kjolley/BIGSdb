@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20261016
+#Version: 20261020
 
 use strict;
 use warnings;
@@ -111,18 +111,22 @@ $script->stop_job( $job_id, { temp_init => 1 } );
 undef $script;
 
 sub main {
-	my $isolates     = $script->get_isolates;
-	my $isolate_list = $script->filter_and_sort_isolates($isolates);
-	my $scheme       = $script->{'datastore'}->get_scheme( $opts{'scheme_id'} );
-	my $scheme_info  = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'} );
-	my $view         = $scheme_info->{'view'};
+	my $isolates        = $script->get_isolates;
+	my $isolate_list    = $script->filter_and_sort_isolates($isolates);
+	my $exceeds_missing = get_isolates_exceeding_missing_threshold();
+	my $scheme          = $script->{'datastore'}->get_scheme( $opts{'scheme_id'} );
+	my $scheme_info     = $script->{'datastore'}->get_scheme_info( $opts{'scheme_id'} );
+	my $view            = $scheme_info->{'view'};
 	my $need_to_refresh_cache;
 	my $EXIT = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Mark job as finished on kill signals
 
 	foreach my $isolate_id (@$isolate_list) {
 		last if $EXIT;
+		say $isolate_id;
 	  PROCESS_ISOLATE: {
+			last PROCESS_ISOLATE
+			  if $exceeds_missing->{$isolate_id};
 			last PROCESS_ISOLATE if defined_in_cache($isolate_id);
 			last PROCESS_ISOLATE if filtered_out_by_view( $view, $isolate_id );
 			my ( $profile, $designations, $missing ) = get_profile($isolate_id);
@@ -130,7 +134,7 @@ sub main {
 			my $field_values =
 			  $scheme->get_field_values_by_designations( $designations,
 				{ dont_match_missing_loci => $opts{'match_missing'} || $opts{'allow_allele_0'} ? 0 : 1 } );
-			last PROCESS_ISOLATE if @$field_values;                               #Already defined
+			last PROCESS_ISOLATE if @$field_values;    #Already defined
 
 			my $sender = lookup_sender_in_seqdefdb($isolate_id);
 			my $retval = define_new_profile( $designations, $sender );
@@ -567,6 +571,22 @@ sub defined_in_cache {
 		  ->run_query( "SELECT EXISTS(SELECT * FROM $cache_tables->{'field_cache'} WHERE id=?)",
 			$isolate_id, { cache => 'defined_in_cache::isolate_found' } );
 	}
+}
+
+sub get_isolates_exceeding_missing_threshold {
+	my $scheme_loci =
+	  $script->{'datastore'}->get_scheme_loci( $opts{'scheme_id'} );
+	my $required_loci = scalar(@$scheme_loci) - $opts{'missing'};
+
+	return {} if $required_loci <= 0;
+
+	my $cache_tables = get_cache_table_names();
+	my $table        = $cache_tables->{'completion_cache'};
+
+	my $ids = $script->{'datastore'}
+	  ->run_query( "SELECT id FROM $table WHERE locus_count < ?", $required_loci, { fetch => 'col_arrayref' } );
+
+	return { map { $_ => 1 } @$ids };
 }
 
 sub filtered_out_by_view {
