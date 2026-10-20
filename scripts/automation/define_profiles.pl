@@ -123,7 +123,6 @@ sub main {
 
 	foreach my $isolate_id (@$isolate_list) {
 		last if $EXIT;
-		say $isolate_id;
 	  PROCESS_ISOLATE: {
 			last PROCESS_ISOLATE
 			  if $exceeds_missing->{$isolate_id};
