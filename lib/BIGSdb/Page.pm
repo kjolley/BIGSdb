@@ -452,17 +452,24 @@ sub get_embargo_message {
 	  BIGSdb::Utils::is_int($project_id)
 	  ? qq(&amp;project_list=$project_id)
 	  : q();
+	my $sender_filter = qq(&amp;prov_field1=f_sender%20%28id%29&amp;prov_value1=$user_info->{'id'});
 	my $msg =
 		qq(<p><b>Note: </b>You currently have <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;)
-	  . qq(page=query&amp;private_records_list=6$project_clause&amp;submit=1">$embargo_total record$plural embargoed</a>. );
-	$msg .=
-	  $soonest->{'count'} == 1
-	  ? q(This )
-	  : qq($soonest->{'count'} of these );
-	$msg .=
-		qq(will be made public on <a href="$self->{'system'}->{'script_name'}?)
-	  . qq(db=$self->{'instance'}&amp;page=query&amp;prov_field1=mf_embargo_date&amp;prov_value1=$soonest->{'embargo'})
-	  . qq($project_clause&amp;submit=1">$soonest->{'embargo'}</a>.</p>);
+	  . qq(page=query&amp;private_records_list=6$sender_filter$project_clause&amp;submit=1">)
+	  . qq($embargo_total record$plural embargoed</a>. );
+	my $date_url =
+		qq($self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=query)
+	  . qq(&amp;prov_field1=mf_embargo_date&amp;prov_value1=$soonest->{'embargo'})
+	  . qq(&amp;prov_field2=f_sender%20%28id%29&amp;prov_value2=$user_info->{'id'})
+	  . qq($project_clause&amp;submit=1);
+
+	if ( $soonest->{'count'} == $embargo_total ) {
+		$msg .= qq(All $embargo_total record$plural will be made public on )
+		  . qq(<a href="$date_url">$soonest->{'embargo'}</a>.</p>);
+	} else {
+		$msg .= qq(The earliest embargo expires on <a href="$date_url">$soonest->{'embargo'}</a>, )
+		  . qq(when $soonest->{'count'} of these records will be made public.</p>);
+	}
 	return $msg;
 }
 
@@ -2242,8 +2249,8 @@ sub get_sequence_methods {
 			push @methods, $method if $method ne q();
 		}
 	}
-	@methods = SEQ_METHODS if !@methods;
-	@methods = uniq @methods;
+	@methods                               = SEQ_METHODS if !@methods;
+	@methods                               = uniq @methods;
 	$self->{'cache'}->{'sequence_methods'} = \@methods;
 	return $self->{'cache'}->{'sequence_methods'};
 }
@@ -4150,6 +4157,7 @@ sub print_related_database_panel {
 	say q(<a class="close_trigger" id="close_related_db"><span class="fas fa-times"></span></a>);
 	say q(<h2>Related databases</h2>);
 	say q(<div><div style="max-height:12em;overflow-y:auto;padding-right:2em"><ul style="margin-left:-1em">);
+
 	foreach my $link (@$links) {
 		say qq(<li><a href="$link->{'href'}">$link->{'text'}</a></li>);
 	}
