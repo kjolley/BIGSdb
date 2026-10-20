@@ -197,6 +197,7 @@ sub _print_interface {
 	say q(<div class="fakefile"><input id='fakefile' placeholder="Click to select or drag and drop..." /></div>);
 	say q(</div>);
 	say q(</fieldset>);
+	$self->_print_submission_embargo_fieldset($table);
 	say $q->hidden($_) foreach qw (page db table locus submission_id private project_id user_header);
 	$self->print_action_fieldset( { table => $table, %$options } );
 	say $q->end_form;
@@ -1175,6 +1176,7 @@ sub _report_check {
 		say $q->start_form;
 		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing
 		  submission_id project_id private user_header);
+		$self->_print_submission_embargo_fieldset($table);
 		say $q->hidden( checked_buffer => $filename );
 		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
 		say $q->end_form;
@@ -1485,8 +1487,7 @@ sub _check_data_aliases {
 	my $field          = $arg_ref->{'field'};
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
-	if ( $field eq 'aliases' && defined $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } )
-	{
+	if ( $field eq 'aliases' && defined $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ) {
 		my $isolate_name = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ];
 		my %null_terms   = map { lc($_) => 1 } NULL_TERMS;
 		if ( defined $value ) {
@@ -1855,9 +1856,18 @@ sub _upload_data {
 	my $private           = $self->_is_private_record;
 	return if $self->_is_not_allowed_to_upload_public_data($table);
 	my $submission_id = $q->param('submission_id');
-	my $prefix        = BIGSdb::Utils::get_random();
-	my $status_file   = "$prefix.json";
-	my $success_html  = $self->_report_successful_upload( $table, $project_id );
+	my $curator_embargo;
+
+	if ( defined $q->param('curator_embargo_months') && $q->param('curator_embargo_months') ne q() ) {
+		$curator_embargo = $self->_validated_curator_embargo($table);
+		if ( !defined $curator_embargo ) {
+			$self->print_bad_status( { message => q(Invalid or unauthorized submission embargo.) } );
+			return;
+		}
+	}
+	my $prefix       = BIGSdb::Utils::get_random();
+	my $status_file  = "$prefix.json";
+	my $success_html = $self->_report_successful_upload( $table, $project_id );
 
 	#Use double fork to prevent zombie processes on apache2-mpm-worker
 	defined( my $kid = fork ) or $self->{'logger'}->error('cannot fork');
@@ -1883,19 +1893,20 @@ sub _upload_data {
 					instance         => $self->{'instance'},
 					logger           => $logger,
 					params           => {
-						records           => $records,
-						username          => $self->{'username'},
-						field_order       => $field_order,
-						fields_to_include => $fields_to_include,
-						table             => $table,
-						locus             => $locus,
-						project_id        => $project_id,
-						private           => $private,
-						curator_id        => $self->get_curator_id,
-						sender_id         => scalar $q->param('sender'),
-						submission_id     => $submission_id,
-						status_file       => $status_file,
-						success_html      => $success_html
+						records                => $records,
+						username               => $self->{'username'},
+						field_order            => $field_order,
+						fields_to_include      => $fields_to_include,
+						table                  => $table,
+						locus                  => $locus,
+						project_id             => $project_id,
+						private                => $private,
+						curator_id             => $self->get_curator_id,
+						sender_id              => scalar $q->param('sender'),
+						submission_id          => $submission_id,
+						curator_embargo_months => $curator_embargo,
+						status_file            => $status_file,
+						success_html           => $success_html
 					}
 				}
 			);
@@ -2229,6 +2240,59 @@ sub _convert_query {
 		$data .= "$project_id\t$_\n" foreach (@$ids);
 	}
 	return $data;
+}
+
+sub _submission_embargo_context {
+	my ( $self, $table ) = @_;
+	my $q = $self->{'cgi'};
+	return if $table ne 'isolates' || !$q->param('submission_id');
+	my $submission = $self->{'submissionHandler'}->get_submission( scalar $q->param('submission_id') );
+	return if !$submission || $submission->{'type'} !~ /\A(?:isolates|genomes)\z/x;
+	my $settings = $self->{'datastore'}->get_embargo_attributes;
+	return if !$settings->{'embargo_enabled'};
+	return { submission => $submission, settings => $settings };
+}
+
+sub _print_submission_embargo_fieldset {
+	my ( $self, $table ) = @_;
+	my $context = $self->_submission_embargo_context($table);
+	return if !$context;
+	my $requested = $context->{'submission'}->{'embargo'};
+	return if !$requested && !$self->is_admin && !$self->{'permissions'}->{'set_embargo'};
+	say q(<fieldset style="float:left;max-width:300px"><legend>Embargo</legend>);
+	if ($requested) {
+		say qq(<p>Submitter-requested embargo: $requested months (cannot be changed).</p>);
+	} else {
+		my $settings = $context->{'settings'};
+		my $min      = $settings->{'default_embargo'} < 3 ? $settings->{'default_embargo'} : 3;
+		my $q        = $self->{'cgi'};
+		say q(<p>Optionally embargo these records after import.</p>);
+		say q(<label for="curator_embargo_months">Time (months): </label>);
+		say $self->textfield(
+			name  => 'curator_embargo_months',
+			id    => 'curator_embargo_months',
+			type  => 'number',
+			style => 'width:4em',
+			min   => $min,
+			max   => $settings->{'max_initial_embargo'},
+			value => scalar( $q->param('curator_embargo_months') // q() )
+		);
+	}
+	say q(</fieldset>);
+	return;
+}
+
+sub _validated_curator_embargo {
+	my ( $self, $table ) = @_;
+	my $context = $self->_submission_embargo_context($table);
+	return if !$context || ( !$self->is_admin && !$self->{'permissions'}->{'set_embargo'} );
+	return if $context->{'submission'}->{'embargo'};
+	my $months = $self->{'cgi'}->param('curator_embargo_months');
+	return if !BIGSdb::Utils::is_int($months);
+	my $settings = $context->{'settings'};
+	my $min      = $settings->{'default_embargo'} < 3 ? $settings->{'default_embargo'} : 3;
+	return if $months < $min || $months > $settings->{'max_initial_embargo'};
+	return $months;
 }
 
 sub _set_submission_params {

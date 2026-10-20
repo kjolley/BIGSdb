@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2021-2024, University of Oxford
+#Copyright (c) 2021-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -30,13 +30,13 @@ use JSON;
 sub upload {
 	my ($self) = @_;
 	my (
-		$records,       $username,    $field_order, $fields_to_include, $table,
-		$locus,         $project_id,  $private,     $curator_id,        $sender_id,
-		$submission_id, $status_file, $success_html
+		$records,       $username,    $field_order,  $fields_to_include, $table,
+		$locus,         $project_id,  $private,      $curator_id,        $sender_id,
+		$submission_id, $status_file, $success_html, $curator_embargo_months
 	  )
 	  = @{ $self->{'params'} }{
 		qw(records username field_order fields_to_include table locus project_id private curator_id sender_id
-		  submission_id status_file success_html)
+		  submission_id status_file success_html curator_embargo_months)
 	  };
 	$self->{'curator_id'} = $curator_id;
 	$self->{'sender_id'}  = $sender_id;
@@ -224,7 +224,7 @@ sub upload {
 	if ($submission_id) {
 		$self->_update_submission_database($submission_id);
 		if ( $table eq 'isolates' ) {
-			$self->_set_embargo( $submission_id, $isolate_ids );
+			$self->_set_embargo( $submission_id, $isolate_ids, $curator_embargo_months );
 		}
 	}
 	$self->{'db'}->commit;
@@ -235,17 +235,20 @@ sub upload {
 }
 
 sub _set_embargo {
-	my ( $self, $submission_id, $isolate_ids ) = @_;
+	my ( $self, $submission_id, $isolate_ids, $curator_embargo_months ) = @_;
 	my $submission = $self->{'submissionHandler'}->get_submission($submission_id);
-	return if !$submission->{'embargo'};
-	if ( $submission->{'embargo'} ) {
+
+	# The submitter's request always takes precedence over a curator selection.
+	my $months = $submission->{'embargo'} || $curator_embargo_months;
+	return if !$months;
+	if ($months) {
 		eval {
 			foreach my $isolate_id (@$isolate_ids) {
 				if ( !BIGSdb::Utils::is_int($isolate_id) ) {
 					$self->{'logger'}->error("Isolate id not integer - $isolate_id");
 					next;
 				}
-				my $embargo_date = BIGSdb::Utils::get_future_date( $submission->{'embargo'} );
+				my $embargo_date = BIGSdb::Utils::get_future_date($months);
 				$self->{'db'}->do(
 					q[INSERT INTO private_isolates (isolate_id,user_id,datestamp,embargo) VALUES (?,?,?,?)],
 					undef, $isolate_id, $submission->{'submitter'},
@@ -343,11 +346,9 @@ sub _process_multivalues {
 	my ( $self, $field_att, $field_order, $field, $data ) = @_;
 	my $divider  = q(;);
 	my $multiple = $field_att->{$field}->{'multiple'} // q();
-	if (
-		( $multiple eq 'yes' || $multiple == 1 )
+	if (   ( $multiple eq 'yes' || $multiple == 1 )
 		&& defined $field_order->{$field}
-		&& defined $data->[ $field_order->{$field} ]
-	  )
+		&& defined $data->[ $field_order->{$field} ] )
 	{
 		$data->[ $field_order->{$field} ] = [ split /$divider/x, $data->[ $field_order->{$field} ] ];
 		s/^\s+|\s+$//gx foreach @{ $data->[ $field_order->{$field} ] };
