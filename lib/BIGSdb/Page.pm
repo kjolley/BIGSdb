@@ -463,7 +463,9 @@ sub get_embargo_message {
 	  . qq(&amp;prov_field2=f_sender%20%28id%29&amp;prov_value2=$user_info->{'id'})
 	  . qq($project_clause&amp;submit=1);
 
-	if ( $soonest->{'count'} == $embargo_total ) {
+	if ( $embargo_total == 1 ) {
+		$msg .= qq(This record will be made public on <a href="$date_url">$soonest->{'embargo'}</a>.</p>);
+	} elsif ( $soonest->{'count'} == $embargo_total ) {
 		$msg .= qq(All $embargo_total record$plural will be made public on )
 		  . qq(<a href="$date_url">$soonest->{'embargo'}</a>.</p>);
 	} else {
