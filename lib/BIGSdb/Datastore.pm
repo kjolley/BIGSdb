@@ -1607,25 +1607,47 @@ sub create_temp_lincodes_table {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
+		return;
 	}
+	$self->{'db'}->commit;
 
 	#Create new temp table, then drop old and rename the new - this
 	#should minimize the time that the table is unavailable.
 	if ( $options->{'cache'} ) {
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		if ($@) {
-			$logger->error($@);
-			$logger->error("Dropping temp table $table.");
-			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
-			$logger->error($@) if $@;
-		} else {
-
-			#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
-			$self->_delete_temp_tables("temp_lincodes_${scheme_id}_");
+		my $max_attempts = 60;
+		my $swapped      = 0;
+		for my $attempt ( 1 .. $max_attempts ) {
+			my ( $error, $sqlstate );
+			eval {
+				# Keep exclusive lock requests short so that web queries
+				# are not queued behind the swap during database backups.
+				$self->{'db'}->do(q[SET LOCAL lock_timeout = '1s']);
+				$self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table");
+				$self->{'db'}->commit;
+			};
+			if ($@) {
+				$error    = $@;
+				$sqlstate = $self->{'db'}->state;
+				$self->{'db'}->rollback;
+				if ( $sqlstate ne '40P01' && $sqlstate ne '55P03' ) {
+					$logger->error("Cannot replace $rename_table: $error");
+					return;
+				}
+				$logger->warn("Lincode cache swap attempt $attempt/$max_attempts failed for $rename_table: $error");
+				sleep 5 if $attempt < $max_attempts;
+			} else {
+				$swapped = 1;
+				last;
+			}
 		}
-		$self->{'db'}->commit;
+		if ( !$swapped ) {
+			$logger->error( "Cannot replace $rename_table after $max_attempts attempts. "
+				  . "Replacement table $table has been retained for later cleanup." );
+			return;
+		}
+
+		#Remove obsolete timestamped tables after a successful swap.
+		$self->_delete_temp_tables("temp_lincodes_${scheme_id}_");
 		$table = $rename_table;
 	}
 	return $table;
