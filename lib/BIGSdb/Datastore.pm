@@ -1418,40 +1418,12 @@ sub create_temp_isolate_scheme_fields_view {
 	}
 	if ($replace_table) {
 
-		# Commit the completed replacement table before attempting the swap.
-		# A deadlock or lock timeout must not undo the expensive rebuild.
+		# The replacement has already been built; commit it before swapping.
 		$self->{'db'}->commit;
+		return
+		  if !$self->_swap_cache_table( $table, $rename_table,
+			{ rename_constraint => [ $new_fk_name, $fk_name ], lock_timeout => '5s', retry_delay => 2 } );
 
-		my $max_attempts = 60;
-		my $swapped      = 0;
-		for my $attempt ( 1 .. $max_attempts ) {
-			my ( $error, $sqlstate );
-			eval {
-				$self->{'db'}->do(q[SET LOCAL lock_timeout = '5s']);
-				$self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table");
-				$self->{'db'}->do("ALTER TABLE $rename_table RENAME CONSTRAINT $new_fk_name TO $fk_name");
-				$self->{'db'}->commit;
-			};
-			if ($@) {
-				$error    = $@;
-				$sqlstate = $self->{'db'}->state;
-				$self->{'db'}->rollback;
-				if ( $sqlstate ne '40P01' && $sqlstate ne '55P03' ) {
-					$logger->error("Cannot replace $rename_table: $error");
-					return;
-				}
-				$logger->warn("Cache swap attempt $attempt/$max_attempts failed for $rename_table: $error");
-				sleep 2 if $attempt < $max_attempts;
-			} else {
-				$swapped = 1;
-				last;
-			}
-		}
-		if ( !$swapped ) {
-			$logger->error( "Cannot replace $rename_table after $max_attempts attempts. "
-				  . "Replacement table $table has been retained for later cleanup." );
-			return;
-		}
 		$self->_delete_temp_tables("${rename_table}_");
 		$table = $rename_table;
 	}
@@ -1539,25 +1511,14 @@ sub create_temp_cscheme_table {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
+		return;
 	}
+	$self->{'db'}->commit;
 
-	#Create new temp table, then drop old and rename the new - this
-	#should minimize the time that the table is unavailable.
+	# The replacement is committed before attempting the swap.
 	if ( $options->{'cache'} ) {
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		if ($@) {
-			$logger->error($@);
-			$logger->error("Dropping temp table $table.");
-			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
-			$logger->error($@) if $@;
-		} else {
-
-			#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
-			$self->_delete_temp_tables("temp_cscheme_${cscheme_id}_");
-		}
-		$self->{'db'}->commit;
+		return if !$self->_swap_cache_table( $table, $rename_table );
+		$self->_delete_temp_tables("temp_cscheme_${cscheme_id}_");
 		$table = $rename_table;
 	}
 	return $table;
@@ -1611,42 +1572,9 @@ sub create_temp_lincodes_table {
 	}
 	$self->{'db'}->commit;
 
-	#Create new temp table, then drop old and rename the new - this
-	#should minimize the time that the table is unavailable.
+	# The replacement is committed before attempting the swap.
 	if ( $options->{'cache'} ) {
-		my $max_attempts = 60;
-		my $swapped      = 0;
-		for my $attempt ( 1 .. $max_attempts ) {
-			my ( $error, $sqlstate );
-			eval {
-				# Keep exclusive lock requests short so that web queries
-				# are not queued behind the swap during database backups.
-				$self->{'db'}->do(q[SET LOCAL lock_timeout = '1s']);
-				$self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table");
-				$self->{'db'}->commit;
-			};
-			if ($@) {
-				$error    = $@;
-				$sqlstate = $self->{'db'}->state;
-				$self->{'db'}->rollback;
-				if ( $sqlstate ne '40P01' && $sqlstate ne '55P03' ) {
-					$logger->error("Cannot replace $rename_table: $error");
-					return;
-				}
-				$logger->warn("Lincode cache swap attempt $attempt/$max_attempts failed for $rename_table: $error");
-				sleep 5 if $attempt < $max_attempts;
-			} else {
-				$swapped = 1;
-				last;
-			}
-		}
-		if ( !$swapped ) {
-			$logger->error( "Cannot replace $rename_table after $max_attempts attempts. "
-				  . "Replacement table $table has been retained for later cleanup." );
-			return;
-		}
-
-		#Remove obsolete timestamped tables after a successful swap.
+		return if !$self->_swap_cache_table( $table, $rename_table );
 		$self->_delete_temp_tables("temp_lincodes_${scheme_id}_");
 		$table = $rename_table;
 	}
@@ -1776,28 +1704,55 @@ sub create_temp_lincode_prefix_values_table {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
+		return;
 	}
+	$self->{'db'}->commit;
 
-	#Create new temp table, then drop old and rename the new - this
-	#should minimize the time that the table is unavailable.
+	# The replacement is committed before attempting the swap.
 	if ( $options->{'cache'} ) {
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		if ($@) {
-			$logger->error($@);
-			$logger->error("Dropping temp table $table.");
-			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
-			$logger->error($@) if $@;
-		} else {
-
-			#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
-			$self->_delete_temp_tables("temp_lincode_${scheme_id}_field_values_");
-		}
-		$self->{'db'}->commit;
+		return if !$self->_swap_cache_table( $table, $rename_table );
+		$self->_delete_temp_tables("temp_lincode_${scheme_id}_field_values_");
 		$table = $rename_table;
 	}
 	return $table;
+}
+
+sub _swap_cache_table {
+	my ( $self, $table, $rename_table, $options ) = @_;
+	$options //= {};
+	my $max_attempts = $options->{'max_attempts'} // 60;
+	my $lock_timeout = $options->{'lock_timeout'} // '1s';
+	my $retry_delay  = $options->{'retry_delay'}  // 5;
+
+	# The replacement table must already have been committed.
+	for my $attempt ( 1 .. $max_attempts ) {
+		my ( $error, $sqlstate );
+		eval {
+			$self->{'db'}->do(qq[SET LOCAL lock_timeout = '$lock_timeout']);
+			$self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table");
+			if ( $options->{'rename_constraint'} ) {
+				$self->{'db'}->do( "ALTER TABLE $rename_table RENAME CONSTRAINT "
+					  . "$options->{'rename_constraint'}->[0] TO $options->{'rename_constraint'}->[1]" );
+			}
+			$self->{'db'}->commit;
+		};
+		if ($@) {
+			$error    = $@;
+			$sqlstate = $self->{'db'}->state;
+			$self->{'db'}->rollback;
+			if ( $sqlstate ne '40P01' && $sqlstate ne '55P03' ) {
+				$logger->error("Cannot replace $rename_table: $error");
+				return;
+			}
+			$logger->warn("Cache swap attempt $attempt/$max_attempts failed for $rename_table: $error");
+			sleep $retry_delay if $attempt < $max_attempts;
+		} else {
+			return 1;
+		}
+	}
+	$logger->error( "Cannot replace $rename_table after $max_attempts attempts. "
+		  . "Replacement table $table has been retained for later cleanup." );
+	return;
 }
 
 sub _delete_temp_tables {
@@ -2150,25 +2105,14 @@ sub create_temp_cscheme_field_values_table {
 	if ($@) {
 		$logger->error($@);
 		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
+		return;
 	}
+	$self->{'db'}->commit;
 
-	#Create new temp table, then drop old and rename the new - this
-	#should minimize the time that the table is unavailable.
+	# The replacement is committed before attempting the swap.
 	if ( $options->{'cache'} ) {
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		if ($@) {
-			$logger->error($@);
-			$logger->error("Dropping temp table $table.");
-			eval { $self->{'db'}->do("DROP TABLE IF EXISTS $table") };
-			$logger->error($@) if $@;
-		} else {
-
-			#Drop any old temp tables for this scheme that may have persisted due to a lock timeout.
-			$self->_delete_temp_tables("temp_cscheme_${cscheme_id}_field_values_");
-		}
-		$self->{'db'}->commit;
+		return if !$self->_swap_cache_table( $table, $rename_table );
+		$self->_delete_temp_tables("temp_cscheme_${cscheme_id}_field_values_");
 		$table = $rename_table;
 	}
 	return $table;
@@ -2286,12 +2230,12 @@ sub create_temp_scheme_table {
 		$self->{'db'}->do("CREATE INDEX ON $table ((profile[$element]))");
 	}
 
-	#Create new temp table, then drop old and rename the new - this
-	#should minimize the time that the table is unavailable.
+	# Commit the replacement before attempting the swap, so a lock timeout
+	# cannot roll back the completed rebuild.
 	if ( $options->{'cache'} ) {
-		eval { $self->{'db'}->do("DROP TABLE IF EXISTS $rename_table; ALTER TABLE $table RENAME TO $rename_table") };
-		$logger->error("$self->{'system'}->{'db'}: dropping $rename_table $@") if $@;
 		$self->{'db'}->commit;
+		return if !$self->_swap_cache_table( $table, $rename_table );
+		$self->_delete_temp_tables("${rename_table}_");
 		$table = $rename_table;
 	}
 	return $table;
