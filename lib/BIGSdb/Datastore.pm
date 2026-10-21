@@ -1717,6 +1717,10 @@ sub create_temp_lincode_prefix_values_table {
 	return $table;
 }
 
+# The replacement table must already have been committed.
+# Each swap attempt runs in a separate transaction. Failed attempts
+# are rolled back, preserving both the existing cache and replacement.
+# Callers must serialize concurrent rebuilds of the same cache.
 sub _swap_cache_table {
 	my ( $self, $table, $rename_table, $options ) = @_;
 	$options //= {};
@@ -1759,17 +1763,27 @@ sub _delete_temp_tables {
 	my ( $self, $prefix ) = @_;
 	my $tables = $self->run_query( 'SELECT table_name FROM information_schema.tables where table_name LIKE ?',
 		"$prefix%", { fetch => 'col_arrayref' } );
-	eval {
-		foreach my $table (@$tables) {
-			next if $table !~ /^$prefix\d+$/x;
+
+	# Finish the lookup transaction before attempting any DDL.
+	$self->{'db'}->commit;
+	foreach my $table (@$tables) {
+		next if $table !~ /^\Q$prefix\E\d+$/x;
+		eval {
+			# Do not queue readers behind cleanup of an obsolete cache.
+			$self->{'db'}->do(q[SET LOCAL lock_timeout = '1s']);
 			$self->{'db'}->do("DROP TABLE $table");
+			$self->{'db'}->commit;
+		};
+		if ($@) {
+			my $error    = $@;
+			my $sqlstate = $self->{'db'}->state;
+			$self->{'db'}->rollback;
+			if ( $sqlstate eq '55P03' || $sqlstate eq '40P01' ) {
+				$logger->warn("Skipping cleanup of $table due to lock contention: $error");
+			} else {
+				$logger->error("Cannot clean up $table: $error");
+			}
 		}
-	};
-	if ($@) {
-		$logger->error($@);
-		$self->{'db'}->rollback;
-	} else {
-		$self->{'db'}->commit;
 	}
 	return;
 }
