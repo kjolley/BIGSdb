@@ -1,3 +1,7 @@
+v1.55.1: *Fixed reversion that broke submission tar downloads.
+         *Include linked data values in SeqTableExport plugin.
+         *Test for deadlocks when swapping cache tables. Retry if detected. 
+         *Added option for a curator to embargo isolates on upload.
 v1.55.0: *Deadlock prevention when renewing multiple scheme caches.
          *Sequencing technologies are now listed in a config file for easy 
           modification.
