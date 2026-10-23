@@ -283,7 +283,7 @@ sub print_tree_type_fieldset {
 	  $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM seqbin_stats s JOIN $self->{'system'}->{'view'} " . 'v ON s.isolate_id=v.id)' );
 	say q(<fieldset style="float:left;max-width:300px"><legend>Tree generation</legend>);
-	if (!$seqbin) {
+	if ( !$seqbin ) {
 		say q(<p>Records do not have sequences. Trees will be generated from allelic profiles.</p>);
 		say $q->hidden( tree_gen => 'profiles' );
 	} else {
@@ -402,7 +402,7 @@ sub run_job {
 	my ( $self, $job_id, $params ) = @_;
 	my $ret_val = $self->generate_tree_files( $job_id, $params );
 	my ( $message_html, $fasta_file, $failed ) = @{$ret_val}{qw(message_html fasta_file failed )};
-	if ( $failed ) {
+	if ($failed) {
 		BIGSdb::Exception::Plugin->throw('Tree generation failed.');
 	} else {
 		$self->check_connection($job_id);
@@ -458,7 +458,7 @@ sub _generate_tree_files_from_profiles {
 			rename_user_genomes => 1
 		}
 	);
-
+	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
 	my ( $message_html, $failed );
 	my $prefix     = BIGSdb::Utils::get_random();
 	my $error_file = "$self->{'config'}->{'secure_tmp_dir'}/${prefix}_grapetree";
@@ -468,7 +468,8 @@ sub _generate_tree_files_from_profiles {
 	if ( !defined $self->{'config'}->{'python3_path'} && $self->{'config'}->{'grapetree_path'} =~ /python/x ) {
 
 		#Path includes full command for running GrapeTree (recommended)
-		$cmd = "$self->{'config'}->{'grapetree_path'} --profile $profiles_file --method RapidNJ 2>$error_file > $tree_file ";
+		$cmd =
+		  "$self->{'config'}->{'grapetree_path'} --profile $profiles_file --method RapidNJ 2>$error_file > $tree_file ";
 	} else {
 
 		#Separate variables for GrapeTree directory and Python path (legacy)
@@ -598,9 +599,11 @@ sub _generate_tree_files_from_sequences {
 			  . q(removed from the analysis.</p>);
 		}
 	}
+	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
 	my ( $fasta_file, $newick_file );
 	try {
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } );
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } )
+		  ;
 		$fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
 		if ( -e $fasta_file ) {
 			$self->{'jobManager'}
