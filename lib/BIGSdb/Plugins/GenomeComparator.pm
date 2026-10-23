@@ -190,7 +190,7 @@ sub get_attributes {
 }
 
 sub get_initiation_values {
-	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2=>1,billboard => 1 };
+	return { 'jQuery.jstree' => 1, 'jQuery.multiselect' => 1, select2 => 1, billboard => 1 };
 }
 
 sub run {
@@ -401,7 +401,7 @@ sub _print_parameters_fieldset {
 	say $q->popup_menu( -name => 'alignment', -id => 'alignment', -values => [ 10 .. 100 ], -default => 50 );
 	say $self->get_tooltip( q(Minimum % alignment - Percentage of allele sequence length required to be )
 		  . q(aligned for partial matching.) );
-		  say q(</div>);
+	say q(</div>);
 	say q(<div class="form_label"><label for="word_size">BLASTN word size:</label></div>);
 	say q(<div class="form_value">);
 	say $q->popup_menu( -name => 'word_size', -id => 'word_size', -values => [ 7 .. 30 ], -default => 20 );
@@ -1420,8 +1420,7 @@ sub _generate_splits {
 		$job_id,
 		{
 			filename    => $nexus_file,
-			description => '20_Distance matrix (Nexus format)|Suitable for loading in to '
-			  . 'SplitsTree.'
+			description => '20_Distance matrix (Nexus format)|Suitable for loading in to ' . 'SplitsTree.'
 		}
 	);
 	return $dismat if ( keys %{ $data->{'isolate_data'} } ) > MAX_SPLITS_TAXA;
@@ -1614,6 +1613,7 @@ sub align {
 	my $isolate_names = $self->_get_isolate_names($ids);
 	my $clean_loci =
 	  $self->_get_clean_loci( $params->{'align_all'} ? $scan_data->{'loci'} : $scan_data->{'variable'} );
+	$self->{'db'}->commit;    #Release isolate database locks before forked alignment.
 	$self->{'dataConnector'}->set_forks(1);
 	my $aligner = BIGSdb::Plugins::Helpers::GCAligner->new(
 		{
