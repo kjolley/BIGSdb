@@ -1645,6 +1645,7 @@ sub align {
 	$aligner->run;
 	$self->{'distances'} = $aligner->get_distances;
 	$self->{'dataConnector'}->set_forks(0);
+	$self->{'db'}->commit;    #Release any isolate database locks after alignment.
 	my $align_file       = "$self->{'config'}->{'tmp_dir'}/$job_id.align";
 	my $align_stats_file = "$self->{'config'}->{'tmp_dir'}/$job_id.align_stats";
 	my $xmfa_file        = "$self->{'config'}->{'tmp_dir'}/$job_id.xmfa";
@@ -1669,6 +1670,7 @@ sub align {
 				keep_original => 1
 			}
 		);
+		$self->{'db'}->commit;    #Release isolate database locks before FASTA conversion.
 		try {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { stage => 'Converting XMFA to FASTA', percent_complete => 70 } );
@@ -1702,6 +1704,7 @@ sub align {
 				keep_original => 1
 			}
 		);
+		$self->{'db'}->commit;    #Release isolate database locks before FASTA conversion.
 		try {
 			$self->{'jobManager'}
 			  ->update_job_status( $job_id, { stage => 'Converting core XMFA to FASTA', percent_complete => 75 } );
