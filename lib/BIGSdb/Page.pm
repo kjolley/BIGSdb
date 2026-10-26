@@ -1330,8 +1330,7 @@ sub _print_dark_mode_trigger {
 	my $show_dark  = $theme eq 'dark'                         ? 'none'   : 'inline';
 	my $show_light = $theme eq 'dark'                         ? 'inline' : 'none';
 	say q(<span class="icon_button"><a id="dark_trigger" class="trigger_button secondary_trigger" )
-	  . q(style="display:inline" )
-	  . qq(href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=ajaxPrefs">)
+	  . q(style="display:inline">)
 	  . qq(<span id="dark_mode" class="fas fa-lg fa-moon" style="display:$show_dark" title="Dark mode"></span>)
 	  . qq(<span id="light_mode" class="far fa-lg fa-sun" style="display:$show_light" title="Light mode">)
 	  . qq(</span><span class="icon_label"><span id="mode_label_dark" style="display:$show_dark">Dark mode</span>)
