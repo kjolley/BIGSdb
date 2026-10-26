@@ -46,7 +46,7 @@ sub _ajax {
 		return;
 	}
 	if ( $function eq 'html' ) {
-		print $job->{'message_html'} // q();
+		$self->_print_output($job);
 		return;
 	}
 	say 'Invalid function';
@@ -195,10 +195,10 @@ function get_status(poll_time){
 					url: html_url,
 					cache: false,
 					success: function (html) {
-						if (html !== ''){
-							\$("div#resultstable").addClass('box');
+						if (html !== ''){							
 							if (last_html != html){
-								\$("div#resultstable").html('<h2>Output</h2>' + html);
+								\$("div#resultstable").replaceWith(html);
+								\$("#resultstable .grid").packery();
 								var focused = document.activeElement.id;
 								if (focused != 'email' && focused != 'title' && focused != 'description'){
 									\$("html, body").animate({ scrollTop: \$(document).height()-\$(window).height() });
