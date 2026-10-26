@@ -1067,7 +1067,7 @@ sub _modify_query_by_list {
 	say qq(<script>listFile="$list_file";listAttribute="$attribute;"</script>);
 	my $view                      = $self->{'system'}->{'view'};
 	my $isolate_scheme_field_view = q();
-	my ( $analysis_name, $field_name, $json_path ) = q();
+	my ( $analysis_name, $field_name, $json_path ) = ( q(), q(), q() );
 
 	if ( $field_type eq 'scheme_field' ) {
 		$isolate_scheme_field_view = $self->{'datastore'}->create_temp_isolate_scheme_fields_view($scheme_id);
