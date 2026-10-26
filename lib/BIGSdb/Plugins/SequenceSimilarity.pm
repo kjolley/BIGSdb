@@ -48,7 +48,7 @@ sub get_attributes {
 		module   => 'SequenceSimilarity',
 		url      =>
 		  "$self->{'config'}->{'doclink'}/data_query/0050_investigating_allele_differences.html#sequence-similarity",
-		version    => '1.2.3',
+		version    => '1.2.4',
 		dbtype     => 'sequences',
 		seqdb_type => 'sequences',
 		section    => 'analysis',
@@ -65,9 +65,9 @@ sub get_initiation_values {
 sub run {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my $locus  = $q->param('locus') || '';
+	my $locus  = $q->param('locus') || q();
 	$locus =~ s/^cn_//x;
-	my $allele = $q->param('allele');
+	my $allele = $q->param('allele') || q();
 	$allele =~ s/^\s+//x;
 	$allele =~ s/\s+$//x;
 	say q(<h1>Find most similar alleles</h1>);
