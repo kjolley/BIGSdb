@@ -42,6 +42,7 @@ use BIGSdb::TableAttributes;
 use BIGSdb::Constants qw(:login_requirements :embargo DEFAULT_CODON_TABLE COUNTRIES NULL_TERMS);
 use IO::Handle;
 use Digest::MD5;
+use Carp  qw(longmess);
 use POSIX qw(ceil);
 use constant INF => 9**99;
 
@@ -1727,6 +1728,9 @@ sub _swap_cache_table {
 	my $max_attempts = $options->{'max_attempts'} // 60;
 	my $lock_timeout = $options->{'lock_timeout'} // '1s';
 	my $retry_delay  = $options->{'retry_delay'}  // 5;
+	if ( $rename_table =~ /^temp_scheme_\d+$/x ) {
+		$logger->warn( "Scheme cache swap initiated for $rename_table:\n" . Carp::longmess() );
+	}
 
 	# The replacement table must already have been committed.
 	for my $attempt ( 1 .. $max_attempts ) {
