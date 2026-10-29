@@ -101,7 +101,6 @@ my $script = BIGSdb::Offline::Script->new(
 die "This script can only be run against an isolate database.\n"
   if ( $script->{'system'}->{'dbtype'} // '' ) ne 'isolates';
 perform_sanity_checks();
-get_existing_alleles();
 local $| = 1;
 $script->{'options'}->{'mark_job'} = 1;
 my $job_id = $script->add_job( 'DefineProfiles', { temp_init => 1 } );
@@ -210,6 +209,10 @@ sub get_existing_alleles {
 
 sub define_new_profile {
 	my ( $designations, $sender ) = @_;
+	if ( !$script->{'existing_alleles_loaded'} ) {
+		get_existing_alleles();
+		$script->{'existing_alleles_loaded'} = 1;
+	}
 	my $db               = get_seqdef_db();
 	my $scheme_id        = get_remote_scheme_id();
 	my $next_pk          = get_next_pk();
@@ -358,14 +361,15 @@ sub get_profile {
 		  $script->{'datastore'}
 		  ->run_query( 'SELECT locus FROM scheme_warehouse_indices WHERE scheme_id=? ORDER BY index',
 			$remote_scheme_id, { db => $db, fetch => 'col_arrayref', cache => 'get_profile:loci' } );
+		my $members =
+		  $script->{'datastore'}
+		  ->run_query( 'SELECT locus,profile_name FROM scheme_members WHERE scheme_id=? AND profile_name IS NOT NULL',
+			$opts{'scheme_id'}, { fetch => 'all_arrayref' } );
+		my %profile_to_locus = map { $_->[1] => $_->[0] } @$members;
 		foreach my $profile_locus (@$loci) {
-			my $locus_name = $script->{'datastore'}->run_query(
-				'SELECT locus FROM scheme_members WHERE (scheme_id,profile_name)=(?,?)',
-				[ $opts{'scheme_id'}, $profile_locus ],
-				{ cache => 'get_profile:profile_name' }
-			);
-			$script->{'cache'}->{'locus_labels'}->{ $locus_name // $profile_locus } = $profile_locus;
-			push @{ $script->{'cache'}->{'scheme_loci'} }, ( $locus_name // $profile_locus );
+			my $locus_name = $profile_to_locus{$profile_locus} // $profile_locus;
+			$script->{'cache'}->{'locus_labels'}->{$locus_name} = $profile_locus;
+			push @{ $script->{'cache'}->{'scheme_loci'} }, $locus_name;
 		}
 	}
 	foreach my $locus ( @{ $script->{'cache'}->{'scheme_loci'} } ) {
@@ -473,14 +477,11 @@ sub check_scheme_properly_defined {
 	  . "while the scheme in the seqdef database has $remote_count loci.\n"
 	  if $remote_count != $local_count;
 
+	my %remote_locus_exists = map { $_ => 1 } @$remote_loci;
 	foreach my $locus (@$loci) {
-		my $locus_exists_in_seqdef_scheme = $script->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM scheme_members WHERE (scheme_id,locus)=(?,?))',
-			[ $remote_scheme_id, ( $locus->{'profile_name'} // $locus->{'locus'} ) ],
-			{ db => $db, cache => 'check_scheme_properly_defined::loci' }
-		);
+		my $profile_locus = $locus->{'profile_name'} // $locus->{'locus'};
 		die "Locus $locus->{'locus'} does not exist in the seqdef database scheme.\n"
-		  if !$locus_exists_in_seqdef_scheme;
+		  if !$remote_locus_exists{$profile_locus};
 	}
 	my $remote_pk = $script->{'datastore'}->run_query( 'SELECT * FROM scheme_fields WHERE scheme_id=? AND primary_key',
 		$remote_scheme_id, { db => $db, fetch => 'row_hashref' } );
