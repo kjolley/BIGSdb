@@ -130,9 +130,13 @@ sub main {
 			last PROCESS_ISOLATE if filtered_out_by_view( $view, $isolate_id );
 			my ( $profile, $designations, $missing ) = get_profile($isolate_id);
 			last PROCESS_ISOLATE if $missing > $opts{'missing'};
-			my $field_values =
-			  $scheme->get_field_values_by_designations( $designations,
-				{ dont_match_missing_loci => $opts{'match_missing'} || $opts{'allow_allele_0'} ? 0 : 1 } );
+			my $field_values = $scheme->get_field_values_by_designations(
+				$designations,
+				{
+					dont_match_missing_loci => $opts{'match_missing'} || $opts{'allow_allele_0'} ? 0 : 1,
+					exact_profile           => $opts{'match_missing'}                            ? 1 : 0
+				}
+			);
 			last PROCESS_ISOLATE if @$field_values;    #Already defined
 
 			my $sender = lookup_sender_in_seqdefdb($isolate_id);

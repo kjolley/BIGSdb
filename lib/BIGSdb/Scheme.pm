@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -103,6 +103,49 @@ sub get_field_values_by_designations {
 	my %missing_loci;
 	my $values = {};
 
+	# An exact profile can use the md5(profile) index instead of testing
+	# every array element separately. Only use this when all loci have
+	# exactly one defined designation and missing alleles are literal.
+	if (   $options->{'exact_profile'}
+		&& !$options->{'dont_match_missing_loci'}
+		&& !$options->{'fewest_missing'} )
+	{
+		my @profile;
+		my $exact = 1;
+		foreach my $locus (@$loci) {
+			my $alleles = $designations->{$locus};
+			my $index   = $self->{'locus_index'}->{$locus};
+			if (  !$alleles
+				|| @$alleles != 1
+				|| !defined $alleles->[0]->{'allele_id'}
+				|| !defined $index
+				|| $index < 1
+				|| $index > @$loci )
+			{
+				$exact = 0;
+				last;
+			}
+			$profile[ $index - 1 ] = $alleles->[0]->{'allele_id'};
+		}
+		if ( $exact && @profile == @$loci && !grep { !defined $_ } @profile ) {
+			my $array = 'ARRAY[' . join( ',', map { $self->{'db'}->quote($_) } @profile ) . ']';
+			my $table = "mv_scheme_$self->{'dbase_id'}";
+			local $" = ',';
+			my $qry = "SELECT @$fields FROM $table WHERE md5(profile)=md5($array) AND profile=$array";
+			my $sql = $self->{'db'}->prepare($qry);
+			eval { $sql->execute };
+			if ($@) {
+				$logger->warn( q(Check database attributes in the scheme_fields table for )
+					  . qq(scheme#$self->{'id'} ($self->{'name'})! $@ ) );
+				$self->{'db'}->rollback;
+				BIGSdb::Exception::Database::Configuration->throw('Scheme configuration error');
+			}
+			my $field_data = $sql->fetchall_arrayref( {} );
+			$self->{'db'}->commit;
+			return $field_data;
+		}
+	}
+
 	#The original version of the query used placeholders. It was found, however, that memory usage
 	#accumulated when doing full cache renewals for cgMLST schemes. Although not as elegant, using
 	#a query without placeholders seems to use less memory. Allele ids do need to be escaped in case
@@ -137,7 +180,7 @@ sub get_field_values_by_designations {
 		}
 		push @used_loci, $locus;
 	}
-	
+
 	return [] if !@used_loci;
 	local $" = ',';
 	my @locus_terms;
@@ -151,8 +194,7 @@ sub get_field_values_by_designations {
 			}
 		}
 		local $" = q(',E');
-		push @locus_terms,
-		  "profile[$self->{'locus_index'}->{$locus}] IN (E'@{ $values->{$locus}->{'allele_ids'} }')";
+		push @locus_terms, "profile[$self->{'locus_index'}->{$locus}] IN (E'@{ $values->{$locus}->{'allele_ids'} }')";
 	}
 	local $" = ' AND ';
 	my $locus_term_string = "@locus_terms";
