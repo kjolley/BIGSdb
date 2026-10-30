@@ -20,7 +20,7 @@
 #You should have received a copy of the GNU General Public License
 #along with BIGSdb.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Version: 20261020
+#Version: 20261030
 
 use strict;
 use warnings;
@@ -133,7 +133,9 @@ sub main {
 				$designations,
 				{
 					dont_match_missing_loci => $opts{'match_missing'} || $opts{'allow_allele_0'} ? 0 : 1,
-					exact_profile           => $opts{'match_missing'}                            ? 1 : 0
+					exact_profile           => ( $opts{'match_missing'} || !$scheme_info->{'allow_missing_loci'} )
+					? 1
+					: 0
 				}
 			);
 			last PROCESS_ISOLATE if @$field_values;    #Already defined

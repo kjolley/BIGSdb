@@ -107,8 +107,8 @@ sub get_field_values_by_designations {
 	# every array element separately. Only use this when all loci have
 	# exactly one defined designation and missing alleles are literal.
 	if (   $options->{'exact_profile'}
-		&& !$options->{'dont_match_missing_loci'}
-		&& !$options->{'fewest_missing'} )
+		&& !$options->{'fewest_missing'}
+		&& ( !$options->{'dont_match_missing_loci'} || !$self->{'allow_missing_loci'} ) )
 	{
 		my @profile;
 		my $exact = 1;
