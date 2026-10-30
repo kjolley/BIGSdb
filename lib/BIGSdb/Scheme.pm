@@ -106,9 +106,12 @@ sub get_field_values_by_designations {
 	# An exact profile can use the md5(profile) index instead of testing
 	# every array element separately. Only use this when all loci have
 	# exactly one defined designation and missing alleles are literal.
-	if (   $options->{'exact_profile'}
+	if (
+		   $options->{'exact_profile'}
 		&& !$options->{'fewest_missing'}
-		&& ( !$options->{'dont_match_missing_loci'} || !$self->{'allow_missing_loci'} ) )
+		&& !$self->{'allow_presence'}
+		&& ( !$options->{'dont_match_missing_loci'} || !$self->{'allow_missing_loci'} )
+	  )
 	{
 		my @profile;
 		my $exact = 1;
