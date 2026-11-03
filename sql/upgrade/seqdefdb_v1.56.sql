@@ -67,17 +67,21 @@ BEGIN
     WHERE scheme_id = i_scheme_id;
 
     RETURN QUERY
+        WITH query_profile AS MATERIALIZED (
+            SELECT locus, allele_id
+            FROM profile_members
+            WHERE scheme_id = i_scheme_id
+              AND profile_id = profile_id1
+        )
         SELECT p2.profile_id
-        FROM profile_members AS p1
+        FROM query_profile AS p1
         JOIN profile_members AS p2
           ON p1.locus = p2.locus
-         AND p1.scheme_id = p2.scheme_id
-         AND p1.scheme_id = i_scheme_id
+         AND p2.scheme_id = i_scheme_id
         JOIN classification_group_profiles AS cgp
           ON p2.profile_id = cgp.profile_id
          AND cgp.cg_scheme_id = i_cg_scheme_id
-        WHERE p1.profile_id = profile_id1
-          AND p1.profile_id != p2.profile_id
+        WHERE p2.profile_id != profile_id1
           AND (
               p1.allele_id = p2.allele_id
               OR p1.allele_id = 'N'
