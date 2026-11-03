@@ -237,10 +237,22 @@ sub get_profiles_in_group {
 
 sub get_largest_groups {
 	my ($groups) = @_;
+	my $sizes = $script->{'datastore'}->run_query(
+		'SELECT group_id,COUNT(*) AS size '
+		  . 'FROM classification_group_profiles '
+		  . 'WHERE cg_scheme_id=? AND group_id=ANY(?::int[]) '
+		  . 'GROUP BY group_id',
+		[ $opts{'cscheme_id'}, '{' . join( ',', @$groups ) . '}' ],
+		{ fetch => 'all_arrayref', slice => {} }
+	);
+
+	my %group_sizes = map { $_->{'group_id'} => $_->{'size'} } @$sizes;
 	my @largest_groups;
 	my $largest_size = 0;
+
 	foreach my $group_id (@$groups) {
-		my $size = get_group_size($group_id);
+		my $size = $group_sizes{$group_id} // 0;
+
 		if ( $size == $largest_size ) {
 			push @largest_groups, $group_id;
 		} elsif ( $size > $largest_size ) {
@@ -249,15 +261,6 @@ sub get_largest_groups {
 		}
 	}
 	return \@largest_groups;
-}
-
-sub get_group_size {
-	my ($group_id) = @_;
-	return $script->{'datastore'}->run_query(
-		'SELECT COUNT(*) FROM classification_group_profiles WHERE (cg_scheme_id,group_id)=(?,?)',
-		[ $opts{'cscheme_id'}, $group_id ],
-		{ cache => 'get_group_size' }
-	);
 }
 
 sub get_grouped_profiles {
@@ -373,8 +376,7 @@ sub get_cscheme_info {
 	return $script->{'cache'}->{'cg_info'} if $script->{'cache'}->{'cg_info'};
 	my $info =
 	  $script->{'datastore'}
-	  ->run_query( 'SELECT * FROM classification_schemes WHERE id=?', $opts{'cscheme_id'}, { fetch => 'row_hashref' } )
-	  ;
+	  ->run_query( 'SELECT * FROM classification_schemes WHERE id=?', $opts{'cscheme_id'}, { fetch => 'row_hashref' } );
 	$script->{'cache'}->{'cg_info'} = $info;
 	return $info;
 }
