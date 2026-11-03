@@ -206,9 +206,6 @@ sub merge_groups {
 				$script->{'db'}
 				  ->do( 'UPDATE classification_group_profiles SET group_id=? WHERE (cg_scheme_id,profile_id)=(?,?)',
 					undef, $merged_group_id, $opts{'cscheme_id'}, $profile_id );
-				$script->{'db'}
-				  ->do( 'UPDATE classification_groups SET active=false WHERE (cg_scheme_id,group_id)=(?,?)',
-					undef, $opts{'cscheme_id'}, $group_id );
 				$script->{'db'}->do(
 					'INSERT INTO classification_group_profile_history (timestamp,scheme_id,profile_id,'
 					  . 'cg_scheme_id,previous_group,comment) VALUES (?,?,?,?,?,?)',
@@ -219,6 +216,14 @@ sub merge_groups {
 				$script->{'db'}->rollback;
 				die "$@\n";
 			}
+		}
+		eval {
+			$script->{'db'}->do( 'UPDATE classification_groups SET active=false WHERE (cg_scheme_id,group_id)=(?,?)',
+				undef, $opts{'cscheme_id'}, $group_id );
+		};
+		if ($@) {
+			$script->{'db'}->rollback;
+			die "$@\n";
 		}
 		$script->{'db'}->commit;
 		say "Group $group_id merged in to group $merged_group_id." if !$opts{'quiet'};
