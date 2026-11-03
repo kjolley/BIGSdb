@@ -119,6 +119,7 @@ sub main {
 	  $cg_info->{'use_relative_threshold'}
 	  ? 'matching_profiles_with_relative_threshold_cg'
 	  : 'matching_profiles_cg';
+	my $last_update = 0;
   PROFILE: foreach my $profile_id (@$profiles) {
 		$i++;
 		next PROFILE if $script->{'grouped_profiles'}->{$profile_id};
@@ -126,16 +127,20 @@ sub main {
 		last PROFILE if $opts{'test'} && $i > $opts{'test'};            #Remove after testing
 
 		my $complete = int( $i * 100 / @$profiles );
-		$script->update_job(
-			$job_id,
-			{
-				temp_init => 1,
-				status    => {
-					stage            => "Processing $script->{'pk'}-$profile_id",
-					percent_complete => $complete
+		my $now      = time;
+		if ( $now - $last_update >= 5 ) {                               #Limit updates to no more than every 5 seconds
+			$script->update_job(
+				$job_id,
+				{
+					temp_init => 1,
+					status    => {
+						stage            => "Processing $script->{'pk'}-$profile_id",
+						percent_complete => $complete
+					}
 				}
-			}
-		);
+			);
+			$last_update = $now;
+		}
 
 		my $possible_groups = $script->{'datastore'}->run_query(
 			'SELECT DISTINCT(group_id) FROM classification_group_profiles WHERE cg_scheme_id=? AND profile_id IN '
