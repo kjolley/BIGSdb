@@ -370,8 +370,13 @@ sub get_ungrouped_profiles {
 }
 
 sub get_cscheme_info {
-	return $script->{'datastore'}
-	  ->run_query( 'SELECT * FROM classification_schemes WHERE id=?', $opts{'cscheme_id'}, { fetch => 'row_hashref' } );
+	return $script->{'cache'}->{'cg_info'} if $script->{'cache'}->{'cg_info'};
+	my $info =
+	  $script->{'datastore'}
+	  ->run_query( 'SELECT * FROM classification_schemes WHERE id=?', $opts{'cscheme_id'}, { fetch => 'row_hashref' } )
+	  ;
+	$script->{'cache'}->{'cg_info'} = $info;
+	return $info;
 }
 
 sub check_cscheme_exists {
