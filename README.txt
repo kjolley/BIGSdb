@@ -1,3 +1,7 @@
+v1.55.2: *Further improvements to deadlock prevention when renewing scheme 
+          caches.
+         *Improved performance for define_profiles.pl when run with 
+          --match_missing.
 v1.55.1: *Fixed reversion that broke submission tar downloads.
          *Include linked data values in SeqTableExport plugin.
          *Test for deadlocks when swapping cache tables. Retry if detected. 
