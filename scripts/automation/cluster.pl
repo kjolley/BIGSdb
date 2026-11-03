@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #Script to cluster cgMLST profiles using classification groups
 #Written by Keith Jolley
-#Copyright (c) 2016-2022, University of Oxford
+#Copyright (c) 2016-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -38,7 +38,7 @@ use constant {
 use lib (LIB_DIR);
 use BIGSdb::Offline::Script;
 use BIGSdb::Constants qw(LOG_TO_SCREEN);
-use List::Util qw(min);
+use List::Util        qw(min);
 use Digest::MD5;
 use Getopt::Long qw(:config no_ignore_case);
 use Term::Cap;
@@ -57,7 +57,8 @@ GetOptions(
 	'database=s' => \$opts{'database'},
 	'help'       => \$opts{'help'},
 	'quiet'      => \$opts{'quiet'},
-	'reset'      => \$opts{'reset'}
+	'reset'      => \$opts{'reset'},
+	'test=i'     => \$opts{'test'}          #TODO Remove after testing.
 ) or die("Error in command line arguments\n");
 if ( $opts{'help'} ) {
 	show_help();
@@ -105,67 +106,72 @@ sub perform_sanity_checks {
 }
 
 sub main {
-	my $EXIT = 0;
+	my $start = time;
+	my $EXIT  = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Mark job as finished on kill signals
 	my $profiles    = get_ungrouped_profiles();
 	my $cg_info     = get_cscheme_info();
 	my $scheme_info = $script->{'datastore'}->get_scheme_info( $cg_info->{'scheme_id'}, { get_pk => 1 } );
-	$script->{'pk'} = $scheme_info->{'primary_key'};
+	$script->{'pk'}               = $scheme_info->{'primary_key'};
 	$script->{'grouped_profiles'} = { map { $_ => 1 } @{ get_grouped_profiles() } };
-  ITERATION: while (1) {
-		my $i = 0;
-	  PROFILE: foreach my $profile_id (@$profiles) {
-			$i++;
-			next PROFILE   if $script->{'grouped_profiles'}->{$profile_id};
-			last ITERATION if $EXIT;
-			my $complete = int( $i * 100 / @$profiles );
-			$script->update_job(
-				$job_id,
-				{
-					temp_init => 1,
-					status    => {
-						stage            => "Processing $script->{'pk'}-$profile_id",
-						percent_complete => $complete
-					}
-				}
-			);
-			my $pg_method =
-			  $cg_info->{'use_relative_threshold'}
-			  ? 'matching_profiles_with_relative_threshold_cg'
-			  : 'matching_profiles_cg';
-			my $possible_groups = $script->{'datastore'}->run_query(
-				'SELECT DISTINCT(group_id) FROM classification_group_profiles WHERE cg_scheme_id=? AND profile_id IN '
-				  . "(SELECT $pg_method(?,?,?)) ORDER BY group_id",
-				[ $opts{'cscheme_id'}, $opts{'cscheme_id'}, $profile_id, $cg_info->{'inclusion_threshold'} ],
-				{ fetch => 'col_arrayref', cache => 'matching_profiles' }
-			);
-			if (@$possible_groups) {
+	my $i = 0;
+  PROFILE: foreach my $profile_id (@$profiles) {
+		$i++;
+		next PROFILE if $script->{'grouped_profiles'}->{$profile_id};
+		last PROFILE if $EXIT;
+		last PROFILE if $opts{'test'} && $i > $opts{'test'};            #Remove after testing
 
-				if ( @$possible_groups == 1 ) {
-					add_profile_to_group( $possible_groups->[0], $profile_id );
-					next ITERATION;
-				} else {
-					local $" = ',';
-					say "$script->{'pk'}-$profile_id: multiple possible groups: @$possible_groups" if !$opts{'quiet'};
-					my $largest_groups = get_largest_groups($possible_groups);
-					if ( @$largest_groups == 1 ) {
-						add_profile_to_group( $largest_groups->[0], $profile_id );
-						merge_groups( $possible_groups, $largest_groups->[0],
-							"Merging due to $script->{'pk'}-$profile_id" );
-					} else {
-						my $smallest_group_id = min @$largest_groups;
-						add_profile_to_group( $smallest_group_id, $profile_id );
-						merge_groups( $possible_groups, $smallest_group_id,
-							"Merging due to $script->{'pk'}-$profile_id" );
-					}
+		my $complete = int( $i * 100 / @$profiles );
+		$script->update_job(
+			$job_id,
+			{
+				temp_init => 1,
+				status    => {
+					stage            => "Processing $script->{'pk'}-$profile_id",
+					percent_complete => $complete
 				}
-			} else {
-				my $new_group = create_group($profile_id);
-				add_profile_to_group( $new_group, $profile_id );
-				next ITERATION;
 			}
+		);
+		my $pg_method =
+		  $cg_info->{'use_relative_threshold'}
+		  ? 'matching_profiles_with_relative_threshold_cg'
+		  : 'matching_profiles_cg';
+		my $possible_groups = $script->{'datastore'}->run_query(
+			'SELECT DISTINCT(group_id) FROM classification_group_profiles WHERE cg_scheme_id=? AND profile_id IN '
+			  . "(SELECT $pg_method(?,?,?)) ORDER BY group_id",
+			[ $opts{'cscheme_id'}, $opts{'cscheme_id'}, $profile_id, $cg_info->{'inclusion_threshold'} ],
+			{ fetch => 'col_arrayref', cache => 'matching_profiles' }
+		);
+
+		if (@$possible_groups) {
+
+			if ( @$possible_groups == 1 ) {
+				add_profile_to_group( $possible_groups->[0], $profile_id );
+				next PROFILE;
+			} else {
+				local $" = ',';
+				say "$script->{'pk'}-$profile_id: multiple possible groups: @$possible_groups" if !$opts{'quiet'};
+				my $largest_groups = get_largest_groups($possible_groups);
+				if ( @$largest_groups == 1 ) {
+					add_profile_to_group( $largest_groups->[0], $profile_id );
+					merge_groups( $possible_groups, $largest_groups->[0],
+						"Merging due to $script->{'pk'}-$profile_id" );
+				} else {
+					my $smallest_group_id = min @$largest_groups;
+					add_profile_to_group( $smallest_group_id, $profile_id );
+					merge_groups( $possible_groups, $smallest_group_id, "Merging due to $script->{'pk'}-$profile_id" );
+				}
+			}
+		} else {
+			my $new_group = create_group($profile_id);
+			add_profile_to_group( $new_group, $profile_id );
+			next PROFILE;
 		}
-		last ITERATION;
+	}
+	my $end = time;
+	if ( $opts{'test'} ) {
+		my $duration = $end - $start;
+		say "Duration: $duration seconds.";
 	}
 	return;
 }
@@ -333,7 +339,7 @@ sub check_if_script_already_running {
 
 sub check_cscheme_properly_defined {
 	my $cg_scheme_info = get_cscheme_info();
-	my $scheme_info = $script->{'datastore'}->get_scheme_info( $cg_scheme_info->{'scheme_id'}, { get_pk => 1 } );
+	my $scheme_info    = $script->{'datastore'}->get_scheme_info( $cg_scheme_info->{'scheme_id'}, { get_pk => 1 } );
 	if ( !$scheme_info->{'primary_key'} ) {
 		die "No primary key field has been set for scheme $scheme_info->{'id'} ($scheme_info->{'name'}).\n";
 	}
@@ -382,7 +388,7 @@ sub show_help {
 	my $termios = POSIX::Termios->new;
 	$termios->getattr;
 	my $ospeed = $termios->getospeed;
-	my $t = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
+	my $t      = Tgetent Term::Cap { TERM => undef, OSPEED => $ospeed };
 	my ( $norm, $bold, $under ) = map { $t->Tputs( $_, 1 ) } qw(me md us);
 	say << "HELP";
 ${bold}NAME$norm
