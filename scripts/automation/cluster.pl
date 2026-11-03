@@ -58,7 +58,6 @@ GetOptions(
 	'help'       => \$opts{'help'},
 	'quiet'      => \$opts{'quiet'},
 	'reset'      => \$opts{'reset'},
-	'test=i'     => \$opts{'test'}          #TODO Remove after testing.
 ) or die("Error in command line arguments\n");
 if ( $opts{'help'} ) {
 	show_help();
@@ -106,7 +105,6 @@ sub perform_sanity_checks {
 }
 
 sub main {
-	my $start = time;
 	my $EXIT  = 0;
 	local @SIG{qw (INT TERM HUP)} = ( sub { $EXIT = 1 } ) x 3;    #Mark job as finished on kill signals
 	my $profiles    = get_ungrouped_profiles();
@@ -124,7 +122,6 @@ sub main {
 		$i++;
 		next PROFILE if $script->{'grouped_profiles'}->{$profile_id};
 		last PROFILE if $EXIT;
-		last PROFILE if $opts{'test'} && $i > $opts{'test'};            #Remove after testing
 
 		my $complete = int( $i * 100 / @$profiles );
 		my $now      = time;
@@ -173,11 +170,6 @@ sub main {
 			add_profile_to_group( $new_group, $profile_id );
 			next PROFILE;
 		}
-	}
-	my $end = time;
-	if ( $opts{'test'} ) {
-		my $duration = $end - $start;
-		say "Duration: $duration seconds.";
 	}
 	return;
 }
