@@ -1,0 +1,49 @@
+UPDATE db_attributes SET value='56' WHERE field='version';
+
+CREATE OR REPLACE FUNCTION matching_profiles_with_relative_threshold_cg(
+    i_cg_scheme_id int,
+    profile_id1 text,
+    i_threshold int
+)
+RETURNS SETOF text AS $$
+DECLARE
+    i_scheme_id int;
+    total int;
+BEGIN
+    SELECT cs.scheme_id INTO i_scheme_id
+    FROM classification_schemes cs
+    WHERE id = i_cg_scheme_id;
+
+    SELECT COUNT(*) INTO total
+    FROM scheme_members
+    WHERE scheme_id = i_scheme_id;
+
+    RETURN QUERY
+        SELECT matches.profile_id
+        FROM (
+            SELECT
+                p2.profile_id,
+                COUNT(*) AS loci,
+                COUNT(CASE WHEN p1.allele_id = p2.allele_id
+                      THEN 1 ELSE NULL END) AS matched,
+                ROUND(
+                    (CAST(COUNT(*) AS float) *
+                     (total - i_threshold)) / total
+                ) AS threshold
+            FROM profile_members AS p1
+            JOIN profile_members AS p2
+              ON p1.locus = p2.locus
+             AND p1.scheme_id = p2.scheme_id
+             AND p1.scheme_id = i_scheme_id
+            JOIN classification_group_profiles AS cgp
+              ON p2.profile_id = cgp.profile_id
+             AND cgp.cg_scheme_id = i_cg_scheme_id
+            WHERE p1.profile_id = profile_id1
+              AND p1.profile_id != p2.profile_id
+              AND p1.allele_id != 'N'
+              AND p2.allele_id != 'N'
+            GROUP BY p2.profile_id
+        ) AS matches
+        WHERE matches.matched >= matches.threshold;
+END;
+$$ LANGUAGE plpgsql;
