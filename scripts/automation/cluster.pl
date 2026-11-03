@@ -198,36 +198,42 @@ sub reset_scheme {
 sub merge_groups {
 	my ( $groups, $merged_group_id, $comment ) = @_;
 	my $scheme_id = get_cscheme_info()->{'scheme_id'};
+
 	foreach my $group_id (@$groups) {
 		next if $group_id == $merged_group_id;
-		my $profiles = get_profiles_in_group($group_id);
-		foreach my $profile_id (@$profiles) {
-			eval {
-				$script->{'db'}
-				  ->do( 'UPDATE classification_group_profiles SET group_id=? WHERE (cg_scheme_id,profile_id)=(?,?)',
-					undef, $merged_group_id, $opts{'cscheme_id'}, $profile_id );
-				$script->{'db'}->do(
-					'INSERT INTO classification_group_profile_history (timestamp,scheme_id,profile_id,'
-					  . 'cg_scheme_id,previous_group,comment) VALUES (?,?,?,?,?,?)',
-					undef, 'now', $scheme_id, $profile_id, $opts{'cscheme_id'}, $group_id, $comment
-				);
-			};
-			if ($@) {
-				$script->{'db'}->rollback;
-				die "$@\n";
-			}
-		}
+
 		eval {
-			$script->{'db'}->do( 'UPDATE classification_groups SET active=false WHERE (cg_scheme_id,group_id)=(?,?)',
+			# Record previous membership before updating it.
+			$script->{'db'}->do(
+				'INSERT INTO classification_group_profile_history '
+				  . '(timestamp,scheme_id,profile_id,cg_scheme_id,previous_group,comment) '
+				  . 'SELECT CURRENT_TIMESTAMP,?,profile_id,cg_scheme_id,group_id,? '
+				  . 'FROM classification_group_profiles '
+				  . 'WHERE cg_scheme_id=? AND group_id=?',
+				undef, $scheme_id, $comment, $opts{'cscheme_id'}, $group_id
+			);
+
+			# Move all profiles to the destination group.
+			$script->{'db'}
+			  ->do( 'UPDATE classification_group_profiles SET group_id=? WHERE cg_scheme_id=? AND group_id=?',
+				undef, $merged_group_id, $opts{'cscheme_id'}, $group_id );
+
+			# Deactivate the source group.
+			$script->{'db'}
+			  ->do( 'UPDATE classification_groups SET active=false WHERE cg_scheme_id=? AND group_id=?',
 				undef, $opts{'cscheme_id'}, $group_id );
+			$script->{'db'}->commit;
 		};
 		if ($@) {
+			my $error = $@;
 			$script->{'db'}->rollback;
-			die "$@\n";
+			die "$error\n";
 		}
-		$script->{'db'}->commit;
-		say "Group $group_id merged in to group $merged_group_id." if !$opts{'quiet'};
+
+		say "Group $group_id merged in to group $merged_group_id."
+		  if !$opts{'quiet'};
 	}
+
 	return;
 }
 
