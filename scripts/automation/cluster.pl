@@ -115,6 +115,10 @@ sub main {
 	$script->{'pk'}               = $scheme_info->{'primary_key'};
 	$script->{'grouped_profiles'} = { map { $_ => 1 } @{ get_grouped_profiles() } };
 	my $i = 0;
+	my $pg_method =
+	  $cg_info->{'use_relative_threshold'}
+	  ? 'matching_profiles_with_relative_threshold_cg'
+	  : 'matching_profiles_cg';
   PROFILE: foreach my $profile_id (@$profiles) {
 		$i++;
 		next PROFILE if $script->{'grouped_profiles'}->{$profile_id};
@@ -132,10 +136,7 @@ sub main {
 				}
 			}
 		);
-		my $pg_method =
-		  $cg_info->{'use_relative_threshold'}
-		  ? 'matching_profiles_with_relative_threshold_cg'
-		  : 'matching_profiles_cg';
+
 		my $possible_groups = $script->{'datastore'}->run_query(
 			'SELECT DISTINCT(group_id) FROM classification_group_profiles WHERE cg_scheme_id=? AND profile_id IN '
 			  . "(SELECT $pg_method(?,?,?)) ORDER BY group_id",
