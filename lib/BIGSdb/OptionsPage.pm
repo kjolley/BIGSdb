@@ -111,8 +111,12 @@ sub set_options {
 	my $q         = $self->{'cgi'};
 	my $prefs     = $self->{'prefs'};
 	my $prefstore = $self->{'prefstore'};
+
 	if ( $q->param('set') ) {
 		my $guid = $self->get_guid;
+
+		# Create an anonymous GUID only when saving preferences.
+		$guid ||= $self->create_anonymous_guid;
 		return if !$guid;
 		my $dbname = $self->{'system'}->{'db'};
 		foreach my $action (qw (displayrecs alignwidth flanking )) {
