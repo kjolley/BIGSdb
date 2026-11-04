@@ -272,6 +272,33 @@ sub get_guid {
 	}
 }
 
+sub create_anonymous_guid {
+	my ($self) = @_;
+	return if !$self->{'prefstore'};
+	my $q = $self->{'cgi'};
+
+	# Reuse an existing browser GUID.
+	my $guid = $q->cookie( -name => 'guid' );
+	return $guid if $guid;
+
+	# Reuse a GUID created earlier in this request.
+	return $self->{'new_guid'} if $self->{'new_guid'};
+
+	$guid = $self->{'prefstore'}->get_new_guid;
+	$self->{'new_guid'} = $guid;
+
+	push @{ $self->{'cookies'} },
+	  $q->cookie(
+		-name     => 'guid',
+		-value    => $guid,
+		-expires  => '+10y',
+		-httponly => 1,
+		-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
+	  );
+
+	return $guid;
+}
+
 sub show_user_projects {
 	my ($self) = @_;
 	if ( ( ( $self->{'system'}->{'public_login'} // q() ) ne 'no' )
@@ -683,15 +710,7 @@ sub print_page_content {
 
 		$q->charset('UTF-8');
 		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
-			my $guid = $self->{'prefstore'}->get_new_guid;
-			push @{ $self->{'cookies'} },
-			  $q->cookie(
-				-name     => 'guid',
-				-value    => $guid,
-				-expires  => '+10y',
-				-httponly => 1,
-				-secure   => $self->{'config'}->{'secure_cookies'} ? 1 : 0
-			  );
+			$self->create_anonymous_guid;
 			$self->{'setOptions'} = 1;
 		}
 		my $page = $q->param('page');
