@@ -265,6 +265,8 @@ sub get_guid {
 	my ($self) = @_;
 	if ( defined $self->{'username'} ) {
 		return "$self->{'system'}->{'db'}\|$self->{'username'}";
+	} elsif ( $self->{'new_guid'} ) {
+		return $self->{'new_guid'};
 	} elsif ( $self->{'cgi'}->cookie( -name => 'guid' ) ) {
 		return $self->{'cgi'}->cookie( -name => 'guid' );
 	} else {
@@ -274,6 +276,7 @@ sub get_guid {
 
 sub create_anonymous_guid {
 	my ($self) = @_;
+	return if defined $self->{'username'};
 	return if !$self->{'prefstore'};
 	my $q = $self->{'cgi'};
 

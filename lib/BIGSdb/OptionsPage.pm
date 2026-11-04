@@ -59,7 +59,7 @@ sub print_content {
 	my $desc = $self->{'system'}->{'description'};
 	$self->{'extended'} = $self->get_extended_attributes if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say q(<h1>Set database options</h1>);
-	if ( !$q->cookie('guid') ) {
+	if ( !$self->get_guid ) {
 		$self->print_bad_status(
 			{
 				message => q(In order to store options, a cookie needs to be saved on your computer. )
