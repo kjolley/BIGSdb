@@ -135,7 +135,7 @@ sub new {
 	foreach my $page (qw(downloadAlleles downloadProfiles downloadSeqbin embl gff)) {
 		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_download_requires_authentication($page);
 	}
-	foreach my $page (qw(sequenceQuery batchSequenceQuery)){
+	foreach my $page (qw(sequenceQuery batchSequenceQuery)) {
 		$self->{'pages_needing_authentication'}->{$page} = 1 if $self->_seq_query_requires_authentication;
 	}
 	my $q = $self->{'cgi'};
@@ -495,7 +495,7 @@ sub print_page {
 		query              => $query_page,
 		resetPassword      => 'UserRegistrationPage',
 		plugin             => 'Plugin',
-		pluginViewer => 'PluginViewerPage',
+		pluginViewer       => 'PluginViewerPage',
 		privateRecords     => 'PrivateRecordsPage',
 		profileInfo        => 'ProfileInfoPage',
 		profiles           => 'CombinationQueryPage',
@@ -582,6 +582,8 @@ sub print_page {
 		$page->initiate_prefs;
 		$page->set_options;
 		$pref_cookies_ref = $page->{'cookies'};
+		$page_attributes{'new_guid'} = $page->{'new_guid'}
+		  if $page->{'new_guid'};
 		$self->{'page'} = 'index';
 		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
 		$set_options = 1;
@@ -601,7 +603,7 @@ sub print_page {
 			}
 		}
 		if ( ref $pref_cookies_ref eq 'ARRAY' ) {
-		    push @{ $page_attributes{'cookies'} }, @$pref_cookies_ref;
+			push @{ $page_attributes{'cookies'} }, @$pref_cookies_ref;
 		}
 		$page_attributes{'setOptions'} = $set_options;
 		$self->_rewrite_page;
@@ -738,10 +740,10 @@ sub _plugin_requires_authentication {
 
 sub _seq_query_requires_authentication {
 	my ($self) = @_;
-	return if ( $self->{'system'}->{ 'seq_queries_require_login' } // q() ) eq 'no';
+	return if ( $self->{'system'}->{'seq_queries_require_login'} // q() ) eq 'no';
 	return
-	  if !( $self->{'config'}->{ 'seq_queries_require_login' }
-		|| ( $self->{'system'}->{'seq_queries_require_login' } // q() ) eq 'yes' );
+	  if !( $self->{'config'}->{'seq_queries_require_login'}
+		|| ( $self->{'system'}->{'seq_queries_require_login'} // q() ) eq 'yes' );
 	return 1;
 }
 

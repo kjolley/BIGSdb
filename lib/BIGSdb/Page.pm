@@ -712,7 +712,7 @@ sub print_page_content {
 		$self->initiate_view( $self->{'username'} );
 
 		$q->charset('UTF-8');
-		if ( !$q->cookie( -name => 'guid' ) && $self->{'prefstore'} ) {
+		if ( !$self->get_guid && $self->{'prefstore'} ) {
 			$self->create_anonymous_guid;
 			$self->{'setOptions'} = 1;
 		}
