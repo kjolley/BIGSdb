@@ -451,6 +451,7 @@ sub _get_guid {
 sub print_page {
 	my ($self) = @_;
 	my $set_options = 0;
+	my $pref_cookies_ref;
 	my $query_page = ( $self->{'system'}->{'dbtype'} // '' ) eq 'isolates' ? 'IsolateQueryPage' : 'ProfileQueryPage';
 	my %classes    = (
 		ajaxAnalysis       => 'AjaxAnalysis',
@@ -580,6 +581,7 @@ sub print_page {
 		$page = BIGSdb::OptionsPage->new(%page_attributes);
 		$page->initiate_prefs;
 		$page->set_options;
+		$pref_cookies_ref = $page->{'cookies'};
 		$self->{'page'} = 'index';
 		$self->{'cgi'}->param( page => 'index' );    #stop prefs initiating twice
 		$set_options = 1;
@@ -597,6 +599,9 @@ sub print_page {
 			foreach (@$auth_cookies_ref) {
 				push @{ $page_attributes{'cookies'} }, $_;
 			}
+		}
+		if ( ref $pref_cookies_ref eq 'ARRAY' ) {
+		    push @{ $page_attributes{'cookies'} }, @$pref_cookies_ref;
 		}
 		$page_attributes{'setOptions'} = $set_options;
 		$self->_rewrite_page;
