@@ -537,6 +537,7 @@ sub choose_set {
 		&& BIGSdb::Utils::is_int( scalar $q->param('sets_list') ) )
 	{
 		my $guid = $self->get_guid;
+		$guid ||= $self->create_anonymous_guid;
 		if ($guid) {
 			try {
 				$self->{'prefstore'}
