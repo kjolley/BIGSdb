@@ -4305,16 +4305,26 @@ sub _get_data_explorer_link {
 }
 
 sub _is_preference_change {
-    my ($self) = @_;
-    my $q = $self->{'cgi'};
-    foreach my $param (
-        qw(updateDashboard updateDashboardName updateGeneralPrefs
-        newDashboard setActiveDashboard resetDefaults)
-      )
-    {
-        return 1 if defined $q->param($param);
-    }
-    return 0;
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	foreach my $param (
+		qw(updateDashboard updateDashboardName updateGeneralPrefs
+		newDashboard setActiveDashboard)
+	  )
+	{
+		return 1 if defined $q->param($param);
+	}
+	return 0;
+}
+
+sub print_page_content {
+	my ($self) = @_;
+	if ( $self->_is_preference_change && !$self->get_guid ) {
+		$self->create_anonymous_guid;
+		$self->get_or_set_dashboard_prefs;
+	}
+	$self->SUPER::print_page_content;
+	return;
 }
 
 sub initiate {
@@ -4374,7 +4384,7 @@ sub process_breadcrumbs {
 }
 
 sub get_or_set_dashboard_prefs {
-	my ($self) = @_;
+	my ($self)     = @_;
 	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
 	$self->{'dashboard_type'} = $q->param('type') if defined $q->param('type');
