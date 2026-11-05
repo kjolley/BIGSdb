@@ -4362,11 +4362,11 @@ sub process_breadcrumbs {
 
 sub get_or_set_dashboard_prefs {
 	my ($self) = @_;
-	my $guid = $self->get_guid;
-	return if !$guid;
 	my $q          = $self->{'cgi'};
 	my $project_id = $q->param('project_id');
 	$self->{'dashboard_type'} = $q->param('type') if defined $q->param('type');
+	my $guid = $self->get_guid;
+	return if !$guid;
 	my $dashboard_id =
 	  $self->{'prefstore'}
 	  ->get_active_dashboard( $guid, $self->{'instance'}, $self->{'dashboard_type'}, $project_id // 0 );
