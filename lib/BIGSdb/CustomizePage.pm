@@ -28,12 +28,16 @@ my $logger = get_logger('BIGSdb.Page');
 sub _is_preference_change {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
-	foreach my $param (
-		qw(isolate_display_change main_display_change query_field_change analysis_change
-		isolate_display_default main_display_default query_field_default analysis_default)
+
+	foreach my $action (
+		qw(
+		isolate_display main_display query_field
+		analysis disable dropdown
+		)
 	  )
 	{
-		return 1 if $q->param($param);
+		return 1 if $q->param("${action}_change");
+		return 1 if $q->param("${action}_default");
 	}
 	return 0;
 }
