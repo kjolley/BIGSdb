@@ -4304,6 +4304,19 @@ sub _get_data_explorer_link {
 	return $buffer;
 }
 
+sub _is_preference_change {
+    my ($self) = @_;
+    my $q = $self->{'cgi'};
+    foreach my $param (
+        qw(updateDashboard updateDashboardName updateGeneralPrefs
+        newDashboard setActiveDashboard resetDefaults)
+      )
+    {
+        return 1 if defined $q->param($param);
+    }
+    return 0;
+}
+
 sub initiate {
 	my ($self) = @_;
 	return if ( $self->{'system'}->{'dbtype'} // q() ) ne 'isolates';
