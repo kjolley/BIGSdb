@@ -64,15 +64,15 @@ sub print_content {
 
 sub _get {
 	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $guid   = $self->get_guid;
-	if ( !$guid ) {
-		say encode_json( { error => 1, message => 'No GUID.' } );
-		return;
-	}
-	my $dbase = $self->{'system'}->{'db'};
+	my $q = $self->{'cgi'};
 	if ( $q->param('plugin') ) {
-		my $data = $self->{'prefstore'}->get_plugin_attributes( $guid, $dbase, scalar $q->param('plugin') );
+		my $guid = $self->get_guid;
+		if ( !$guid ) {
+			say encode_json( {} );
+			return;
+		}
+		my $dbase = $self->{'system'}->{'db'};
+		my $data  = $self->{'prefstore'}->get_plugin_attributes( $guid, $dbase, scalar $q->param('plugin') );
 		say encode_json($data);
 		return;
 	}
