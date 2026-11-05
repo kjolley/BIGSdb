@@ -59,17 +59,6 @@ sub print_content {
 	my $desc = $self->{'system'}->{'description'};
 	$self->{'extended'} = $self->get_extended_attributes if $self->{'system'}->{'dbtype'} eq 'isolates';
 	say q(<h1>Set database options</h1>);
-	if ( !$self->get_guid ) {
-		$self->print_bad_status(
-			{
-				message => q(In order to store options, a cookie needs to be saved on your computer. )
-				  . q(Cookies appear to be disabled, however.  Please enable them in your browser )
-				  . q(settings to proceed.),
-				navbar => 1
-			}
-		);
-		return;
-	}
 	say q(<div class="box" id="resultsheader"><p>Here you can set options for your use of the website.  )
 	  . qq(Options are remembered between sessions and affect the current database ($desc) only. If some )
 	  . q(of the options don't appear to set when you next go to a query page, try refreshing the )
