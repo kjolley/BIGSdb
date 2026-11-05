@@ -38,6 +38,15 @@ sub _is_preference_change {
 	return 0;
 }
 
+sub print_page_content {
+	my ($self) = @_;
+	if ( $self->_is_preference_change && !$self->get_guid ) {
+		$self->create_anonymous_guid;
+	}
+	$self->SUPER::print_page_content;
+	return;
+}
+
 sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw (jQuery tooltips noCache select2);
@@ -64,13 +73,6 @@ sub print_content {
 	$prefstore->update_datestamp($guid) if $guid;
 	say qq(<h1>Customize $record display</h1>);
 
-	if ( !$self->get_guid ) {
-		say q(<div class="box" id="statusbad"><span class="warning_icon far fa-thumbs-down fa-5x fa-pull-left"></span>)
-		  . q(<h2>Unable to proceed</h2><p>In order to store options, a cookie needs to be saved )
-		  . q(on your computer. Cookies appear to be disabled, however. )
-		  . q(Please enable them in your browser settings to proceed.</p></div>);
-		return;
-	}
 	if ( !$filename ) {
 		$self->print_bad_status( { message => qq(No $record data passed.) } );
 		return;
