@@ -205,7 +205,7 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-  \$("select#isolate_display,select#main_display,select#query_field,select#analysis").select2({
+  \$("select#isolate_display,select#main_display,select#query_field,select#analysis,select#dropdown").select2({
 		width: '120px',
 		dropdownAutoWidth: true,
 		minimumResultsForSearch: 20
