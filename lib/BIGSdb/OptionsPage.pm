@@ -32,6 +32,16 @@ sub initiate {
 	return;
 }
 
+sub print_page_content {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('toggle_tooltips') && !$self->get_guid ) {
+		$self->create_anonymous_guid;
+	}
+	$self->SUPER::print_page_content;
+	return;
+}
+
 sub get_help_url {
 	my ($self) = @_;
 	return "$self->{'config'}->{'doclink'}/data_query/0100_options.html";
