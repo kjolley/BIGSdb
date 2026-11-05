@@ -972,8 +972,6 @@ sub print_set_section {
 	my $q      = $self->{'cgi'};
 	my $set_id = $self->get_set_id;
 	return if $self->{'system'}->{'set_id'} && BIGSdb::Utils::is_int( $self->{'system'}->{'set_id'} );
-	my $guid = $self->get_guid;
-	return if !$guid;    #Cookies disabled
 	my $sets =
 	  $self->{'datastore'}
 	  ->run_query( 'SELECT * FROM sets WHERE NOT hidden OR hidden IS NULL ORDER BY display_order,description',
