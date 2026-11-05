@@ -25,23 +25,26 @@ use List::MoreUtils qw(any);
 use Log::Log4perl   qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
-sub initiate {
+sub _is_preference_change {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery tooltips noCache select2);
-	$self->set_level1_breadcrumbs;
 	my $q = $self->{'cgi'};
 	foreach my $param (
 		qw(isolate_display_change main_display_change query_field_change analysis_change
 		isolate_display_default main_display_default query_field_default analysis_default)
 	  )
-
 	{
-		if ( $q->param($param) ) {
-			$self->{"$self->{'instance'}_no_cache_loci_schemes"} = 1;
-			last;
-		}
+		return 1 if $q->param($param);
 	}
+	return 0;
+}
 
+sub initiate {
+	my ($self) = @_;
+	$self->{$_} = 1 foreach qw (jQuery tooltips noCache select2);
+	$self->set_level1_breadcrumbs;
+	if ( $self->_is_preference_change ) {
+		$self->{"$self->{'instance'}_no_cache_loci_schemes"} = 1;
+	}
 	return;
 }
 
