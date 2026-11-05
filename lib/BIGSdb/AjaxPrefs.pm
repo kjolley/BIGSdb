@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2018-2019, University of Oxford
+#Copyright (c) 2018-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::AjaxPrefs;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
+use parent        qw(BIGSdb::Page);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 use JSON;
@@ -29,6 +29,18 @@ sub initiate {
 	my ($self) = @_;
 	$self->{'noCache'} = 1;
 	$self->{'type'}    = 'no_header';
+	return;
+}
+
+sub print_page_content {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	if ( $q->param('update') && !$self->get_guid ) {
+		my $has_attributes = defined $q->param('attribute')
+		  && defined $q->param('value');
+		$self->create_anonymous_guid if $has_attributes;
+	}
+	$self->SUPER::print_page_content;
 	return;
 }
 
@@ -116,9 +128,8 @@ sub _update {
 				scalar $q->param('value')
 			);
 		} else {
-			$self->{'prefstore'}->set_general(
-				$guid, $dbase, scalar $q->param('attribute'), scalar $q->param('value')
-			);
+			$self->{'prefstore'}
+			  ->set_general( $guid, $dbase, scalar $q->param('attribute'), scalar $q->param('value') );
 		}
 	};
 	if ($@) {
