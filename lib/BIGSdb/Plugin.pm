@@ -169,6 +169,10 @@ sub delete_temp_files {
 	return;
 }
 
+sub requires_guid {    #Override in plugins for preference handling.
+	return 0;
+}
+
 sub print_content {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};
@@ -425,7 +429,8 @@ sub print_composite_fields_fieldset {
 		( $labels->{$field} = $field ) =~ tr/_/ /;
 	}
 	my $display = $options->{'hide'} ? 'none' : 'block';
-	my $tooltip = $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
+	my $tooltip =
+	  $self->get_tooltip( q(Composite fields - These are constructed from combinations of )
 		  . q(other fields (some of which may come from external databases). Including composite fields )
 		  . q(will slow down the processing.) );
 	say qq(<fieldset id="composite_fieldset" style="float:left;display:$display">)
@@ -438,7 +443,7 @@ sub print_composite_fields_fieldset {
 		-multiple => 'true',
 		-class    => 'multiselect'
 	);
-	
+
 	say q(</fieldset>);
 	$self->{'composite_fieldset'} = 1;
 	return;
