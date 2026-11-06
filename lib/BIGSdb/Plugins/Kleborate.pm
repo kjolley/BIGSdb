@@ -24,7 +24,7 @@ use 5.010;
 use parent          qw(BIGSdb::Plugin);
 use List::MoreUtils qw(uniq);
 use JSON;
-use Encode qw(decode_utf8);
+use Encode        qw(decode_utf8);
 use File::Path    qw(rmtree);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Plugins');
@@ -67,6 +67,12 @@ sub get_attributes {
 		image               => '/images/plugins/Kleborate/screenshot.png'
 	};
 	return $att;
+}
+
+sub requires_guid {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return $q->param('submit') && defined $q->param('method') ? 1 : 0;
 }
 
 sub run {
@@ -333,7 +339,7 @@ sub _print_interface {
 		say qq(<p>Version: $version</p>);
 	}
 	if ( !$q->param('single_isolate') ) {
-		my $max = $self->_get_max_records;
+		my $max      = $self->_get_max_records;
 		my $nice_max = BIGSdb::Utils::commify($max);
 		say qq(<p>Please select the required isolate ids to run the analysis for (maximum $nice_max records). )
 		  . q(These isolate records must include genome sequences.</p>);
@@ -435,7 +441,7 @@ sub _store_results {
 	my $att     = $self->get_attributes;
 	my $version = $self->_get_kleborate_version;
 	chomp $version;
-	my $json = encode_json( { version => $version, fields => $cleaned_results } );
+	my $json      = encode_json( { version => $version, fields => $cleaned_results } );
 	my $json_text = decode_utf8($json);
 	eval {
 		$self->{'db'}
