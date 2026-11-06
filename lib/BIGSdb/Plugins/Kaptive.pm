@@ -59,7 +59,7 @@ sub get_attributes {
 		buttontext          => 'Kaptive',
 		menutext            => 'Kaptive',
 		module              => 'Kaptive',
-		version             => '1.0.3',
+		version             => '1.0.4',
 		dbtype              => 'isolates',
 		section             => 'analysis,isolate_info,postquery',
 		input               => 'query',
@@ -122,13 +122,6 @@ sub run {
 	return if $self->_check_dbs;
 
 	if ( $q->param('submit') ) {
-		if ( defined $q->param('method') ) {
-			my $guid = $self->get_guid;
-			eval {
-				$self->{'prefstore'}->set_plugin_attribute( $guid, $self->{'system'}->{'db'},
-					'Kaptive', 'method', scalar $q->param('method') );
-			};
-		}
 		my @ids = $q->multi_param('isolate_id');
 		my ( $pasted_cleaned_ids, $invalid_ids ) =
 		  $self->get_ids_from_pasted_list( { dont_clear => 1, has_seqbin => 1 } );

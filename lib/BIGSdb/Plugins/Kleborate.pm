@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext          => 'Kleborate',
 		menutext            => 'Kleborate',
 		module              => 'Kleborate',
-		version             => '1.1.2',
+		version             => '1.1.3',
 		dbtype              => 'isolates',
 		section             => 'analysis,isolate_info,postquery',
 		input               => 'query',
