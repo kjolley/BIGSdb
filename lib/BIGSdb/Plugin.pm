@@ -173,6 +173,28 @@ sub requires_guid {    #Override in plugins for preference handling.
 	return 0;
 }
 
+sub print_page_content {
+	my ($self)      = @_;
+	my $q           = $self->{'cgi'};
+	my $plugin_name = $q->param('name');
+
+	if ( $plugin_name && $self->{'pluginManager'}->is_plugin($plugin_name) ) {
+		my $attributes = $self->{'pluginManager'}->get_plugin_attributes($plugin_name);
+		if ( ( $attributes->{'language'} // q() ) eq 'Perl' ) {
+			my $plugin = $self->{'pluginManager'}->get_plugin($plugin_name);
+			$plugin->{'username'} = $self->{'username'};
+			if ( $plugin->requires_guid && !$self->get_guid ) {
+				$self->create_anonymous_guid;
+			}
+			$plugin->{'new_guid'} = $self->{'new_guid'}
+			  if $self->{'new_guid'};
+		}
+	}
+
+	$self->SUPER::print_page_content;
+	return;
+}
+
 sub print_content {
 	my ($self)      = @_;
 	my $q           = $self->{'cgi'};
