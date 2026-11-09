@@ -3066,9 +3066,11 @@ sub initiate_prefs {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
 	return if !$self->{'prefstore'};
-	my ( $general_prefs, $field_prefs, $scheme_field_prefs );
-	my $actual_guid = $self->get_guid;
-	my $guid        = $actual_guid || 1;
+	my $general_prefs      = {};
+	my $field_prefs        = {};
+	my $scheme_field_prefs = {};
+	my $actual_guid        = $self->get_guid;
+	my $guid               = $actual_guid || 1;
 
 	try {
 		$self->{'prefstore'}->update_datestamp($actual_guid)
@@ -3093,15 +3095,22 @@ sub initiate_prefs {
 		return if !$self->{'prefstore'};
 		$self->{'prefs'}->{'set_id'} =
 		  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' )
-		  if $self->{'pref_requirements'}->{'general'};
+		  if $actual_guid && $self->{'pref_requirements'}->{'general'};
 	} else {
 		return if !$self->{'pref_requirements'}->{'general'} && !$self->{'pref_requirements'}->{'query_field'};
 		return if !$self->{'prefstore'};
 		my $dbname = $self->{'system'}->{'db'};
-		$field_prefs        = $self->{'prefstore'}->get_all_field_prefs( $guid, $dbname );
-		$scheme_field_prefs = $self->{'prefstore'}->get_all_scheme_field_prefs( $guid, $dbname );
+
+		if ($actual_guid) {
+			$field_prefs        = $self->{'prefstore'}->get_all_field_prefs( $guid, $dbname );
+			$scheme_field_prefs = $self->{'prefstore'}->get_all_scheme_field_prefs( $guid, $dbname );
+
+			if ( $self->{'pref_requirements'}->{'general'} ) {
+				$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $dbname ) // {};
+			}
+		}
+
 		if ( $self->{'pref_requirements'}->{'general'} ) {
-			$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $dbname );
 			$self->_initiate_general_prefs( $guid, $general_prefs );
 		}
 	}
@@ -3195,14 +3204,18 @@ sub _initiate_isolatedb_prefs {
 }
 
 sub _initiate_seqdefdb_prefs {
-	my ($self)        = @_;
-	my $q             = $self->{'cgi'};
-	my $guid          = $self->get_guid || 1;
-	my $dbname        = $self->{'system'}->{'db'};
-	my $scheme_values = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
-	my $set_id        = $self->get_set_id;
-	my $schemes       = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
-	my $scheme_info   = $self->{'datastore'}->get_all_scheme_info;
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid || 1;
+	my $dbname = $self->{'system'}->{'db'};
+	my $scheme_values =
+		$self->get_guid
+	  ? $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname )
+	  : {};
+
+	my $set_id      = $self->get_set_id;
+	my $schemes     = $self->{'datastore'}->get_scheme_list( { set_id => $set_id } );
+	my $scheme_info = $self->{'datastore'}->get_all_scheme_info;
 
 	foreach my $scheme (@$schemes) {
 		if ( defined $scheme_values->{ $scheme->{'id'} }->{'disable'} ) {
@@ -3373,8 +3386,11 @@ sub _initiate_isolatedb_locus_prefs {
 	my $locus_prefs =
 	  $self->{'datastore'}->run_query( 'SELECT id,isolate_display,main_display,query_field,analysis FROM loci',
 		undef, { fetch => 'all_arrayref' } );
-	my $prefstore_values = $self->{'prefstore'}->get_all_locus_prefs( $guid, $dbname );
-	my $i                = 1;
+	my $prefstore_values =
+		$self->get_guid
+	  ? $self->{'prefstore'}->get_all_locus_prefs( $guid, $dbname )
+	  : {};
+	my $i = 1;
 	foreach my $action (qw (isolate_display main_display query_field analysis)) {
 		if ( !$self->{'pref_requirements'}->{$action} ) {
 			$i++;
@@ -3400,8 +3416,11 @@ sub _initiate_isolatedb_locus_prefs {
 
 sub _initiate_isolatedb_scheme_prefs {
 	my ( $self, $guid, $dbname, $field_prefs, $scheme_field_prefs ) = @_;
-	my $scheme_ids    = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
-	my $scheme_values = $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname );
+	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
+	my $scheme_values =
+		$self->get_guid
+	  ? $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname )
+	  : {};
 	my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
 	my $scheme_info                = $self->{'datastore'}->get_all_scheme_info;
 	my $scheme_fields              = $self->{'datastore'}->get_all_scheme_fields;
