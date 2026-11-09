@@ -3101,10 +3101,17 @@ sub initiate_prefs {
 		my $dbname = $self->{'system'}->{'db'};
 
 		if ($guid) {
-			$field_prefs        = $self->{'prefstore'}->get_all_field_prefs( $guid, $dbname );
-			$scheme_field_prefs = $self->{'prefstore'}->get_all_scheme_field_prefs( $guid, $dbname );
+			my $requirements = $self->{'pref_requirements'};
+			if (   $requirements->{'query_field'}
+				|| $requirements->{'main_display'}
+				|| $requirements->{'isolate_display'}
+				|| $requirements->{'analysis'} )
+			{
+				$field_prefs        = $self->{'prefstore'}->get_all_field_prefs( $guid, $dbname );
+				$scheme_field_prefs = $self->{'prefstore'}->get_all_scheme_field_prefs( $guid, $dbname );
+			}
 
-			if ( $self->{'pref_requirements'}->{'general'} ) {
+			if ( $requirements->{'general'} ) {
 				$general_prefs = $self->{'prefstore'}->get_all_general_prefs( $guid, $dbname ) // {};
 			}
 		}
@@ -3203,11 +3210,12 @@ sub _initiate_isolatedb_prefs {
 }
 
 sub _initiate_seqdefdb_prefs {
-	my ($self)        = @_;
-	my $q             = $self->{'cgi'};
-	my $guid          = $self->get_guid;
-	my $dbname        = $self->{'system'}->{'db'};
-	my $scheme_values = $guid
+	my ($self) = @_;
+	my $q      = $self->{'cgi'};
+	my $guid   = $self->get_guid;
+	my $dbname = $self->{'system'}->{'db'};
+	my $scheme_values =
+		$guid
 	  ? $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname )
 	  : {};
 
