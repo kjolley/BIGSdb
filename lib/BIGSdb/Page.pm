@@ -3069,12 +3069,11 @@ sub initiate_prefs {
 	my $general_prefs      = {};
 	my $field_prefs        = {};
 	my $scheme_field_prefs = {};
-	my $actual_guid        = $self->get_guid;
-	my $guid               = $actual_guid || 1;
+	my $guid = $self->get_guid;
 
 	try {
-		$self->{'prefstore'}->update_datestamp($actual_guid)
-		  if $actual_guid;
+		$self->{'prefstore'}->update_datestamp($guid)
+		  if $guid;
 	} catch {
 		if ( $_->isa('BIGSdb::Exception::Prefstore') ) {
 			undef $self->{'prefstore'};
@@ -3095,13 +3094,13 @@ sub initiate_prefs {
 		return if !$self->{'prefstore'};
 		$self->{'prefs'}->{'set_id'} =
 		  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' )
-		  if $actual_guid && $self->{'pref_requirements'}->{'general'};
+		  if $guid && $self->{'pref_requirements'}->{'general'};
 	} else {
 		return if !$self->{'pref_requirements'}->{'general'} && !$self->{'pref_requirements'}->{'query_field'};
 		return if !$self->{'prefstore'};
 		my $dbname = $self->{'system'}->{'db'};
 
-		if ($actual_guid) {
+		if ($guid) {
 			$field_prefs        = $self->{'prefstore'}->get_all_field_prefs( $guid, $dbname );
 			$scheme_field_prefs = $self->{'prefstore'}->get_all_scheme_field_prefs( $guid, $dbname );
 
@@ -3191,7 +3190,7 @@ sub _initiate_isolatedb_prefs {
 	if ( $q->param('page') eq 'options' && $q->param('set') ) {
 		$self->_set_isolatedb_options($args);
 	} else {
-		my $guid   = $self->get_guid || 1;
+		my $guid   = $self->get_guid;
 		my $dbname = $self->{'system'}->{'db'};
 		$self->_initiate_isolatedb_general_prefs($general_prefs) if $self->{'pref_requirements'}->{'general'};
 		$self->_initiate_isolatedb_query_field_prefs($args)      if $self->{'pref_requirements'}->{'query_field'};
@@ -3206,7 +3205,7 @@ sub _initiate_isolatedb_prefs {
 sub _initiate_seqdefdb_prefs {
 	my ($self) = @_;
 	my $q      = $self->{'cgi'};
-	my $guid   = $self->get_guid || 1;
+	my $guid   = $self->get_guid;
 	my $dbname = $self->{'system'}->{'db'};
 	my $scheme_values =
 		$self->get_guid
