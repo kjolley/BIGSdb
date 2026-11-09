@@ -3069,7 +3069,7 @@ sub initiate_prefs {
 	my $general_prefs      = {};
 	my $field_prefs        = {};
 	my $scheme_field_prefs = {};
-	my $guid = $self->get_guid;
+	my $guid               = $self->get_guid;
 
 	try {
 		$self->{'prefstore'}->update_datestamp($guid)
@@ -3203,12 +3203,11 @@ sub _initiate_isolatedb_prefs {
 }
 
 sub _initiate_seqdefdb_prefs {
-	my ($self) = @_;
-	my $q      = $self->{'cgi'};
-	my $guid   = $self->get_guid;
-	my $dbname = $self->{'system'}->{'db'};
-	my $scheme_values =
-		$self->get_guid
+	my ($self)        = @_;
+	my $q             = $self->{'cgi'};
+	my $guid          = $self->get_guid;
+	my $dbname        = $self->{'system'}->{'db'};
+	my $scheme_values = $guid
 	  ? $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname )
 	  : {};
 
@@ -3386,7 +3385,7 @@ sub _initiate_isolatedb_locus_prefs {
 	  $self->{'datastore'}->run_query( 'SELECT id,isolate_display,main_display,query_field,analysis FROM loci',
 		undef, { fetch => 'all_arrayref' } );
 	my $prefstore_values =
-		$self->get_guid
+		$guid
 	  ? $self->{'prefstore'}->get_all_locus_prefs( $guid, $dbname )
 	  : {};
 	my $i = 1;
@@ -3417,7 +3416,7 @@ sub _initiate_isolatedb_scheme_prefs {
 	my ( $self, $guid, $dbname, $field_prefs, $scheme_field_prefs ) = @_;
 	my $scheme_ids = $self->{'datastore'}->run_query( 'SELECT id FROM schemes', undef, { fetch => 'col_arrayref' } );
 	my $scheme_values =
-		$self->get_guid
+		$guid
 	  ? $self->{'prefstore'}->get_all_scheme_prefs( $guid, $dbname )
 	  : {};
 	my $scheme_field_default_prefs = $self->{'datastore'}->get_all_scheme_field_info;
