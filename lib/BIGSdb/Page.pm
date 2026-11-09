@@ -3181,7 +3181,6 @@ sub _initiate_general_prefs {
 sub _initiate_isolatedb_prefs {
 	my ( $self, $general_prefs, $field_prefs, $scheme_field_prefs ) = @_;
 	my $q                = $self->{'cgi'};
-	my $set_id           = $self->get_set_id;
 	my $field_list       = $self->{'xmlHandler'}->get_field_list;
 	my $eav_field_list   = $self->{'datastore'}->get_eav_fieldnames;
 	my $field_attributes = $self->{'xmlHandler'}->get_all_field_attributes;
