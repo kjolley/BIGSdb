@@ -56,7 +56,7 @@ sub get_attributes {
 		buttontext  => 'rMLST species id',
 		menutext    => 'Species identification',
 		module      => 'RMLSTSpecies',
-		version     => '2.3.2',
+		version     => '2.3.3',
 		dbtype      => 'isolates',
 		section     => 'isolate_info,analysis,postquery',
 		input       => 'query',
@@ -69,6 +69,12 @@ sub get_attributes {
 		image       => '/images/plugins/RMLSTSpecies/screenshot.png'
 	);
 	return \%att;
+}
+
+sub requires_guid {
+    my ($self) = @_;
+    my $q = $self->{'cgi'};
+    return $q->param('submit') && $self->_rmlst_scheme_exists ? 1 : 0;
 }
 
 sub run {
