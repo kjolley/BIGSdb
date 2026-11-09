@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,7 +20,7 @@ package BIGSdb::AlleleSequencePage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::IsolateInfoPage BIGSdb::ExtractedSequencePage);
+use parent        qw(BIGSdb::IsolateInfoPage BIGSdb::ExtractedSequencePage);
 use Log::Log4perl qw(get_logger);
 my $logger = get_logger('BIGSdb.Page');
 
@@ -28,6 +28,13 @@ sub initiate {
 	my ($self) = @_;
 	$self->{$_} = 1 foreach qw(jQuery jQuery.columnizer);
 	$self->set_level1_breadcrumbs;
+	return;
+}
+
+sub print_page_content {
+	my ($self) = @_;
+	$self->create_guid_for_flanking_preference;
+	$self->SUPER::print_page_content;
 	return;
 }
 
@@ -82,9 +89,11 @@ sub print_content {
 	print qq(<h1>$display_locus allele sequence: id-$isolate_id);
 	print qq( (@name)) if $name[1];
 	say q(</h1>);
-	my $flanking = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
+	my $flanking = $q->param('flanking');
+	$flanking = $self->{'prefs'}->{'flanking'}
+	  if !defined $flanking || $flanking eq '';
 	my $qry =
-	    'SELECT a.id,a.seqbin_id,a.start_pos,a.end_pos,a.reverse,a.complete,s.method,'
+	  'SELECT a.id,a.seqbin_id,a.start_pos,a.end_pos,a.reverse,a.complete,s.method,'
 	  . 'GREATEST(r.length,length(s.sequence)) AS seqlength FROM allele_sequences a LEFT JOIN sequence_bin s '
 	  . 'ON a.seqbin_id = s.id LEFT JOIN remote_contigs r ON s.id=r.seqbin_id WHERE s.isolate_id=? AND a.locus=? '
 	  . 'ORDER BY complete desc,a.datestamp';
@@ -109,7 +118,7 @@ sub print_content {
 				$intron_clause = qq(&introns=@introns);
 			}
 			$update_buffer =
-			    qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;id=)
+				qq( <a href="$self->{'system'}->{'script_name'}?db=$self->{'instance'}&amp;page=tagUpdate&amp;id=)
 			  . qq($id$intron_clause" class="small_submit">Update</a>\n);
 		}
 		$buffer .= q(<div style="float:left">);
@@ -120,14 +129,14 @@ sub print_content {
 			{ title => 'start',           data => $start_pos },
 			{ title => 'end',             data => $end_pos },
 			{ title => 'length',          data => abs( $end_pos - $start_pos + 1 ) },
-			{ title => 'orientation',     data => $reverse ? 'reverse' : 'forward' },
-			{ title => 'complete',        data => $complete ? 'yes' : 'no' }
+			{ title => 'orientation',     data => $reverse  ? 'reverse' : 'forward' },
+			{ title => 'complete',        data => $complete ? 'yes'     : 'no' }
 		];
 		push @$list, { title => 'method', data => $method } if $method;
 		$buffer .= $self->get_list_block($list);
 		$buffer .= q(</div>);
-		my $translate = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
-		my $orf = $locus_info->{'orf'} || 1;
+		my $translate    = ( $locus_info->{'coding_sequence'} || $locus_info->{'data_type'} eq 'peptide' ) ? 1 : 0;
+		my $orf          = $locus_info->{'orf'} || 1;
 		my $seq_features = $self->get_seq_features(
 			{
 				seqbin_id => $seqbin_id,
@@ -184,7 +193,7 @@ sub get_title {
 	my $isolate_id = $self->{'cgi'}->param('id');
 	my $locus      = $self->{'cgi'}->param('locus');
 	return 'Invalid isolate id' if !BIGSdb::Utils::is_int($isolate_id);
-	return 'Invalid locus' if !$self->{'datastore'}->is_locus($locus);
+	return 'Invalid locus'      if !$self->{'datastore'}->is_locus($locus);
 	my @name = $self->get_name($isolate_id);
 	( my $display_locus = $locus ) =~ tr/_/ /;
 	my $title = "$display_locus allele sequence: id-$isolate_id";

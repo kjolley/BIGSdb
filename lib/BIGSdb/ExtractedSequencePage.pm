@@ -1,5 +1,5 @@
 #Written by Keith Jolley
-#Copyright (c) 2010-2024, University of Oxford
+#Copyright (c) 2010-2026, University of Oxford
 #E-mail: keith.jolley@biology.ox.ac.uk
 #
 #This file is part of Bacterial Isolate Genome Sequence Database (BIGSdb).
@@ -20,11 +20,30 @@ package BIGSdb::ExtractedSequencePage;
 use strict;
 use warnings;
 use 5.010;
-use parent qw(BIGSdb::Page);
-use List::MoreUtils qw(any);
-use Log::Log4perl qw(get_logger);
+use parent            qw(BIGSdb::Page);
+use List::MoreUtils   qw(any);
+use Log::Log4perl     qw(get_logger);
 use BIGSdb::Constants qw(FLANKING DEFAULT_CODON_TABLE);
 my $logger = get_logger('BIGSdb.Page');
+
+sub create_guid_for_flanking_preference {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return if !$q->param('reload') || $self->get_guid;
+	my %allowed_flanking = map { $_ => 1 } FLANKING;
+	return if !defined $q->param('flanking');
+	return if !$allowed_flanking{ $q->param('flanking') };
+
+	$self->create_anonymous_guid;
+	return;
+}
+
+sub print_page_content {
+	my ($self) = @_;
+	$self->create_guid_for_flanking_preference;
+	$self->SUPER::print_page_content;
+	return;
+}
 
 sub print_content {
 	my ($self)       = @_;
@@ -37,7 +56,7 @@ sub print_content {
 	my $orf          = $q->param('orf');
 	my $no_highlight = $q->param('no_highlight');
 	my $locus        = $q->param('locus');
-	my $isolate_id = $self->{'datastore'}->run_query( 'SELECT isolate_id FROM sequence_bin WHERE id=?', $seqbin_id );
+	my $isolate_id   = $self->{'datastore'}->run_query( 'SELECT isolate_id FROM sequence_bin WHERE id=?', $seqbin_id );
 	my ( $introns, $intron_length ) = $self->get_introns;
 	$self->update_prefs if $q->param('reload');
 
@@ -64,9 +83,11 @@ sub print_content {
 		return;
 	}
 	say qq(<h1>Extracted sequence: Seqbin id#:$seqbin_id ($start-$end)</h1>);
-	my $length      = abs( $end - $start + 1 );
-	my $method      = $self->{'datastore'}->run_query( 'SELECT method FROM sequence_bin WHERE id=?', $seqbin_id );
-	my $flanking    = $q->param('flanking') // $self->{'prefs'}->{'flanking'};
+	my $length   = abs( $end - $start + 1 );
+	my $method   = $self->{'datastore'}->run_query( 'SELECT method FROM sequence_bin WHERE id=?', $seqbin_id );
+	my $flanking = $q->param('flanking');
+	$flanking = $self->{'prefs'}->{'flanking'}
+	  if !defined $flanking || $flanking eq '';
 	my $orientation = $reverse ? '&larr;' : '&rarr;';
 	say q(<div class="box" id="resultspanel"><div style="float:left">);
 	say q(<h2>Sequence position</h2>);
@@ -289,7 +310,7 @@ sub update_prefs {
 	my ($self) = @_;
 	my $guid = $self->get_guid;
 	return if !$guid;
-	my $q = $self->{'cgi'};
+	my $q                = $self->{'cgi'};
 	my %allowed_flanking = map { $_ => 1 } FLANKING;
 	if ( $allowed_flanking{ $q->param('flanking') } ) {
 		$self->{'prefstore'}->set_general( $guid, $self->{'system'}->{'db'}, 'flanking', scalar $q->param('flanking') );
@@ -319,8 +340,7 @@ sub get_sixpack_display {
 	my $stop_codons  = $self->{'datastore'}->get_stop_codons( { isolate_id => $options->{'isolate_id'} } );
 	my %stop_codon   = map { $_ => 1 } @$stop_codons;
 	my $exon_count   = $self->_get_exon_count($seq_features);
-	my $codon_table  = $options->{'codon_table'}
-	  // $self->{'datastore'}->get_codon_table( $options->{'isolate_id'} );
+	my $codon_table  = $options->{'codon_table'} // $self->{'datastore'}->get_codon_table( $options->{'isolate_id'} );
 
 	if ( $codon_table > 23 ) {
 		$codon_table = DEFAULT_CODON_TABLE;
@@ -348,7 +368,7 @@ sub get_sixpack_display {
 			&& $stop_codon{ uc substr( $feature->{'sequence'}, -3 + $orf - 1 ) } )
 		{
 			$stop_highlight =
-			    ( $mapped->{ $exon_length - 2 + $orf - 1 } ) . q(-)
+				( $mapped->{ $exon_length - 2 + $orf - 1 } ) . q(-)
 			  . ( $mapped->{ $exon_length - 2 + $orf + 1 } )
 			  . q( stopcodon);
 			$end_offset = 3;
@@ -374,11 +394,11 @@ sub get_sixpack_display {
 	open( my $sixpack_fh, '<', $outfile ) || $logger->error("Cannot open $outfile for reading");
 	while ( my $line = <$sixpack_fh> ) {
 		last if $line =~ /^\#\#\#\#\#\#\#\#/x;
-		$line =~ s/<H3><\/H3>//x;
-		$line =~ s/<PRE>//x;
-		$line =~ s/<font\ color=(\w+?)>/<span class="$1">/gx;
-		$line =~ s/<\/font>/<\/span>/gx;
-		$line =~ s/\*/<span class="stopcodon">*<\/span>/gx;
+		$line         =~ s/<H3><\/H3>//x;
+		$line         =~ s/<PRE>//x;
+		$line         =~ s/<font\ color=(\w+?)>/<span class="$1">/gx;
+		$line         =~ s/<\/font>/<\/span>/gx;
+		$line         =~ s/\*/<span class="stopcodon">*<\/span>/gx;
 		$buffer .= $line;
 	}
 	close $sixpack_fh;
