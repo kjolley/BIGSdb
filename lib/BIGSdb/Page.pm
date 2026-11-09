@@ -3111,7 +3111,7 @@ sub initiate_prefs {
 		}
 
 		if ( $self->{'pref_requirements'}->{'general'} ) {
-			$self->_initiate_general_prefs( $guid, $general_prefs );
+			$self->_initiate_general_prefs($general_prefs);
 		}
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
@@ -3144,7 +3144,7 @@ sub initiate_prefs {
 }
 
 sub _initiate_general_prefs {
-	my ( $self, $guid, $general_prefs ) = @_;
+	my ( $self, $general_prefs ) = @_;
 	$self->{'prefs'}->{'displayrecs'} = $general_prefs->{'displayrecs'} // 25;
 	$self->{'prefs'}->{'pagebar'}     = $general_prefs->{'pagebar'}     // 'top and bottom';
 	$self->{'prefs'}->{'alignwidth'}  = $general_prefs->{'alignwidth'}  // 100;
