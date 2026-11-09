@@ -60,7 +60,7 @@ sub get_attributes {
 		buttontext          => 'iTOL',
 		menutext            => 'iTOL',
 		module              => 'ITOL',
-		version             => '1.10.3',
+		version             => '1.10.4',
 		dbtype              => 'isolates',
 		section             => 'external,postquery',
 		input               => 'query',
@@ -83,6 +83,17 @@ sub get_title {
 	my ($self) = @_;
 	my $desc = $self->get_db_description( { formatted => 1 } );
 	return "iTOL - Interactive Tree of Life - $desc";
+}
+
+sub requires_guid {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return 0 if !$q->param('submit');
+	return 1 if $q->param('tree_gen');
+	return 1
+	  if $self->{'config'}->{'fasttree_path'}
+	  && $q->param('tree_algorithm');
+	return 0;
 }
 
 sub run {
@@ -274,11 +285,13 @@ sub print_tree_type_fieldset {
 
 	my $attr = $self->get_attributes;
 	my $algo_default;
-	eval {
-		$algo_default =
-		  $self->{'prefstore'}
-		  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_algorithm' );
-	};
+	if ($guid) {
+		eval {
+			$algo_default =
+			  $self->{'prefstore'}
+			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_algorithm' );
+		};
+	}
 	my $seqbin =
 	  $self->{'datastore'}->run_query(
 		"SELECT EXISTS(SELECT * FROM seqbin_stats s JOIN $self->{'system'}->{'view'} " . 'v ON s.isolate_id=v.id)' );
@@ -288,11 +301,13 @@ sub print_tree_type_fieldset {
 		say $q->hidden( tree_gen => 'profiles' );
 	} else {
 		my $treegen_default;
-		eval {
-			$treegen_default =
-			  $self->{'prefstore'}
-			  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
-		};
+		if ($guid) {
+			eval {
+				$treegen_default =
+				  $self->{'prefstore'}
+				  ->get_plugin_attribute( $guid, $self->{'system'}->{'db'}, $attr->{'module'}, 'tree_gen' );
+			};
+		}
 		say q(Generate trees from:<br />);
 		say q(<ul><li>);
 		say $q->radio_group(
@@ -602,8 +617,7 @@ sub _generate_tree_files_from_sequences {
 	$self->{'db'}->commit;    #Prevent idle in transaction table lock.
 	my ( $fasta_file, $newick_file );
 	try {
-		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } )
-		  ;
+		$self->{'jobManager'}->update_job_status( $job_id, { stage => 'Generating FASTA file from aligned blocks' } );
 		$fasta_file = BIGSdb::Utils::xmfa2fasta($filename);
 		if ( -e $fasta_file ) {
 			$self->{'jobManager'}
