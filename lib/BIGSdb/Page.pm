@@ -713,10 +713,6 @@ sub print_page_content {
 		$self->initiate_view( $self->{'username'} );
 
 		$q->charset('UTF-8');
-		if ( !$self->get_guid && $self->{'prefstore'} ) {
-			$self->create_anonymous_guid;
-			$self->{'setOptions'} = 1;
-		}
 		my $page = $q->param('page');
 		if ( defined $self->{'instance'} && $self->{"$self->{'instance'}_no_cache_loci_schemes"}
 			|| ( ( scalar $q->param('page') // q() ) eq 'index' && $q->param('reset') ) )
