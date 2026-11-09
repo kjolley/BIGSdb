@@ -69,6 +69,14 @@ sub _guid_exists {
 
 sub _add_existing_guid {
 	my ( $self, $guid ) = @_;
+
+	#TODO Remove temporary logging
+	my $caller = ( caller(1) )[3] // 'unknown';
+	$logger->error(
+		'Inserting preference GUID: ' . "guid=$guid, caller=$caller"
+	);
+	####END TEMP logging####
+
 	eval { $self->{'db'}->do( 'INSERT INTO guid (guid,last_accessed) VALUES (?,?)', undef, $guid, 'now' ) };
 	if ($@) {
 		$logger->error($@);
