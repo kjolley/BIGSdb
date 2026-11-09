@@ -27,6 +27,20 @@ use BIGSdb::Constants qw(:interface OPERATORS);
 my $logger = get_logger('BIGSdb.Page');
 use constant MAX_INT => 2147483647;
 
+sub is_preference_change {
+	my ($self) = @_;
+	return $self->{'cgi'}->param('save_options') ? 1 : 0;
+}
+
+sub print_page_content {
+	my ($self) = @_;
+	if ( $self->is_preference_change && !$self->get_guid ) {
+		$self->create_anonymous_guid;
+	}
+	$self->SUPER::print_page_content;
+	return;
+}
+
 sub initiate {
 	my ($self) = @_;
 	if ( $self->{'cgi'}->param('no_header') ) {

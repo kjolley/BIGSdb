@@ -5099,6 +5099,15 @@ sub _showing_first_page {
 	return;
 }
 
+sub is_preference_change {
+    my ($self) = @_;
+    my $q = $self->{'cgi'};
+    return 1 if $self->SUPER::is_preference_change;
+    return 1 if $q->param('add_filter');
+    return 1 if $q->param('remove_filter');
+    return 0;
+}
+
 sub initiate {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
