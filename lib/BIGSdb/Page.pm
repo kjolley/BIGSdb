@@ -3067,9 +3067,12 @@ sub initiate_prefs {
 	my $q = $self->{'cgi'};
 	return if !$self->{'prefstore'};
 	my ( $general_prefs, $field_prefs, $scheme_field_prefs );
-	my $guid = $self->get_guid || 1;
+	my $actual_guid = $self->get_guid;
+	my $guid        = $actual_guid || 1;
+
 	try {
-		$self->{'prefstore'}->update_datestamp($guid);
+		$self->{'prefstore'}->update_datestamp($actual_guid)
+		  if $actual_guid;
 	} catch {
 		if ( $_->isa('BIGSdb::Exception::Prefstore') ) {
 			undef $self->{'prefstore'};
