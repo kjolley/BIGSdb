@@ -981,12 +981,14 @@ sub get_scheme_fields {
 #modify returned values then you MUST make a local copy.
 sub get_all_scheme_fields {
 	my ($self) = @_;
-	if ( !$self->{'cache'}->{'all_scheme_fields'} ) {
-		my $data = $self->run_query( 'SELECT scheme_id,field FROM scheme_fields ORDER BY field_order,field',
+	if ( !exists $self->{'cache'}->{'all_scheme_fields'} ) {
+		my $fields = {};
+		my $data   = $self->run_query( 'SELECT scheme_id,field FROM scheme_fields ORDER BY field_order,field',
 			undef, { fetch => 'all_arrayref' } );
 		foreach (@$data) {
-			push @{ $self->{'cache'}->{'all_scheme_fields'}->{ $_->[0] } }, $_->[1];
+			push @{ $fields->{ $_->[0] } }, $_->[1];
 		}
+		$self->{'cache'}->{'all_scheme_fields'} = $fields;
 	}
 	return $self->{'cache'}->{'all_scheme_fields'};
 }
