@@ -287,16 +287,6 @@ sub create_anonymous_guid {
 	# Reuse a GUID created earlier in this request.
 	return $self->{'new_guid'} if $self->{'new_guid'};
 
-	#TODO Remove after testing
-	my $params      = $q->Vars;
-	my @param_names = sort keys %$params;
-
-	$logger->error(
-		'Creating anonymous GUID: page='
-		  . ( $q->param('page') // 'undef' ) . ', class=' . ref($self) . ', params=' . join( ',', @param_names )
-	);
-	###########END TESTING####################
-
 	$guid = $self->{'prefstore'}->get_new_guid;
 	$self->{'new_guid'} = $guid;
 
