@@ -3096,7 +3096,8 @@ sub initiate_prefs {
 		  $self->{'prefstore'}->get_general_pref( $guid, $self->{'system'}->{'db'}, 'set_id' )
 		  if $guid && $self->{'pref_requirements'}->{'general'};
 	} else {
-		return if !$self->{'pref_requirements'}->{'general'} && !$self->{'pref_requirements'}->{'query_field'};
+		return
+		  if !grep { $self->{'pref_requirements'}->{$_} } qw(general main_display isolate_display analysis query_field);
 		return if !$self->{'prefstore'};
 		my $dbname = $self->{'system'}->{'db'};
 
