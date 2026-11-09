@@ -487,14 +487,18 @@ sub _private_records_in_qry {
 	my ( $self, $options ) = @_;
 	my $qry = $self->_get_query_id_sql;
 	return if !$qry;
+
+	# Materialize the query IDs to prevent PostgreSQL repeatedly
+	# executing expensive isolate queries within a nested-loop join.
 	if ( $options->{'user_id'} ) {
 		return $self->{'datastore'}->run_query(
-			"WITH query_ids AS ($qry) SELECT EXISTS(SELECT * FROM private_isolates p "
+			"WITH query_ids AS MATERIALIZED ($qry) SELECT EXISTS(SELECT * FROM private_isolates p "
 			  . 'JOIN query_ids q ON p.isolate_id=q.id WHERE p.user_id=?)',
 			$options->{'user_id'}
 		);
 	}
-	return $self->{'datastore'}->run_query( "WITH query_ids AS ($qry) SELECT EXISTS(SELECT * FROM private_isolates p "
+	return $self->{'datastore'}
+	  ->run_query( "WITH query_ids AS MATERIALIZED ($qry) SELECT EXISTS(SELECT * FROM private_isolates p "
 		  . 'JOIN query_ids q ON p.isolate_id=q.id)' );
 }
 
@@ -1656,7 +1660,7 @@ sub _get_record_table_info {
 	my $display              = [];
 	my $qry_fields           = [];
 	my $type                 = {};
-	my $multiple = {};
+	my $multiple             = {};
 	my $foreign_key          = {};
 	my $labels               = {};
 	my $user_variable_fields = 0;
@@ -1686,7 +1690,7 @@ sub _get_record_table_info {
 		$type->{ $attr->{'name'} }        = $attr->{'type'};
 		$foreign_key->{ $attr->{'name'} } = $attr->{'foreign_key'};
 		$labels->{ $attr->{'name'} }      = $attr->{'labels'};
-		$multiple->{ $attr->{'name'} } = 1 if $attr->{'multiple'};
+		$multiple->{ $attr->{'name'} }    = 1 if $attr->{'multiple'};
 	}
 	my $extended_attributes;
 	my $linked_data;
@@ -1719,7 +1723,7 @@ sub _get_record_table_info {
 			qry_fields           => $qry_fields,
 			display              => $display,
 			type                 => $type,
-			multiple => $multiple,
+			multiple             => $multiple,
 			foreign_key          => $foreign_key,
 			labels               => $labels,
 			extended_attributes  => $extended_attributes,
@@ -2066,7 +2070,7 @@ sub _print_record_field {
 		$self->_print_bool_field($args);
 		return;
 	}
-	if ( $table_info->{'multiple'}->{$field}  ) {
+	if ( $table_info->{'multiple'}->{$field} ) {
 		local $" = q(; );
 		print ref $data->{ lc($field) } ? qq(<td>@{$data->{ lc($field) }}</td>) : q(<td></td>);
 		return;
