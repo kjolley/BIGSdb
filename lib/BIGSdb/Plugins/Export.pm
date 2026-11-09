@@ -51,7 +51,7 @@ sub get_attributes {
 		buttontext         => 'Dataset',
 		menutext           => 'Dataset',
 		module             => 'Export',
-		version            => '1.17.1',
+		version            => '1.17.2',
 		dbtype             => 'isolates',
 		section            => 'export,postquery',
 		url                => "$self->{'config'}->{'doclink'}/data_export/isolate_export.html",
@@ -530,6 +530,16 @@ sub _save_options {
 	return;
 }
 
+sub requires_guid {
+	my ($self) = @_;
+	my $q = $self->{'cgi'};
+	return 1 if $q->param('save_options');
+	if ( $q->param('submit') && $self->_may_access_private_records ) {
+		return 1 if $q->param('private_bg') || $q->param('private_fg');
+	}
+	return 0;
+}
+
 sub run {
 	my ($self) = @_;
 	my $q = $self->{'cgi'};
@@ -732,7 +742,11 @@ sub _print_interface {
 		}
 	}
 	my $guid = $self->get_guid;
-	$self->{'plugin_prefs'} = $self->{'prefstore'}->get_plugin_attributes( $guid, $self->{'system'}->{'db'}, 'Export' );
+	$self->{'plugin_prefs'} = {};
+	if ($guid) {
+		$self->{'plugin_prefs'} =
+		  $self->{'prefstore'}->get_plugin_attributes( $guid, $self->{'system'}->{'db'}, 'Export' );
+	}
 	say $q->start_form;
 	$self->print_seqbin_isolate_fieldset( { use_all => 1, selected_ids => $selected_ids, isolate_paste_list => 1 } );
 	$self->print_isolate_fields_fieldset(
