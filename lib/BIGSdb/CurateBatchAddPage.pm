@@ -498,11 +498,19 @@ sub _check_data {
 	my $sender_message = $self->get_sender_message($args);
 	my $problems       = {};
 	my $advisories     = {};
-	my $table_header   = $self->_get_field_table_header($table);
-	my $tablebuffer    = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
 	my @records        = split /\n/x, $q->param('data');
-	my $td             = 1;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
+
+	# The header has already been removed from @records.
+	my $record_total = grep { /\S/x } @records;
+	my $show_preview = $self->_show_preview( $table, $record_total );
+
+	my $tablebuffer = q();
+	if ($show_preview) {
+		my $table_header = $self->_get_field_table_header($table);
+		$tablebuffer = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
+	}
+	my $td           = 1;
 	my $id           = $self->_get_id($table);
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
@@ -576,16 +584,18 @@ sub _check_data {
 
 				$self->record_field_problem( $field, $problem, $problems, $pk_combination );
 
-				#Display field - highlight in red if invalid.
-				$rowbuffer .= $self->format_display_value(
-					{
-						table           => $table,
-						field           => $field,
-						value           => $value,
-						problem         => $problem,
-						special_problem => $special_problem
-					}
-				);
+				#Display field only when generating a preview.
+				if ($show_preview) {
+					$rowbuffer .= $self->format_display_value(
+						{
+							table           => $table,
+							field           => $field,
+							value           => $value,
+							problem         => $problem,
+							special_problem => $special_problem
+						}
+					);
+				}
 				$value //= q();
 				$self->_run_table_specific_reformatting( $table, $new_args );
 				if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
@@ -596,8 +606,11 @@ sub _check_data {
 				undef $header_row if $first_record;
 				next;
 			}
-			my $row_buffer = qq(<tr class="td$td">$rowbuffer);
-			my $new_args   = {
+			my $row_buffer =
+			  $show_preview
+			  ? qq(<tr class="td$td">$rowbuffer)
+			  : q();
+			my $new_args = {
 				file_header_fields => $file_header_fields,
 				header_row         => \$header_row,
 				first_record       => $first_record,
@@ -622,12 +635,14 @@ sub _check_data {
 						$problems->{$pk_combination} .= $failure;
 					}
 				}
-				$row_buffer .= $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination );
+				my $extra_html =
+				  $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination );
+				$row_buffer .= $extra_html if $show_preview;
 			}
 			$header_complete = 1;
 			push @checked_buffer, $header_row if $first_record;
 			$first_record = 0;
-			$row_buffer .= qq(</tr>\n);
+			$row_buffer .= qq(</tr>\n) if $show_preview;
 
 			#Check for various invalid combinations of fields
 			if ( !$problems->{$pk_combination} ) {
@@ -644,7 +659,7 @@ sub _check_data {
 				last FIELD  if !$continue;
 				next RECORD if $skip_record;
 			}
-			$tablebuffer .= $row_buffer;
+			$tablebuffer .= $row_buffer if $show_preview;
 			my %record_checks = (
 				accession => sub {
 					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
@@ -698,7 +713,7 @@ sub _check_data {
 		}
 		push @checked_buffer, $checked_record;
 	}
-	$tablebuffer .= q(</table></div>);
+	$tablebuffer .= q(</table></div>) if $show_preview;
 	if ( !$record_count ) {
 		$self->print_bad_status(
 			{
@@ -716,7 +731,9 @@ sub _check_data {
 			problems       => $problems,
 			advisories     => $advisories,
 			checked_buffer => \@checked_buffer,
-			sender_message => \$sender_message
+			sender_message => \$sender_message,
+			show_preview   => $show_preview,
+			record_total   => $record_total
 		}
 	);
 	return;
@@ -1151,8 +1168,8 @@ sub _get_existing_label_field_values {
 
 sub _report_check {
 	my ( $self, $data ) = @_;
-	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
-	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
+	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
+	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
 	if ( !@$checked_buffer ) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		say q(<p>No valid records to upload after filtering.</p></div>);
@@ -1206,9 +1223,19 @@ sub _report_check {
 		say q(</div>);
 	}
 	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
-	say q(<p>The following table shows your data.  Any field with red text has a )
-	  . q(problem and needs to be checked.</p>);
-	say $$buffer;
+	if ($show_preview) {
+		say q(<p>The following table shows your data.  Any field with red text has a )
+		  . q(problem and needs to be checked.</p>);
+		say $$buffer;
+	} else {
+		my $plural = $record_total == 1 ? q() : q(s);
+		say qq(<p>$record_total record$plural submitted for validation.</p>);
+		my $limit = $self->{'config'}->{'batch_isolate_preview_limit'};
+		if ( BIGSdb::Utils::is_int($limit) && $limit != 0 ) {
+			say q(<p>The data preview has been omitted because the number of records )
+			  . q(exceeds the configured preview limit.</p>);
+		}
+	}
 	say q(</div>);
 	return;
 }
