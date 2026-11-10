@@ -813,7 +813,7 @@ sub _isolate_record_further_checks {
 	return $buffer;
 }
 
-sub add_validation_message {
+sub _add_validation_message {
 	my ( $self, $args ) = @_;
 	my ( $diagnostics, $pk_combination, $field, $message ) =
       @{$args}{qw(diagnostics pk_combination field message)};
@@ -824,7 +824,7 @@ sub add_validation_message {
 	return;
 }
 
-sub format_validation_message {
+sub _format_validation_message {
 	my ( $self, $diagnostic ) = @_;
 	my $field   = $diagnostic->{'field'};
 	my $message = $diagnostic->{'message'};
@@ -845,7 +845,7 @@ sub record_field_problem {
 		message => $problem
 	};
 
-	my $problem_text = $self->format_validation_message($diagnostic);
+	my $problem_text = $self->_format_validation_message($diagnostic);
 
 	# Preserve the existing problem hash until all validation
 	# methods have been converted to structured diagnostics.
@@ -855,7 +855,7 @@ sub record_field_problem {
 		$problems->{$pk_combination} .= $problem_text;
 
 		if ($diagnostics) {
-			$self->add_validation_message(
+			$self->_add_validation_message(
 				{
 					diagnostics    => $diagnostics,
 					pk_combination => $pk_combination,
