@@ -1,4 +1,5 @@
 UPDATE db_attributes SET value='56' WHERE field='version';
+ALTER TABLE schemes DROP COLUMN IF EXISTS display;
 
 CREATE OR REPLACE FUNCTION allele_profiles_match_cg(
     profile1 text[],
