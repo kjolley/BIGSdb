@@ -498,6 +498,7 @@ sub _check_data {
 	my $sender_message = $self->get_sender_message($args);
 	my $problems       = {};
 	my $advisories     = {};
+	my $diagnostics    = {};
 	my @records        = split /\n/x, $q->param('data');
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
 
@@ -582,7 +583,7 @@ sub _check_data {
 				#Validate field independently of HTML formatting.
 				my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
 
-				$self->record_field_problem( $field, $problem, $problems, $pk_combination );
+				$self->record_field_problem( $field, $problem, $problems, $pk_combination, $diagnostics );
 
 				#Display field only when generating a preview.
 				if ($show_preview) {
@@ -733,7 +734,8 @@ sub _check_data {
 			checked_buffer => \@checked_buffer,
 			sender_message => \$sender_message,
 			show_preview   => $show_preview,
-			record_total   => $record_total
+			record_total   => $record_total,
+			diagnostics    => $diagnostics,
 		}
 	);
 	return;
@@ -811,16 +813,57 @@ sub _isolate_record_further_checks {
 	return $buffer;
 }
 
-sub record_field_problem {
-	my ( $self, $field, $problem, $problems, $pk_combination ) = @_;
-	return if !$problem;
-	$problem = BIGSdb::Utils::escape_html($problem);
-	my $problem_text = qq($field $problem<br />);
+sub add_validation_message {
+	my ( $self, $args ) = @_;
+	my ( $diagnostics, $pk_combination, $field, $message ) =
+      @{$args}{qw(diagnostics pk_combination field message)};
+	return if !defined $message || $message eq q();
+	my $diagnostic = { message => $message };
+	$diagnostic->{'field'} = $field if defined $field;
+	push @{ $diagnostics->{$pk_combination} }, $diagnostic;
+	return;
+}
 
+sub format_validation_message {
+	my ( $self, $diagnostic ) = @_;
+	my $field   = $diagnostic->{'field'};
+	my $message = $diagnostic->{'message'};
+	my $text =
+	  defined $field
+	  ? BIGSdb::Utils::escape_html($field) . q( )
+	  : q();
+	$text .= BIGSdb::Utils::escape_html($message);
+	return qq($text<br />);
+}
+
+sub record_field_problem {
+	my ( $self, $field, $problem, $problems, $pk_combination, $diagnostics ) = @_;
+	return if !$problem;
+
+	my $diagnostic = {
+		field   => $field,
+		message => $problem
+	};
+
+	my $problem_text = $self->format_validation_message($diagnostic);
+
+	# Preserve the existing problem hash until all validation
+	# methods have been converted to structured diagnostics.
 	if ( !defined $problems->{$pk_combination}
 		|| $problems->{$pk_combination} !~ /\Q$problem_text\E/x )
 	{
 		$problems->{$pk_combination} .= $problem_text;
+
+		if ($diagnostics) {
+			$self->add_validation_message(
+				{
+					diagnostics    => $diagnostics,
+					pk_combination => $pk_combination,
+					field          => $field,
+					message        => $problem
+				}
+			);
+		}
 	}
 	return;
 }
@@ -1170,6 +1213,7 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
+	my $diagnostics = $data->{'diagnostics'} // {};
 	if ( !@$checked_buffer ) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		say q(<p>No valid records to upload after filtering.</p></div>);
@@ -1237,6 +1281,10 @@ sub _report_check {
 		}
 	}
 	say q(</div>);
+	my $diagnostic_count = 0;
+	$diagnostic_count += @{ $diagnostics->{$_} } foreach keys %$diagnostics;
+
+	$logger->debug("Batch import: $diagnostic_count structured field validation diagnostics.");
 	return;
 }
 
