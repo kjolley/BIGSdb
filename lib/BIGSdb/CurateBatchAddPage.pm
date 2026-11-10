@@ -634,10 +634,19 @@ sub _check_data {
 					foreach my $failure (@$validation_failures) {
 						$failure =~ s/\.?\s*$/. /x;
 						$problems->{$pk_combination} .= $failure;
+						$self->_add_validation_message(
+							{
+								diagnostics    => $diagnostics,
+								pk_combination => $pk_combination,
+								message        => $failure,
+								type           => 'error'
+							}
+						);
 					}
 				}
 				my $extra_html =
-				  $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination );
+				  $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination,
+					$diagnostics );
 				$row_buffer .= $extra_html if $show_preview;
 			}
 			$header_complete = 1;
@@ -784,7 +793,7 @@ sub _is_over_quota {
 }
 
 sub _isolate_record_further_checks {
-	my ( $self, $table, $args, $advisories, $pk_combination ) = @_;
+	my ( $self, $table, $args, $advisories, $pk_combination, $diagnostics ) = @_;
 	return q() if $table ne 'isolates';
 	if ( !$self->{'cache'}->{'label_field_values'} ) {
 		$self->{'cache'}->{'label_field_values'} = $self->_get_existing_label_field_values;
@@ -799,26 +808,49 @@ sub _isolate_record_further_checks {
 		&& $self->{'cache'}->{'label_field_values'}
 		->{ $data->[ $args->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ] } )
 	{
-		$advisories->{$pk_combination} .= "$self->{'system'}->{'labelfield'} "
+		my $message = "$self->{'system'}->{'labelfield'} "
 		  . "'$data->[$args->{'file_header_pos'}->{$self->{'system'}->{'labelfield'}}]' already exists in the database.";
+		$advisories->{$pk_combination} .= $message;
+		$self->_add_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => $self->{'system'}->{'labelfield'},
+				message        => $message,
+				type           => 'advisory'
+			}
+		);
 	}
 
 	#Check if aliases list has commas in it
 	if ( defined $args->{'file_header_pos'}->{'aliases'}
 		&& ( $data->[ $args->{'file_header_pos'}->{'aliases'} ] // q() ) =~ /,/x )
 	{
-		$advisories->{$pk_combination} .= 'Alias list should be separated by semi-colons (;). '
+		my $message = 'Alias list should be separated by semi-colons (;). '
 		  . 'Commas included in this field will be assumed to be part of an alias name.';
+		$advisories->{$pk_combination} .= $message;
+		$self->_add_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => 'aliases',
+				message        => $message,
+				type           => 'advisory'
+			}
+		);
 	}
 	return $buffer;
 }
 
 sub _add_validation_message {
 	my ( $self, $args ) = @_;
-	my ( $diagnostics, $pk_combination, $field, $message ) =
-      @{$args}{qw(diagnostics pk_combination field message)};
+	my ( $diagnostics, $pk_combination, $field, $message, $type ) =
+	  @{$args}{qw(diagnostics pk_combination field message type)};
 	return if !defined $message || $message eq q();
-	my $diagnostic = { message => $message };
+	my $diagnostic = {
+		type    => $type // 'error',
+		message => $message
+	};
 	$diagnostic->{'field'} = $field if defined $field;
 	push @{ $diagnostics->{$pk_combination} }, $diagnostic;
 	return;
@@ -1281,10 +1313,13 @@ sub _report_check {
 		}
 	}
 	say q(</div>);
-	my $diagnostic_count = 0;
-	$diagnostic_count += @{ $diagnostics->{$_} } foreach keys %$diagnostics;
-
-	$logger->debug("Batch import: $diagnostic_count structured field validation diagnostics.");
+	my %counts = ( error => 0, advisory => 0 );
+	foreach my $id ( keys %$diagnostics ) {
+		foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
+			$counts{ $diagnostic->{'type'} }++;
+		}
+	}
+	$logger->debug("Batch import structured diagnostics: $counts{'error'} errors, $counts{'advisory'} advisories.");
 	return;
 }
 
