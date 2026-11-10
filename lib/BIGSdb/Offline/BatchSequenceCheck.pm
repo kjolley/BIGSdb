@@ -108,13 +108,18 @@ sub run {
 				$self->_check_data_sequences($new_args);
 				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
+				#Validate field independently of HTML formatting.
+				my $problem = $self->check_field_bad( 'sequences', $field, $value, $problems, $pk_combination );
+
+				$self->record_field_problem( $field, $problem, $problems, $pk_combination );
+
 				#Display field - highlight in red if invalid.
 				$rowbuffer .= $self->format_display_value(
 					{
 						table           => 'sequences',
 						field           => $field,
 						value           => $value,
-						problems        => $problems,
+						problem        => $problem,
 						pk_combination  => $pk_combination,
 						special_problem => $special_problem
 					}

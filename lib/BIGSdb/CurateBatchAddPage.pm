@@ -571,14 +571,18 @@ sub _check_data {
 				$self->_run_table_specific_field_checks( $table, $new_args );
 				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
+				#Validate field independently of HTML formatting.
+				my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
+
+				$self->record_field_problem( $field, $problem, $problems, $pk_combination );
+
 				#Display field - highlight in red if invalid.
 				$rowbuffer .= $self->format_display_value(
 					{
 						table           => $table,
 						field           => $field,
 						value           => $value,
-						problems        => $problems,
-						pk_combination  => $pk_combination,
+						problem         => $problem,
 						special_problem => $special_problem
 					}
 				);
@@ -790,10 +794,24 @@ sub _isolate_record_further_checks {
 	return $buffer;
 }
 
+sub record_field_problem {
+	my ( $self, $field, $problem, $problems, $pk_combination ) = @_;
+	return if !$problem;
+	$problem = BIGSdb::Utils::escape_html($problem);
+	my $problem_text = qq($field $problem<br />);
+
+	if ( !defined $problems->{$pk_combination}
+		|| $problems->{$pk_combination} !~ /\Q$problem_text\E/x )
+	{
+		$problems->{$pk_combination} .= $problem_text;
+	}
+	return;
+}
+
 sub format_display_value {
 	my ( $self, $args ) = @_;
-	my ( $table, $field, $value, $problems, $pk_combination, $special_problem ) =
-	  @{$args}{qw(table field value problems pk_combination special_problem)};
+	my ( $table, $field, $value, $problem, $special_problem ) =
+	  @{$args}{qw(table field value problem special_problem)};
 	$value //= '';
 	my $display_value;
 	if ( $field =~ /sequence/ && $field ne 'coding_sequence' && $field ne 'sequence_method' ) {
@@ -804,7 +822,6 @@ sub format_display_value {
 		$display_value = BIGSdb::Utils::escape_html($display_value);
 	}
 	my $buffer;
-	my $problem = $self->_check_field_bad( $table, $field, $value, $problems, $pk_combination );
 	if ( !( $problem || $special_problem ) ) {
 		if ( $table eq 'sequences' && $field eq 'flags' ) {
 			my @flags = split /;/x, ( $display_value // q() );
@@ -814,18 +831,11 @@ sub format_display_value {
 		$buffer = qq(<td>$display_value</td>);
 	} else {
 		$buffer = qq(<td><font color="red">$display_value</font></td>);
-		if ($problem) {
-			$problem = BIGSdb::Utils::escape_html($problem);
-			my $problem_text = qq($field $problem<br />);
-			if ( !defined $problems->{$pk_combination} || $problems->{$pk_combination} !~ /$problem_text/x ) {
-				$problems->{$pk_combination} .= $problem_text;
-			}
-		}
 	}
 	return $buffer;
 }
 
-sub _check_field_bad {
+sub check_field_bad {
 	my ( $self, $table, $field, $value, $problems, $pk_combination ) = @_;
 	return if ( $table eq 'sequences' && $field eq 'allele_id' && defined $problems->{$pk_combination} );
 	my $set_id = $self->get_set_id;
