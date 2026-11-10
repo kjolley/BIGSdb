@@ -216,8 +216,19 @@ sub _print_interface {
 }
 
 sub _check {
-	my ($self) = @_;
-	my $q = $self->{'cgi'};
+	my ($self)       = @_;
+	my $q            = $self->{'cgi'};
+	my $status       = $q->param('status') // q();
+	my %valid_status = map { $_ => 1 } SEQ_STATUS;
+
+	if ( !$valid_status{$status} ) {
+		$self->print_bad_status(
+			{
+				message => q(Invalid sequence status selected.),
+			}
+		);
+		return FAILURE;
+	}
 	my ( $locus, $sender, $sequence ) =
 	  ( scalar $q->param('locus'), scalar $q->param('sender'), scalar $q->param('sequence') );
 	if (   !$sender
