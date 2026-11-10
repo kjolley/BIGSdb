@@ -625,7 +625,8 @@ sub _check_data {
 				problems           => $problems,
 				advisories         => $advisories,
 				checked_record     => \$checked_record,
-				table              => $table
+				table              => $table,
+				diagnostics        => $diagnostics
 			};
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 				my %newdata             = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
@@ -1320,6 +1321,8 @@ sub _report_check {
 		}
 	}
 	$logger->debug("Batch import structured diagnostics: $counts{'error'} errors, $counts{'advisory'} advisories.");
+	use Data::Dumper;
+	$logger->debug( Dumper $diagnostics);
 	return;
 }
 
@@ -1422,11 +1425,32 @@ sub _check_data_isolate_record_locus_fields {
 				{
 					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />";
 					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' must be an integer<br />";
+
+					if ( $arg_ref->{'diagnostics'} ) {
+						$self->_add_validation_message(
+							{
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => $field,
+								message        => 'must be an integer.'
+							}
+						);
+					}
 				} elsif ( $arg_ref->{'locus_regex'}->{ $self->{'field_name_cache'}->{$field} }
 					&& $value !~ /$arg_ref->{'locus_regex'}->{$self->{'field_name_cache'}->{$field}}/x )
 				{
 					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />";
 					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' does not conform to specified format.<br />";
+					if ( $arg_ref->{'diagnostics'} ) {
+						$self->_add_validation_message(
+							{
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => $field,
+								message        => 'does not conform to specified format.'
+							}
+						);
+					}
 				} else {
 					$locusbuffer .= "$field:&nbsp;$value<br />";
 				}
@@ -1708,6 +1732,29 @@ sub _check_data_isolate_aliases {
 	return;
 }
 
+sub _record_primary_key_problem {
+	my ( $self, $args, $message ) = @_;
+	my $pk_combination = $args->{'pk_combination'};
+	my $problem_text   = qq($message<br />);
+
+	return
+	  if defined $args->{'problems'}->{$pk_combination}
+	  && $args->{'problems'}->{$pk_combination} =~ /\Q$problem_text\E/x;
+
+	$args->{'problems'}->{$pk_combination} .= $problem_text;
+	if ( $args->{'table'} eq 'isolates' && $args->{'diagnostics'} ) {
+		$self->_add_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => 'id',
+				message        => $message
+			}
+		);
+	}
+	return;
+}
+
 sub _check_data_primary_key {
 	my ( $self, $arg_ref ) = @_;
 	my $pk_combination = $arg_ref->{'pk_combination'};
@@ -1718,10 +1765,7 @@ sub _check_data_primary_key {
 		$self->{'sql'}->{'primary_key_check'} = $self->{'db'}->prepare($qry);
 	}
 	if ( $self->{'primary_key_combination'}->{$pk_combination} && $pk_combination !~ /\:\s*$/x ) {
-		my $problem_text = 'Primary key submitted more than once in this batch.<br />';
-		$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-		  if !defined $arg_ref->{'problems'}->{$pk_combination}
-		  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
+		$self->_record_primary_key_problem( $arg_ref, 'Primary key submitted more than once in this batch.' );
 	}
 	$self->{'primary_key_combination'}->{$pk_combination}++;
 
@@ -1765,12 +1809,7 @@ sub _check_data_primary_key {
 					BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
 				}
 			} else {
-				my $problem_text = 'Primary key already exists in the database.<br />';
-				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
-					|| $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x )
-				{
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-				}
+				$self->_record_primary_key_problem( $arg_ref, 'Primary key already exists in the database.' );
 			}
 		}
 	}
