@@ -61,6 +61,7 @@ Version 1.52: Change of seqdef database structure.
 Version 1.53: Change of auth database structure.
 Version 1.54: Change of seqdef and isolate database structures.
 Version 1.55: Change of seqdef and isolate database structures.
+Version 1.56: Change of seqdef and isolate database structures.
 
 Details can be found below.
 
@@ -738,3 +739,12 @@ when renewing scheme caches.
 
 Please run the isolatedb_v1.55.sql script against isolate databases and the
 seqdefdb_v1.55.sql script against sequence definition databases.
+
+Version 1.56
+------------
+There are changes to the sequence definition and isolate database structures
+to improve performance of scheme field cache renewal and classification group
+clustering.
+
+Please run the isolatedb_v1.56.sql script against isolate databases and the
+seqdefdb_v1.56.sql script against sequence definition databases.

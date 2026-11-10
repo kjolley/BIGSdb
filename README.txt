@@ -1,3 +1,7 @@
+v1.56.0: *Improved performance of scheme field cache renewal.
+         *Improved performance of classification group clustering. 
+         *Improved preference handling to reduce unnecessary database operations
+          and avoid creating cookies for anonymous users unless prefs are saved.         
 v1.55.2: *Further improvements to deadlock prevention when renewing scheme 
           caches.
          *Improved performance for define_profiles.pl when run with 
