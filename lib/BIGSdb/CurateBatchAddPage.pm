@@ -467,6 +467,19 @@ sub _increment_id {
 	return;
 }
 
+sub _show_preview {
+	my ( $self, $table, $record_count ) = @_;
+	return 1
+	  if $self->{'system'}->{'dbtype'} ne 'isolates'
+	  || $table ne 'isolates';
+	my $limit = $self->{'config'}->{'batch_isolate_preview_limit'} // 500;
+	if ( !BIGSdb::Utils::is_int($limit) || $limit < 0 ) {
+		$logger->error("Invalid batch_isolate_preview_limit '$limit' - using default of 500.");
+		$limit = 500;
+	}
+	return $record_count <= $limit ? 1 : 0;
+}
+
 sub _check_data {
 	my ( $self, $args ) = @_;
 	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
