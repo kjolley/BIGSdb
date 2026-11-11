@@ -1797,6 +1797,7 @@ sub _check_other_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 #Make sure field is not too long
 sub _check_other_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
+	$value //= q();
 	if ( $thisfield->{length} && length($value) > $thisfield->{'length'} ) {
 		return "field is too long (maximum length $thisfield->{'length'}).";
 	}

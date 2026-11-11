@@ -658,7 +658,11 @@ sub _check_data {
 			$row_buffer .= qq(</tr>\n) if $show_preview;
 
 			#Check for various invalid combinations of fields
-			if ( !$problems->{$pk_combination} ) {
+			my $has_errors =
+				$table eq 'isolates'
+			  ? $self->_has_validation_error( $diagnostics, $pk_combination )
+			  : $problems->{$pk_combination};
+			if ( !$has_errors ) {
 				my $skip_record = 0;
 				try {
 					$self->_check_data_primary_key($new_args);
@@ -857,6 +861,14 @@ sub _add_validation_message {
 	$diagnostic->{'field'} = $field if defined $field;
 	push @{ $diagnostics->{$pk_combination} }, $diagnostic;
 	return;
+}
+
+sub _has_validation_error {
+	my ( $self, $diagnostics, $pk_combination ) = @_;
+	foreach my $diagnostic ( @{ $diagnostics->{$pk_combination} // [] } ) {
+		return 1 if $diagnostic->{'type'} eq 'error';
+	}
+	return 0;
 }
 
 sub _record_validation_message {
@@ -1340,7 +1352,19 @@ sub _report_check {
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
 	my $diagnostics = $data->{'diagnostics'} // {};
+	my $has_errors;
+
 	if ( $table eq 'isolates' ) {
+		$has_errors = grep { $self->_has_validation_error( $diagnostics, $_ ) } keys %$diagnostics;
+	} else {
+		$has_errors = scalar keys %$problems;
+	}
+
+	if ( $table eq 'isolates' ) {
+		if ( %$problems && !$has_errors ) {
+			$logger->error('Legacy isolate validation errors found without structured diagnostics.');
+			$has_errors = 1;
+		}
 		foreach my $type ( { name => 'error', messages => $problems }, { name => 'advisory', messages => $advisories } )
 		{
 			foreach my $id ( keys %{ $type->{'messages'} } ) {
@@ -1363,7 +1387,7 @@ sub _report_check {
 	if ( $large_isolate_import && ( %$problems || %$advisories ) ) {
 		$report_files = $self->_write_validation_report($diagnostics);
 	}
-	if (%$problems) {
+	if ($has_errors) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		if ($large_isolate_import) {
 			say q(<p>Problems were identified in the submitted data. ) . q(The import cannot proceed.</p>);
