@@ -887,7 +887,8 @@ sub _record_validation_message {
 
 sub _format_validation_message {
 	my ( $self, $diagnostic ) = @_;
-	return BIGSdb::Utils::escape_html( $diagnostic->{'message'} );
+	my $message = BIGSdb::Utils::escape_html( $diagnostic->{'message'} );
+	return ucfirst($message);
 }
 
 sub _format_validation_messages {
@@ -1322,19 +1323,16 @@ sub _report_check {
 			}
 			say q(</table>);
 		} else {
-
 			say q(<table class="resultstable">);
 			say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
 			my $td = 1;
 			foreach my $id ( sort keys %$problems ) {
 				my $display_id = BIGSdb::Utils::escape_html($id);
 				my $message;
-				if ( $table eq 'isolates' ) {
-					$message = $self->_format_validation_messages( $diagnostics->{$id} // [], 'error' );
-				} else {
-					$problems->{$id} =~ s/'null'/<em>null<\/em>/gx;
-					$message = $problems->{$id};
-				}
+
+				$problems->{$id} =~ s/'null'/<em>null<\/em>/gx;
+				$message = $problems->{$id};
+
 				say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$message</td></tr>);
 				$td = $td == 1 ? 2 : 1;
 			}
@@ -1382,15 +1380,11 @@ sub _report_check {
 				say q(<table class="resultstable">);
 				say q(<tr><th>Primary key</th><th>Note(s)</th></tr>);
 				my $td = 1;
-
 				foreach my $id ( sort keys %$advisories ) {
-					my $message =
-						$table eq 'isolates'
-					  ? $self->_format_validation_messages( $diagnostics->{$id} // [], 'advisory' )
-					  : $advisories->{$id};
+					my $message    = $advisories->{$id};
 					my $display_id = BIGSdb::Utils::escape_html($id);
 					say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$message</td></tr>);
-					$td = $td == 1 ? 2 : 1;    #row stripes
+					$td = $td == 1 ? 2 : 1;                             #row stripes
 
 				}
 				say q(</table>);
