@@ -891,18 +891,6 @@ sub _format_validation_message {
 	return ucfirst($message);
 }
 
-sub _format_validation_messages {
-	my ( $self, $messages, $type ) = @_;
-	my $html = q();
-	foreach my $diagnostic (@$messages) {
-		next if $diagnostic->{'type'} ne $type;
-		my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
-		my $message = $self->_format_validation_message($diagnostic);
-		$html .= qq(<tr><td>$field</td><td style="text-align:left">$message</td></tr>);
-	}
-	return $html;
-}
-
 sub record_field_problem {
 	my ( $self, $field, $problem, $problems, $pk_combination, $diagnostics ) = @_;
 	return if !$problem;
