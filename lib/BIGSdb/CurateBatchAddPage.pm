@@ -870,7 +870,7 @@ sub _record_validation_message {
 		{
 			message => $message
 		}
-	);
+	) . q(<br />);
 	if ($diagnostics) {
 		$self->_add_validation_message(
 			{
@@ -887,14 +887,19 @@ sub _record_validation_message {
 
 sub _format_validation_message {
 	my ( $self, $diagnostic ) = @_;
-	my $field   = $diagnostic->{'field'};
-	my $message = $diagnostic->{'message'};
-	my $text =
-	  defined $field
-	  ? BIGSdb::Utils::escape_html($field) . q( )
-	  : q();
-	$text .= BIGSdb::Utils::escape_html($message);
-	return qq($text<br />);
+	return BIGSdb::Utils::escape_html( $diagnostic->{'message'} );
+}
+
+sub _format_validation_messages {
+	my ( $self, $messages, $type ) = @_;
+	my $html = q();
+	foreach my $diagnostic (@$messages) {
+		next if $diagnostic->{'type'} ne $type;
+		my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
+		my $message = $self->_format_validation_message($diagnostic);
+		$html .= qq(<tr><td>$field</td><td style="text-align:left">$message</td></tr>);
+	}
+	return $html;
 }
 
 sub record_field_problem {
@@ -906,7 +911,8 @@ sub record_field_problem {
 		message => $problem
 	};
 
-	my $problem_text = $self->_format_validation_message($diagnostic);
+	my $problem_text =
+	  BIGSdb::Utils::escape_html($field) . q( ) . $self->_format_validation_message($diagnostic) . q(<br />);
 
 	# Preserve the existing problem hash until all validation
 	# methods have been converted to structured diagnostics.
@@ -1275,6 +1281,17 @@ sub _report_check {
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
 	my $diagnostics = $data->{'diagnostics'} // {};
+	if ( $table eq 'isolates' ) {
+		foreach my $type ( { name => 'error', messages => $problems }, { name => 'advisory', messages => $advisories } )
+		{
+			foreach my $id ( keys %{ $type->{'messages'} } ) {
+				my $found = grep { $_->{'type'} eq $type->{'name'} } @{ $diagnostics->{$id} // [] };
+				if ( !$found ) {
+					$logger->error("Missing structured $type->{'name'} diagnostic for $id");
+				}
+			}
+		}
+	}
 	if ( !@$checked_buffer ) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		say q(<p>No valid records to upload after filtering.</p></div>);
@@ -1283,37 +1300,102 @@ sub _report_check {
 	my $q = $self->{'cgi'};
 	if (%$problems) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
-		say q(<table class="resultstable">);
-		say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
-		my $td = 1;
-		foreach my $id ( sort keys %$problems ) {
-			my $display_id = BIGSdb::Utils::escape_html($id);
-			$problems->{$id} =~ s/'null'/<em>null<\/em>/gx;
-			say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$problems->{$id}</td></tr>);
-			$td = $td == 1 ? 2 : 1;    #row stripes
+		if ( $table eq 'isolates' ) {
+			say q(<table class="resultstable">);
+			say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
+
+			my $td = 1;
+			foreach my $id ( sort keys %$problems ) {
+				my $display_id = BIGSdb::Utils::escape_html($id);
+
+				foreach my $diagnostic ( @{ $diagnostics->{$id} // [] } ) {
+					next if $diagnostic->{'type'} ne 'error';
+
+					my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
+					my $message = $self->_format_validation_message($diagnostic);
+
+					say qq(<tr class="td$td"><td>$display_id</td><td>Error</td>)
+					  . qq(<td>$field</td><td style="text-align:left">$message</td></tr>);
+
+					$td = $td == 1 ? 2 : 1;
+				}
+			}
+			say q(</table>);
+		} else {
+
+			say q(<table class="resultstable">);
+			say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
+			my $td = 1;
+			foreach my $id ( sort keys %$problems ) {
+				my $display_id = BIGSdb::Utils::escape_html($id);
+				my $message;
+				if ( $table eq 'isolates' ) {
+					$message = $self->_format_validation_messages( $diagnostics->{$id} // [], 'error' );
+				} else {
+					$problems->{$id} =~ s/'null'/<em>null<\/em>/gx;
+					$message = $problems->{$id};
+				}
+				say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$message</td></tr>);
+				$td = $td == 1 ? 2 : 1;
+			}
+			say q(</table>);
 		}
-		say q(</table></div>);
+		say q(</div>);
 	} else {
 		say qq(<div class="box" id="resultspanel"><h2>Import status</h2>$$sender_message);
 		if (%$advisories) {
 			say q(<p>Data can be uploaded but please note the following advisories:</p>);
-			say q(<table class="resultstable">);
-			say q(<tr><th>Primary key</th><th>Note(s)</th></tr>);
-			my $td = 1;
-			my $dup_isolate;
-			foreach my $id ( sort keys %$advisories ) {
-				say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$advisories->{$id}</td></tr>);
-				$td          = $td == 1 ? 2 : 1;    #row stripes
-				$dup_isolate = 1 if $advisories->{$id} =~ /$self->{'system'}->{'labelfield'}.*already\sexists/x;
+
+			if ( $table eq 'isolates' ) {
+				my $dup_isolate;
+				say q(<table class="resultstable">);
+				say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
+
+				my $td = 1;
+				foreach my $id ( sort keys %$advisories ) {
+					my $display_id = BIGSdb::Utils::escape_html($id);
+
+					foreach my $diagnostic ( @{ $diagnostics->{$id} // [] } ) {
+						next if $diagnostic->{'type'} ne 'advisory';
+
+						my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
+						my $message = $self->_format_validation_message($diagnostic);
+
+						say qq(<tr class="td$td"><td>$display_id</td><td>Advisory</td>)
+						  . qq(<td>$field</td><td style="text-align:left">$message</td></tr>);
+
+						$td          = $td == 1 ? 2 : 1;
+						$dup_isolate = 1
+						  if $advisories->{$id} =~ /$self->{'system'}->{'labelfield'}.*already\sexists/x;
+					}
+				}
+				say q(</table>);
+				if ($dup_isolate) {
+					say q(<p>)
+					  . ucfirst( $self->{'system'}->{'labelfield'} )
+					  . q( names are not guaranteed to be unique so this alone may not be enough to prevent upload, )
+					  . q(but please check if there are public records from the same country and/or submitting laboratory )
+					  . q(with the same names as these are likely to be duplicates.</p>);
+				}
+			} else {
+
+				say q(<table class="resultstable">);
+				say q(<tr><th>Primary key</th><th>Note(s)</th></tr>);
+				my $td = 1;
+
+				foreach my $id ( sort keys %$advisories ) {
+					my $message =
+						$table eq 'isolates'
+					  ? $self->_format_validation_messages( $diagnostics->{$id} // [], 'advisory' )
+					  : $advisories->{$id};
+					my $display_id = BIGSdb::Utils::escape_html($id);
+					say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$message</td></tr>);
+					$td = $td == 1 ? 2 : 1;    #row stripes
+
+				}
+				say q(</table>);
 			}
-			say q(</table>);
-			if ($dup_isolate) {
-				say q(<p>)
-				  . ucfirst( $self->{'system'}->{'labelfield'} )
-				  . q( names are not guaranteed to be unique so this alone may not be enough to prevent upload, )
-				  . q(but please check if there are public records from the same country and/or submitting laboratory )
-				  . q(with the same names as these are likely to be duplicates.</p>);
-			}
+
 		} else {
 			say q(<p>No obvious problems identified so far.</p>);
 		}
