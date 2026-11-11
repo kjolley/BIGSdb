@@ -1314,7 +1314,14 @@ sub _write_validation_report {
 		return;
 	}
 
-	my $excel_path = BIGSdb::Utils::text2excel($path);
+	my $excel_path = BIGSdb::Utils::text2excel(
+		$path,
+		{
+			field_options => {
+				Message => { align => 'left' }
+			}
+		}
+	);
 	my $excel_file;
 
 	if ( defined $excel_path && -e $excel_path ) {
