@@ -676,52 +676,54 @@ sub _check_data {
 				next RECORD if $skip_record;
 			}
 			$tablebuffer .= $row_buffer if $show_preview;
-			my %record_checks = (
-				accession => sub {
-					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				sequence_refs => sub {
-					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				sequence_extended_attributes => sub {
-					$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
-						$problems, $pk_combination );
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				loci => sub {
-					$self->_check_data_loci($new_args);
-				},
-				locus_descriptions => sub {
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				locus_links => sub {
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				retired_allele_ids => sub {
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				projects => sub {
-					$self->_check_projects( $new_args, $problems, $pk_combination );
-				},
-				classification_group_field_values => sub {
-					$self->_check_classification_field_values( $new_args, $problems, $pk_combination );
-				},
-				validation_conditions => sub {
-					$self->_check_validation_conditions( $new_args, $problems, $pk_combination );
-				},
-				isolate_field_extended_attributes => sub {
-					$self->_check_isolate_field_extended_attributes( $new_args, $problems, $pk_combination );
-				},
-				lincode_prefixes => sub {
-					$self->_check_lincode_prefix_values( $new_args, $problems, $pk_combination );
-				},
-				geography_point_lookup => sub {
-					$self->_check_geography_point_values( $new_args, $problems, $pk_combination );
-				}
-			);
-			$record_checks{$table}->() if $record_checks{$table};
+			if ( $table ne 'isolates' ) {
+				my %record_checks = (
+					accession => sub {
+						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+					},
+					sequence_refs => sub {
+						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+					},
+					sequence_extended_attributes => sub {
+						$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
+							$problems, $pk_combination );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+					},
+					loci => sub {
+						$self->_check_data_loci($new_args);
+					},
+					locus_descriptions => sub {
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+					},
+					locus_links => sub {
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+					},
+					retired_allele_ids => sub {
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+					},
+					projects => sub {
+						$self->_check_projects( $new_args, $problems, $pk_combination );
+					},
+					classification_group_field_values => sub {
+						$self->_check_classification_field_values( $new_args, $problems, $pk_combination );
+					},
+					validation_conditions => sub {
+						$self->_check_validation_conditions( $new_args, $problems, $pk_combination );
+					},
+					isolate_field_extended_attributes => sub {
+						$self->_check_isolate_field_extended_attributes( $new_args, $problems, $pk_combination );
+					},
+					lincode_prefixes => sub {
+						$self->_check_lincode_prefix_values( $new_args, $problems, $pk_combination );
+					},
+					geography_point_lookup => sub {
+						$self->_check_geography_point_values( $new_args, $problems, $pk_combination );
+					}
+				);
+				$record_checks{$table}->() if $record_checks{$table};
+			}
 		}
 		if ( defined $checked_record ) {
 			$td = $td == 1 ? 2 : 1;    #row stripes
