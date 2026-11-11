@@ -660,7 +660,7 @@ sub _check_data {
 			#Check for various invalid combinations of fields
 			my $has_errors =
 				$table eq 'isolates'
-			  ? $self->_has_validation_error( $diagnostics, $pk_combination )
+			  ? $self->_has_validation_message( $diagnostics, $pk_combination, 'error' )
 			  : $problems->{$pk_combination};
 			if ( !$has_errors ) {
 				my $skip_record = 0;
@@ -817,7 +817,6 @@ sub _isolate_record_further_checks {
 	{
 		my $message = "$self->{'system'}->{'labelfield'} "
 		  . "'$data->[$args->{'file_header_pos'}->{$self->{'system'}->{'labelfield'}}]' already exists in the database.";
-		$advisories->{$pk_combination} .= $message;
 		$self->_add_validation_message(
 			{
 				diagnostics    => $diagnostics,
@@ -835,7 +834,6 @@ sub _isolate_record_further_checks {
 	{
 		my $message = 'Alias list should be separated by semi-colons (;). '
 		  . 'Commas included in this field will be assumed to be part of an alias name.';
-		$advisories->{$pk_combination} .= $message;
 		$self->_add_validation_message(
 			{
 				diagnostics    => $diagnostics,
@@ -863,10 +861,10 @@ sub _add_validation_message {
 	return;
 }
 
-sub _has_validation_error {
-	my ( $self, $diagnostics, $pk_combination ) = @_;
+sub _has_validation_message {
+	my ( $self, $diagnostics, $pk_combination, $type ) = @_;
 	foreach my $diagnostic ( @{ $diagnostics->{$pk_combination} // [] } ) {
-		return 1 if $diagnostic->{'type'} eq 'error';
+		return 1 if $diagnostic->{'type'} eq $type;
 	}
 	return 0;
 }
@@ -878,12 +876,14 @@ sub _record_validation_message {
 	$type //= 'error';
 
 	# Preserve the legacy HTML representation for existing reports.
-	my $legacy = $type eq 'advisory' ? $advisories : $problems;
-	$legacy->{$pk_combination} .= $self->_format_validation_message(
-		{
-			message => $message
-		}
-	) . q(<br />);
+	if ( $type ne 'advisory' || !$diagnostics ) {
+		my $legacy = $type eq 'advisory' ? $advisories : $problems;
+		$legacy->{$pk_combination} .= $self->_format_validation_message(
+			{
+				message => $message
+			}
+		) . q(<br />);
+	}
 	if ($diagnostics) {
 		$self->_add_validation_message(
 			{
@@ -1353,11 +1353,15 @@ sub _report_check {
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
 	my $diagnostics = $data->{'diagnostics'} // {};
 	my $has_errors;
+	my $has_advisories;
 
 	if ( $table eq 'isolates' ) {
-		$has_errors = grep { $self->_has_validation_error( $diagnostics, $_ ) } keys %$diagnostics;
+		$has_errors     = grep { $self->_has_validation_message( $diagnostics, $_, 'error' ) } keys %$diagnostics;
+		$has_advisories = grep { $self->_has_validation_message( $diagnostics, $_, 'advisory' ) } keys %$diagnostics;
+
 	} else {
-		$has_errors = scalar keys %$problems;
+		$has_errors     = scalar keys %$problems;
+		$has_advisories = scalar keys %$advisories;
 	}
 
 	if ( $table eq 'isolates' ) {
@@ -1365,8 +1369,7 @@ sub _report_check {
 			$logger->error('Legacy isolate validation errors found without structured diagnostics.');
 			$has_errors = 1;
 		}
-		foreach my $type ( { name => 'error', messages => $problems }, { name => 'advisory', messages => $advisories } )
-		{
+		foreach my $type ( { name => 'error', messages => $problems } ) {
 			foreach my $id ( keys %{ $type->{'messages'} } ) {
 				my $found = grep { $_->{'type'} eq $type->{'name'} } @{ $diagnostics->{$id} // [] };
 				if ( !$found ) {
@@ -1384,7 +1387,7 @@ sub _report_check {
 	my $large_isolate_import = $table eq 'isolates' && !$show_preview;
 	my $report_files;
 
-	if ( $large_isolate_import && ( %$problems || %$advisories ) ) {
+	if ( $large_isolate_import && ( $has_errors || $has_advisories ) ) {
 		$report_files = $self->_write_validation_report($diagnostics);
 	}
 	if ($has_errors) {
@@ -1432,7 +1435,7 @@ sub _report_check {
 		say q(</div>);
 	} else {
 		say qq(<div class="box" id="resultspanel"><h2>Import status</h2>$$sender_message);
-		if (%$advisories) {
+		if ($has_advisories) {
 			if ($large_isolate_import) {
 				say q(<p>Data can be uploaded, but validation advisories were identified. )
 				  . q(Please review the downloadable report before proceeding.</p>);
@@ -1448,7 +1451,7 @@ sub _report_check {
 				say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
 
 				my $td = 1;
-				foreach my $id ( sort keys %$advisories ) {
+				foreach my $id ( sort keys %$diagnostics ) {
 					my $display_id = BIGSdb::Utils::escape_html($id);
 
 					foreach my $diagnostic ( @{ $diagnostics->{$id} // [] } ) {
@@ -1456,13 +1459,13 @@ sub _report_check {
 
 						my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
 						my $message = $self->_format_validation_message($diagnostic);
-
 						say qq(<tr class="td$td"><td>$display_id</td><td>Advisory</td>)
 						  . qq(<td>$field</td><td style="text-align:left">$message</td></tr>);
 
 						$td          = $td == 1 ? 2 : 1;
 						$dup_isolate = 1
-						  if $advisories->{$id} =~ /$self->{'system'}->{'labelfield'}.*already\sexists/x;
+						  if ( $diagnostic->{'field'} // q() ) eq $self->{'system'}->{'labelfield'}
+						  && $diagnostic->{'message'} =~ /already\sexists\sin\sthe\sdatabase/x;
 					}
 				}
 				say q(</table>);
@@ -1491,7 +1494,7 @@ sub _report_check {
 		} else {
 			say q(<p>No obvious problems identified so far.</p>);
 		}
-		if ( $large_isolate_import && %$advisories && !$report_files ) {
+		if ( $large_isolate_import && $has_advisories && !$report_files ) {
 			say q(</div>);
 			return;
 		}
@@ -1794,7 +1797,10 @@ sub _check_data_refs {
 					);
 					${ $arg_ref->{'special_problem'} } = 1;
 				} elsif ( $ref <= 10_000 ) {
-					if ( ( $arg_ref->{'advisories'}->{$pk_combination} // q() ) !~ /References\ may\ be\ invalid/x ) {
+					my $already_reported =
+					  grep { $_->{'type'} eq 'advisory' && ( $_->{'field'} // q() ) eq 'references' }
+					  @{ $arg_ref->{'diagnostics'}->{$pk_combination} // [] };
+					if ( !$already_reported ) {
 						$self->_record_validation_message(
 							{
 								advisories     => $arg_ref->{'advisories'},
