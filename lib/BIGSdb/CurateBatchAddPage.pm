@@ -1265,6 +1265,68 @@ sub _get_existing_label_field_values {
 	return \%hash;
 }
 
+sub _write_validation_report {
+	my ( $self, $diagnostics ) = @_;
+	my $filename = BIGSdb::Utils::get_random() . '_validation.tsv';
+	my $path     = "$self->{'config'}->{'tmp_dir'}/$filename";
+
+	open( my $fh, '>:encoding(UTF-8)', $path )
+	  or do {
+		$logger->error("Cannot create validation report $path: $!");
+		return;
+	  };
+
+	binmode( $fh, ':encoding(UTF-8)' );
+
+	my $ok = eval {
+		say $fh qq(Primary key\tType\tField\tMessage)
+		  or $logger->logdie("Cannot write validation report header: $!");
+
+		foreach my $id ( sort keys %$diagnostics ) {
+			foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
+				my @values = (
+					$id,
+					ucfirst( $diagnostic->{'type'} // 'error' ),
+					$diagnostic->{'field'} // q(),
+					ucfirst( $diagnostic->{'message'} // q() )
+				);
+
+				foreach my $value (@values) {
+					$value =~ s/[\t\r\n]+/ /gx;
+
+					# Prevent spreadsheet formula evaluation.
+					$value = q(') . $value if $value =~ /^[=+\-@\t\r]/x;
+				}
+				local $" = qq(\t);
+				say $fh qq(@values)
+				  or $logger->logdie("Cannot write validation report row: $!");
+			}
+		}
+		1;
+	};
+
+	my $error  = $@;
+	my $closed = close $fh;
+
+	if ( !$ok || !$closed ) {
+		$logger->error( "Cannot write validation report $path: " . ( $error || $! ) );
+		unlink $path;
+		return;
+	}
+
+	my $excel_path = BIGSdb::Utils::text2excel($path);
+	my $excel_file;
+
+	if ( defined $excel_path && -e $excel_path ) {
+		($excel_file) = $excel_path =~ /([^\/]+)$/x;
+	}
+	return {
+		text  => $filename,
+		excel => $excel_file
+	};
+
+}
+
 sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
@@ -1286,10 +1348,19 @@ sub _report_check {
 		say q(<p>No valid records to upload after filtering.</p></div>);
 		return;
 	}
-	my $q = $self->{'cgi'};
+	my $q                    = $self->{'cgi'};
+	my $large_isolate_import = $table eq 'isolates' && !$show_preview;
+	my $report_files;
+
+	if ( $large_isolate_import && ( %$problems || %$advisories ) ) {
+		$report_files = $self->_write_validation_report($diagnostics);
+	}
 	if (%$problems) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
-		if ( $table eq 'isolates' ) {
+		if ($large_isolate_import) {
+			say q(<p>Problems were identified in the submitted data. ) . q(The import cannot proceed.</p>);
+			$self->_print_validation_report_link($report_files);
+		} elsif ( $table eq 'isolates' ) {
 			say q(<table class="resultstable">);
 			say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
 
@@ -1330,9 +1401,16 @@ sub _report_check {
 	} else {
 		say qq(<div class="box" id="resultspanel"><h2>Import status</h2>$$sender_message);
 		if (%$advisories) {
-			say q(<p>Data can be uploaded but please note the following advisories:</p>);
+			if ($large_isolate_import) {
+				say q(<p>Data can be uploaded, but validation advisories were identified. )
+				  . q(Please review the downloadable report before proceeding.</p>);
+			} else {
+				say q(<p>Data can be uploaded but please note the following advisories:</p>);
+			}
 
-			if ( $table eq 'isolates' ) {
+			if ($large_isolate_import) {
+				$self->_print_validation_report_link($report_files);
+			} elsif ( $table eq 'isolates' ) {
 				my $dup_isolate;
 				say q(<table class="resultstable">);
 				say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
@@ -1372,7 +1450,7 @@ sub _report_check {
 					my $message    = $advisories->{$id};
 					my $display_id = BIGSdb::Utils::escape_html($id);
 					say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$message</td></tr>);
-					$td = $td == 1 ? 2 : 1;                             #row stripes
+					$td = $td == 1 ? 2 : 1;    #row stripes
 
 				}
 				say q(</table>);
@@ -1380,6 +1458,10 @@ sub _report_check {
 
 		} else {
 			say q(<p>No obvious problems identified so far.</p>);
+		}
+		if ( $large_isolate_import && %$advisories && !$report_files ) {
+			say q(</div>);
+			return;
 		}
 		my $filename = $self->make_temp_file(@$checked_buffer);
 		say $q->start_form;
@@ -1413,6 +1495,27 @@ sub _report_check {
 		}
 	}
 	$logger->debug("Batch import structured diagnostics: $counts{'error'} errors, $counts{'advisory'} advisories.");
+	return;
+}
+
+sub _print_validation_report_link {
+	my ( $self, $files ) = @_;
+
+	if ( !$files || !$files->{'text'} ) {
+		say q(<p>The validation report could not be generated. )
+		  . q(Please try again or contact the administrator.</p>);
+		return;
+	}
+	say q(<div style="margin-bottom:1em">);
+	say q(<h3>Download validation report:</h3>);
+	say qq(<a href="/tmp/$files->{'text'}" title="Download validation report in tab-delimited text format">)
+	  . TEXT_FILE . q(</a>);
+
+	if ( $files->{'excel'} ) {
+		say qq(<a href="/tmp/$files->{'excel'}" title="Download validation report in Excel format">)
+		  . EXCEL_FILE . q(</a>);
+	}
+	say q(</div>);
 	return;
 }
 

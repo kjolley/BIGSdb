@@ -419,7 +419,7 @@ sub text2excel {
 		binmode(STDOUT);
 		$excel_file = \*STDOUT;
 	} else {
-		( $excel_file = $text_file ) =~ s/txt$/xlsx/x;
+		( $excel_file = $text_file ) =~ s/txt$|tsv$/xlsx/x;
 	}
 	my $workbook    = Excel::Writer::XLSX->new($excel_file);
 	my $text_format = $workbook->add_format( num_format => '@' );
