@@ -575,7 +575,7 @@ sub _check_data {
 					last_id         => \%last_id,
 					unique_field    => $unique_field,
 					advisories      => $advisories,
-					diagnostics     => $diagnostics,
+					diagnostics     => $table eq 'isolates' ? $diagnostics : undef,
 				};
 				$self->check_data_duplicates($new_args);
 				$self->_run_table_specific_field_checks( $table, $new_args );
@@ -636,7 +636,6 @@ sub _check_data {
 				if (@$validation_failures) {
 					foreach my $failure (@$validation_failures) {
 						$failure =~ s/\.?\s*$/. /x;
-						$problems->{$pk_combination} .= $failure;
 						$self->_add_validation_message(
 							{
 								diagnostics    => $diagnostics,
@@ -876,7 +875,7 @@ sub _record_validation_message {
 	$type //= 'error';
 
 	# Preserve the legacy HTML representation for existing reports.
-	if ( $type ne 'advisory' || !$diagnostics ) {
+	if ( !$diagnostics ) {
 		my $legacy = $type eq 'advisory' ? $advisories : $problems;
 		$legacy->{$pk_combination} .= $self->_format_validation_message(
 			{
@@ -908,22 +907,14 @@ sub record_field_problem {
 	my ( $self, $field, $problem, $problems, $pk_combination, $diagnostics ) = @_;
 	return if !$problem;
 
-	my $diagnostic = {
-		field   => $field,
-		message => $problem
-	};
+	if ($diagnostics) {
+		my $already_reported = grep {
+				 ( $_->{'type'} // q() ) eq 'error'
+			  && ( $_->{'field'} // q() ) eq $field
+			  && $_->{'message'} eq $problem
+		} @{ $diagnostics->{$pk_combination} // [] };
 
-	my $problem_text =
-	  BIGSdb::Utils::escape_html($field) . q( ) . $self->_format_validation_message($diagnostic) . q(<br />);
-
-	# Preserve the existing problem hash until all validation
-	# methods have been converted to structured diagnostics.
-	if ( !defined $problems->{$pk_combination}
-		|| $problems->{$pk_combination} !~ /\Q$problem_text\E/x )
-	{
-		$problems->{$pk_combination} .= $problem_text;
-
-		if ($diagnostics) {
+		if ( !$already_reported ) {
 			$self->_add_validation_message(
 				{
 					diagnostics    => $diagnostics,
@@ -932,6 +923,22 @@ sub record_field_problem {
 					message        => $problem
 				}
 			);
+		}
+	} else {
+
+		# Preserve legacy behaviour for other batch import tables.
+		my $diagnostic = {
+			field   => $field,
+			message => $problem
+		};
+
+		my $problem_text =
+		  BIGSdb::Utils::escape_html($field) . q( ) . $self->_format_validation_message($diagnostic) . q(<br />);
+
+		if ( !defined $problems->{$pk_combination}
+			|| $problems->{$pk_combination} !~ /\Q$problem_text\E/x )
+		{
+			$problems->{$pk_combination} .= $problem_text;
 		}
 	}
 	return;
@@ -1364,20 +1371,6 @@ sub _report_check {
 		$has_advisories = scalar keys %$advisories;
 	}
 
-	if ( $table eq 'isolates' ) {
-		if ( %$problems && !$has_errors ) {
-			$logger->error('Legacy isolate validation errors found without structured diagnostics.');
-			$has_errors = 1;
-		}
-		foreach my $type ( { name => 'error', messages => $problems } ) {
-			foreach my $id ( keys %{ $type->{'messages'} } ) {
-				my $found = grep { $_->{'type'} eq $type->{'name'} } @{ $diagnostics->{$id} // [] };
-				if ( !$found ) {
-					$logger->error("Missing structured $type->{'name'} diagnostic for $id");
-				}
-			}
-		}
-	}
 	if ( !@$checked_buffer ) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		say q(<p>No valid records to upload after filtering.</p></div>);
@@ -1400,7 +1393,7 @@ sub _report_check {
 			say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
 
 			my $td = 1;
-			foreach my $id ( sort keys %$problems ) {
+			foreach my $id ( sort keys %$diagnostics ) {
 				my $display_id = BIGSdb::Utils::escape_html($id);
 
 				foreach my $diagnostic ( @{ $diagnostics->{$id} // [] } ) {
@@ -1654,8 +1647,6 @@ sub _check_data_isolate_record_locus_fields {
 					&& !BIGSdb::Utils::is_int($value) )
 				{
 					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />" if $show_preview;
-					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' must be an integer<br />";
-
 					if ( $arg_ref->{'diagnostics'} ) {
 						$self->_add_validation_message(
 							{
@@ -1670,7 +1661,6 @@ sub _check_data_isolate_record_locus_fields {
 					&& $value !~ /$arg_ref->{'locus_regex'}->{$self->{'field_name_cache'}->{$field}}/x )
 				{
 					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />" if $show_preview;
-					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' does not conform to specified format.<br />";
 					if ( $arg_ref->{'diagnostics'} ) {
 						$self->_add_validation_message(
 							{
@@ -2018,23 +2008,31 @@ sub _check_data_isolate_aliases {
 
 sub _record_primary_key_problem {
 	my ( $self, $args, $message ) = @_;
+
 	my $pk_combination = $args->{'pk_combination'};
-	my $problem_text   = qq($message<br />);
 
-	return
-	  if defined $args->{'problems'}->{$pk_combination}
-	  && $args->{'problems'}->{$pk_combination} =~ /\Q$problem_text\E/x;
-
-	$args->{'problems'}->{$pk_combination} .= $problem_text;
 	if ( $args->{'table'} eq 'isolates' && $args->{'diagnostics'} ) {
-		$self->_add_validation_message(
-			{
-				diagnostics    => $args->{'diagnostics'},
-				pk_combination => $pk_combination,
-				field          => 'id',
-				message        => $message
-			}
-		);
+		my $already_reported =
+		  grep { $_->{'type'} eq 'error' && ( $_->{'field'} // q() ) eq 'id' && $_->{'message'} eq $message }
+		  @{ $args->{'diagnostics'}->{$pk_combination} // [] };
+
+		if ( !$already_reported ) {
+			$self->_add_validation_message(
+				{
+					diagnostics    => $args->{'diagnostics'},
+					pk_combination => $pk_combination,
+					field          => 'id',
+					message        => $message
+				}
+			);
+		}
+	} else {
+		my $problem_text = qq($message<br />);
+		if ( !defined $args->{'problems'}->{$pk_combination}
+			|| $args->{'problems'}->{$pk_combination} !~ /\Q$problem_text\E/x )
+		{
+			$args->{'problems'}->{$pk_combination} .= $problem_text;
+		}
 	}
 	return;
 }
