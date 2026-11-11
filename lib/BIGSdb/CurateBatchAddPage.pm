@@ -575,6 +575,7 @@ sub _check_data {
 					last_id         => \%last_id,
 					unique_field    => $unique_field,
 					advisories      => $advisories,
+					diagnostics     => $diagnostics,
 				};
 				$self->check_data_duplicates($new_args);
 				$self->_run_table_specific_field_checks( $table, $new_args );
@@ -854,6 +855,33 @@ sub _add_validation_message {
 	};
 	$diagnostic->{'field'} = $field if defined $field;
 	push @{ $diagnostics->{$pk_combination} }, $diagnostic;
+	return;
+}
+
+sub _record_validation_message {
+	my ( $self, $args ) = @_;
+	my ( $problems, $advisories, $diagnostics, $pk_combination, $field, $message, $type ) =
+	  @{$args}{qw(problems advisories diagnostics pk_combination field message type)};
+	$type //= 'error';
+
+	# Preserve the legacy HTML representation for existing reports.
+	my $legacy = $type eq 'advisory' ? $advisories : $problems;
+	$legacy->{$pk_combination} .= $self->_format_validation_message(
+		{
+			message => $message
+		}
+	);
+	if ($diagnostics) {
+		$self->_add_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => $field,
+				message        => $message,
+				type           => $type
+			}
+		);
+	}
 	return;
 }
 
@@ -1321,8 +1349,6 @@ sub _report_check {
 		}
 	}
 	$logger->debug("Batch import structured diagnostics: $counts{'error'} errors, $counts{'advisory'} advisories.");
-	use Data::Dumper;
-	$logger->debug( Dumper $diagnostics);
 	return;
 }
 
@@ -1542,19 +1568,42 @@ sub _check_data_refs {
 			my %used;
 			foreach my $ref (@refs) {
 				if ( $used{$ref} ) {
-					my $problem_text = 'Duplicate PubMed id used.<br />';
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					$self->_record_validation_message(
+						{
+							problems       => $arg_ref->{'problems'},
+							diagnostics    => $arg_ref->{'diagnostics'},
+							pk_combination => $pk_combination,
+							field          => 'references',
+							message        => 'Duplicate PubMed id used.'
+						}
+					);
 					${ $arg_ref->{'special_problem'} } = 1;
 					last;
 				}
 				if ( !BIGSdb::Utils::is_int($ref) ) {
-					my $problem_text = "References are PubMed ids - $ref is not an integer.<br />";
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					$self->_record_validation_message(
+						{
+							problems       => $arg_ref->{'problems'},
+							diagnostics    => $arg_ref->{'diagnostics'},
+							pk_combination => $pk_combination,
+							field          => 'references',
+							message        => "References are PubMed ids - $ref is not an integer."
+						}
+					);
 					${ $arg_ref->{'special_problem'} } = 1;
 				} elsif ( $ref <= 10_000 ) {
 					if ( ( $arg_ref->{'advisories'}->{$pk_combination} // q() ) !~ /References\ may\ be\ invalid/x ) {
-						$arg_ref->{'advisories'}->{$pk_combination} .=
-						  'References may be invalid - you are unlikely to have a PubMed id less than 10,000.<br />';
+						$self->_record_validation_message(
+							{
+								advisories     => $arg_ref->{'advisories'},
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => 'references',
+								type           => 'advisory',
+								message        =>
+								  'References may be invalid - you are unlikely to have a PubMed id less than 10,000.'
+							}
+						);
 					}
 				}
 				$used{$ref} = 1;
@@ -1656,23 +1705,43 @@ sub _check_data_aliases {
 				next if $alias eq '';
 				if ( defined $isolate_name ) {
 					if ( $used{$alias} ) {
-						my $problem_text = 'Duplicate alias used.<br />';
-						$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+						$self->_record_validation_message(
+							{
+								problems       => $arg_ref->{'problems'},
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => 'aliases',
+								message        => 'Duplicate alias used.'
+							}
+						);
 						${ $arg_ref->{'special_problem'} } = 1;
 						last;
 					}
 					if ( $alias eq $isolate_name ) {
-						my $problem_text = 'Aliases are ALTERNATIVE names for the isolate name.<br />';
-						$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+						$self->_record_validation_message(
+							{
+								problems       => $arg_ref->{'problems'},
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => 'aliases',
+								message        => 'Aliases are ALTERNATIVE names for the isolate name.'
+							}
+						);
 						${ $arg_ref->{'special_problem'} } = 1;
 						last;
 					}
 					$used{$alias} = 1;
 				}
 				if ( $null_terms{ lc($alias) } ) {
-					my $problem_text =
-					  "Aliases are optional - leave blank rather than using a value like '$alias'.<br />";
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					$self->_record_validation_message(
+						{
+							problems       => $arg_ref->{'problems'},
+							diagnostics    => $arg_ref->{'diagnostics'},
+							pk_combination => $pk_combination,
+							field          => 'aliases',
+							message => "Aliases are optional - leave blank rather than using a value like '$alias'."
+						}
+					);
 					${ $arg_ref->{'special_problem'} } = 1;
 					last;
 				}
@@ -1696,8 +1765,15 @@ sub _check_data_codon_table {
 
 	if ( !$allowed{$value} ) {
 		local $" = q(, );
-		my $problem_text = "Allowed codon tables are: @allowed.<br />";
-		$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+		$self->_record_validation_message(
+			{
+				problems       => $arg_ref->{'problems'},
+				diagnostics    => $arg_ref->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => 'codon_table',
+				message        => "Allowed codon tables are: @allowed."
+			}
+		);
 		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
