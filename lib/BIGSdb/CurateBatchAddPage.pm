@@ -627,7 +627,8 @@ sub _check_data {
 				advisories         => $advisories,
 				checked_record     => \$checked_record,
 				table              => $table,
-				diagnostics        => $diagnostics
+				diagnostics        => $diagnostics,
+				show_preview       => $show_preview
 			};
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
 				my %newdata             = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
@@ -1604,7 +1605,9 @@ sub _check_data_isolate_record_locus_fields {
 	my @data            = @{ $arg_ref->{'data'} };
 	my $pk_combination  = $arg_ref->{'pk_combination'};
 	my $set_id          = $self->get_set_id;
+	my $show_preview    = $arg_ref->{'show_preview'} // 1;
 	my $locusbuffer;
+
 	foreach my $field ( @{ $arg_ref->{'file_header_fields'} } ) {
 		if ( !$self->{'field_name_cache'}->{$field} ) {
 			$self->{'field_name_cache'}->{$field} = $self->{'submissionHandler'}->map_locus_name( $field, $set_id )
@@ -1623,7 +1626,7 @@ sub _check_data_isolate_record_locus_fields {
 				if ( $arg_ref->{'locus_format'}->{ $self->{'field_name_cache'}->{$field} } eq 'integer'
 					&& !BIGSdb::Utils::is_int($value) )
 				{
-					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />";
+					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />" if $show_preview;
 					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' must be an integer<br />";
 
 					if ( $arg_ref->{'diagnostics'} ) {
@@ -1639,7 +1642,7 @@ sub _check_data_isolate_record_locus_fields {
 				} elsif ( $arg_ref->{'locus_regex'}->{ $self->{'field_name_cache'}->{$field} }
 					&& $value !~ /$arg_ref->{'locus_regex'}->{$self->{'field_name_cache'}->{$field}}/x )
 				{
-					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />";
+					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />" if $show_preview;
 					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' does not conform to specified format.<br />";
 					if ( $arg_ref->{'diagnostics'} ) {
 						$self->_add_validation_message(
@@ -1652,7 +1655,7 @@ sub _check_data_isolate_record_locus_fields {
 						);
 					}
 				} else {
-					$locusbuffer .= "$field:&nbsp;$value<br />";
+					$locusbuffer .= "$field:&nbsp;$value<br />" if $show_preview;
 				}
 				${ $arg_ref->{'checked_record'} } .= "$value\t";
 			} else {
@@ -1660,6 +1663,7 @@ sub _check_data_isolate_record_locus_fields {
 			}
 		}
 	}
+	return q() if !$show_preview;
 	return defined $locusbuffer ? "<td>$locusbuffer</td>" : '<td></td>';
 }
 
