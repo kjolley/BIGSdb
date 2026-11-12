@@ -1505,20 +1505,8 @@ sub _report_check {
 				$self->_print_duplicate_isolate_advisory($diagnostics)
 				  if $table eq 'isolates';
 			} else {
-
-				say q(<table class="resultstable">);
-				say q(<tr><th>Primary key</th><th>Note(s)</th></tr>);
-				my $td = 1;
-				foreach my $id ( sort keys %$advisories ) {
-					my $message    = $advisories->{$id};
-					my $display_id = BIGSdb::Utils::escape_html($id);
-					say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$message</td></tr>);
-					$td = $td == 1 ? 2 : 1;    #row stripes
-
-				}
-				say q(</table>);
+				$self->_print_legacy_diagnostics( $advisories, 'advisory' );
 			}
-
 		} else {
 			say q(<p>No obvious problems identified so far.</p>);
 		}
