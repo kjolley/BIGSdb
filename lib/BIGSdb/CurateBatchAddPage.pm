@@ -584,7 +584,8 @@ sub _check_data {
 				#Validate field independently of HTML formatting.
 				my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
 
-				$self->record_field_problem( $field, $problem, $problems, $pk_combination, $diagnostics );
+				$self->record_field_problem( $field, $problem, $problems, $pk_combination,
+					$table eq 'isolates' ? $diagnostics : undef );
 
 				#Display field only when generating a preview.
 				if ($show_preview) {
@@ -636,7 +637,7 @@ sub _check_data {
 				if (@$validation_failures) {
 					foreach my $failure (@$validation_failures) {
 						$failure =~ s/\.?\s*$/. /x;
-						$self->_add_validation_message(
+						$self->record_validation_message(
 							{
 								diagnostics    => $diagnostics,
 								pk_combination => $pk_combination,
@@ -818,7 +819,7 @@ sub _isolate_record_further_checks {
 	{
 		my $message = "$self->{'system'}->{'labelfield'} "
 		  . "'$data->[$args->{'file_header_pos'}->{$self->{'system'}->{'labelfield'}}]' already exists in the database.";
-		$self->_add_validation_message(
+		$self->record_validation_message(
 			{
 				diagnostics    => $diagnostics,
 				pk_combination => $pk_combination,
@@ -835,7 +836,7 @@ sub _isolate_record_further_checks {
 	{
 		my $message = 'Alias list should be separated by semi-colons (;). '
 		  . 'Commas included in this field will be assumed to be part of an alias name.';
-		$self->_add_validation_message(
+		$self->record_validation_message(
 			{
 				diagnostics    => $diagnostics,
 				pk_combination => $pk_combination,
@@ -848,17 +849,29 @@ sub _isolate_record_further_checks {
 	return $buffer;
 }
 
-sub _add_validation_message {
+sub record_validation_message {
 	my ( $self, $args ) = @_;
-	my ( $diagnostics, $pk_combination, $field, $message, $type ) =
-	  @{$args}{qw(diagnostics pk_combination field message type)};
+
+	my ( $diagnostics, $problems, $advisories, $pk_combination, $field, $message, $type ) =
+	  @{$args}{qw(diagnostics problems advisories pk_combination field message type)};
 	return if !defined $message || $message eq q();
-	my $diagnostic = {
-		type    => $type // 'error',
-		message => $message
-	};
-	$diagnostic->{'field'} = $field if defined $field;
-	push @{ $diagnostics->{$pk_combination} }, $diagnostic;
+	$type //= 'error';
+
+	if ($diagnostics) {
+		my $diagnostic = {
+			type    => $type,
+			message => $message
+		};
+		$diagnostic->{'field'} = $field if defined $field;
+
+		push @{ $diagnostics->{$pk_combination} }, $diagnostic;
+	} else {
+
+		# Legacy reporting for batch tables not yet migrated.
+		my $legacy = $type eq 'advisory' ? $advisories : $problems;
+
+		$legacy->{$pk_combination} .= $self->_format_validation_message( { message => $message } ) . q(<br />);
+	}
 	return;
 }
 
@@ -868,35 +881,6 @@ sub _has_validation_message {
 		return 1 if $diagnostic->{'type'} eq $type;
 	}
 	return 0;
-}
-
-sub _record_validation_message {
-	my ( $self, $args ) = @_;
-	my ( $problems, $advisories, $diagnostics, $pk_combination, $field, $message, $type ) =
-	  @{$args}{qw(problems advisories diagnostics pk_combination field message type)};
-	$type //= 'error';
-
-	# Preserve the legacy HTML representation for existing reports.
-	if ( !$diagnostics ) {
-		my $legacy = $type eq 'advisory' ? $advisories : $problems;
-		$legacy->{$pk_combination} .= $self->_format_validation_message(
-			{
-				message => $message
-			}
-		) . q(<br />);
-	}
-	if ($diagnostics) {
-		$self->_add_validation_message(
-			{
-				diagnostics    => $diagnostics,
-				pk_combination => $pk_combination,
-				field          => $field,
-				message        => $message,
-				type           => $type
-			}
-		);
-	}
-	return;
 }
 
 sub _format_validation_message {
@@ -917,7 +901,7 @@ sub record_field_problem {
 		} @{ $diagnostics->{$pk_combination} // [] };
 
 		if ( !$already_reported ) {
-			$self->_add_validation_message(
+			$self->record_validation_message(
 				{
 					diagnostics    => $diagnostics,
 					pk_combination => $pk_combination,
@@ -1650,7 +1634,7 @@ sub _check_data_isolate_record_locus_fields {
 				{
 					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />" if $show_preview;
 					if ( $arg_ref->{'diagnostics'} ) {
-						$self->_add_validation_message(
+						$self->record_validation_message(
 							{
 								diagnostics    => $arg_ref->{'diagnostics'},
 								pk_combination => $pk_combination,
@@ -1664,7 +1648,7 @@ sub _check_data_isolate_record_locus_fields {
 				{
 					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />" if $show_preview;
 					if ( $arg_ref->{'diagnostics'} ) {
-						$self->_add_validation_message(
+						$self->record_validation_message(
 							{
 								diagnostics    => $arg_ref->{'diagnostics'},
 								pk_combination => $pk_combination,
@@ -1765,7 +1749,7 @@ sub _check_data_refs {
 			my %used;
 			foreach my $ref (@refs) {
 				if ( $used{$ref} ) {
-					$self->_record_validation_message(
+					$self->record_validation_message(
 						{
 							problems       => $arg_ref->{'problems'},
 							diagnostics    => $arg_ref->{'diagnostics'},
@@ -1778,7 +1762,7 @@ sub _check_data_refs {
 					last;
 				}
 				if ( !BIGSdb::Utils::is_int($ref) ) {
-					$self->_record_validation_message(
+					$self->record_validation_message(
 						{
 							problems       => $arg_ref->{'problems'},
 							diagnostics    => $arg_ref->{'diagnostics'},
@@ -1793,7 +1777,7 @@ sub _check_data_refs {
 					  grep { $_->{'type'} eq 'advisory' && ( $_->{'field'} // q() ) eq 'references' }
 					  @{ $arg_ref->{'diagnostics'}->{$pk_combination} // [] };
 					if ( !$already_reported ) {
-						$self->_record_validation_message(
+						$self->record_validation_message(
 							{
 								advisories     => $arg_ref->{'advisories'},
 								diagnostics    => $arg_ref->{'diagnostics'},
@@ -1905,7 +1889,7 @@ sub _check_data_aliases {
 				next if $alias eq '';
 				if ( defined $isolate_name ) {
 					if ( $used{$alias} ) {
-						$self->_record_validation_message(
+						$self->record_validation_message(
 							{
 								problems       => $arg_ref->{'problems'},
 								diagnostics    => $arg_ref->{'diagnostics'},
@@ -1918,7 +1902,7 @@ sub _check_data_aliases {
 						last;
 					}
 					if ( $alias eq $isolate_name ) {
-						$self->_record_validation_message(
+						$self->record_validation_message(
 							{
 								problems       => $arg_ref->{'problems'},
 								diagnostics    => $arg_ref->{'diagnostics'},
@@ -1933,7 +1917,7 @@ sub _check_data_aliases {
 					$used{$alias} = 1;
 				}
 				if ( $null_terms{ lc($alias) } ) {
-					$self->_record_validation_message(
+					$self->record_validation_message(
 						{
 							problems       => $arg_ref->{'problems'},
 							diagnostics    => $arg_ref->{'diagnostics'},
@@ -1965,7 +1949,7 @@ sub _check_data_codon_table {
 
 	if ( !$allowed{$value} ) {
 		local $" = q(, );
-		$self->_record_validation_message(
+		$self->record_validation_message(
 			{
 				problems       => $arg_ref->{'problems'},
 				diagnostics    => $arg_ref->{'diagnostics'},
@@ -2019,7 +2003,7 @@ sub _record_primary_key_problem {
 		  @{ $args->{'diagnostics'}->{$pk_combination} // [] };
 
 		if ( !$already_reported ) {
-			$self->_add_validation_message(
+			$self->record_validation_message(
 				{
 					diagnostics    => $args->{'diagnostics'},
 					pk_combination => $pk_combination,
