@@ -516,7 +516,8 @@ sub _check_data {
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
-	my $first_record = 1;
+	my $first_record           = 1;
+	my $structured_diagnostics = $table eq 'isolates' || $table eq 'refs';
   RECORD: foreach my $record (@records) {
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
@@ -575,7 +576,7 @@ sub _check_data {
 					last_id         => \%last_id,
 					unique_field    => $unique_field,
 					advisories      => $advisories,
-					diagnostics     => $table eq 'isolates' ? $diagnostics : undef,
+					diagnostics     => $structured_diagnostics ? $diagnostics : undef,
 				};
 				$self->check_data_duplicates($new_args);
 				$self->_run_table_specific_field_checks( $table, $new_args );
@@ -585,7 +586,7 @@ sub _check_data {
 				my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
 
 				$self->record_field_problem( $field, $problem, $problems, $pk_combination,
-					$table eq 'isolates' ? $diagnostics : undef );
+					$structured_diagnostics ? $diagnostics : undef );
 
 				#Display field only when generating a preview.
 				if ($show_preview) {
@@ -659,7 +660,7 @@ sub _check_data {
 
 			#Check for various invalid combinations of fields
 			my $has_errors =
-				$table eq 'isolates'
+				$structured_diagnostics
 			  ? $self->_has_validation_message( $diagnostics, $pk_combination, 'error' )
 			  : $problems->{$pk_combination};
 			if ( !$has_errors ) {
@@ -1344,11 +1345,12 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
-	my $diagnostics = $data->{'diagnostics'} // {};
+	my $diagnostics            = $data->{'diagnostics'} // {};
+	my $structured_diagnostics = $table eq 'isolates' || $table eq 'refs';
 	my $has_errors;
 	my $has_advisories;
 
-	if ( $table eq 'isolates' ) {
+	if ($structured_diagnostics) {
 		$has_errors     = grep { $self->_has_validation_message( $diagnostics, $_, 'error' ) } keys %$diagnostics;
 		$has_advisories = grep { $self->_has_validation_message( $diagnostics, $_, 'advisory' ) } keys %$diagnostics;
 
@@ -1374,7 +1376,7 @@ sub _report_check {
 		if ($large_isolate_import) {
 			say q(<p>Problems were identified in the submitted data. ) . q(The import cannot proceed.</p>);
 			$self->_print_validation_report_link($report_files);
-		} elsif ( $table eq 'isolates' ) {
+		} elsif ($structured_diagnostics) {
 			say q(<table class="resultstable">);
 			say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
 
@@ -1424,7 +1426,7 @@ sub _report_check {
 
 			if ($large_isolate_import) {
 				$self->_print_validation_report_link($report_files);
-			} elsif ( $table eq 'isolates' ) {
+			} elsif ($structured_diagnostics) {
 				my $dup_isolate;
 				say q(<table class="resultstable">);
 				say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
@@ -1448,7 +1450,7 @@ sub _report_check {
 					}
 				}
 				say q(</table>);
-				if ($dup_isolate) {
+				if ( $table eq 'isolates' && $dup_isolate ) {
 					say q(<p>)
 					  . ucfirst( $self->{'system'}->{'labelfield'} )
 					  . q( names are not guaranteed to be unique so this alone may not be enough to prevent upload, )
@@ -1997,17 +1999,20 @@ sub _record_primary_key_problem {
 
 	my $pk_combination = $args->{'pk_combination'};
 
-	if ( $args->{'table'} eq 'isolates' && $args->{'diagnostics'} ) {
-		my $already_reported =
-		  grep { $_->{'type'} eq 'error' && ( $_->{'field'} // q() ) eq 'id' && $_->{'message'} eq $message }
-		  @{ $args->{'diagnostics'}->{$pk_combination} // [] };
+	if ( $args->{'diagnostics'} ) {
+		my $field            = $args->{'table'} eq 'isolates' ? 'id' : undef;
+		my $already_reported = grep {
+				 $_->{'type'} eq 'error'
+			  && ( $_->{'field'} // q() ) eq ( $field // q() )
+			  && $_->{'message'} eq $message
+		} @{ $args->{'diagnostics'}->{$pk_combination} // [] };
 
 		if ( !$already_reported ) {
 			$self->record_validation_message(
 				{
 					diagnostics    => $args->{'diagnostics'},
 					pk_combination => $pk_combination,
-					field          => 'id',
+					field          => $field,
 					message        => $message
 				}
 			);
@@ -2069,12 +2074,31 @@ sub _check_data_primary_key {
 			my %warn_tables = map { $_ => 1 } qw(codon_tables project_members refs isolate_aliases locus_aliases
 			  scheme_members profile_refs sequence_refs);
 			if ( $warn_tables{ $arg_ref->{'table'} } ) {
-				my $warning_text = 'Primary key already exists in the database - upload will be skipped.<br />';
-				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
-					|| $arg_ref->{'advisories'}->{$pk_combination} !~ /$warning_text/x )
-				{
-					$arg_ref->{'advisories'}->{$pk_combination} .= $warning_text;
-					BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
+				my $message = 'Primary key already exists in the database - upload will be skipped.';
+
+				if ( $arg_ref->{'table'} eq 'refs' ) {
+					my $already_reported =
+					  $self->_has_validation_message( $arg_ref->{'diagnostics'}, $pk_combination, 'advisory' );
+
+					if ( !$already_reported ) {
+						$self->record_validation_message(
+							{
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								message        => $message,
+								type           => 'advisory'
+							}
+						);
+						BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
+					}
+				} else {
+					my $warning_text = qq($message<br />);
+					if ( !defined $arg_ref->{'problems'}->{$pk_combination}
+						|| ( $arg_ref->{'advisories'}->{$pk_combination} // q() ) !~ /\Q$warning_text\E/x )
+					{
+						$arg_ref->{'advisories'}->{$pk_combination} .= $warning_text;
+						BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
+					}
 				}
 			} else {
 				$self->_record_primary_key_problem( $arg_ref, 'Primary key already exists in the database.' );
