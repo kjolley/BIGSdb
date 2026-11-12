@@ -629,7 +629,7 @@ sub _check_data {
 				advisories         => $advisories,
 				checked_record     => \$checked_record,
 				table              => $table,
-				diagnostics        => $diagnostics,
+				diagnostics        => $structured_diagnostics ? $diagnostics : undef,
 				show_preview       => $show_preview
 			};
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
@@ -1388,6 +1388,65 @@ sub _print_duplicate_isolate_advisory {
 	return;
 }
 
+sub _print_legacy_diagnostics {
+	my ( $self, $messages, $type ) = @_;
+	my $heading = $type eq 'error' ? 'Problem(s)' : 'Note(s)';
+	say q(<table class="resultstable">);
+	say qq(<tr><th>Primary key</th><th>$heading</th></tr>);
+	my $td = 1;
+	foreach my $id ( sort keys %$messages ) {
+		my $display_id = BIGSdb::Utils::escape_html($id);
+		my $message    = $messages->{$id};
+
+		if ( $type eq 'error' ) {
+			$message =~ s/'null'/<em>null<\/em>/gx;
+		}
+		say qq(<tr class="td$td"><td>$display_id</td>) . qq(<td style="text-align:left">$message</td></tr>);
+		$td = $td == 1 ? 2 : 1;
+	}
+	say q(</table>);
+	return;
+}
+
+sub _print_batch_import_form {
+	my ( $self, $checked_buffer, $table ) = @_;
+	my $q        = $self->{'cgi'};
+	my $filename = $self->make_temp_file(@$checked_buffer);
+	say $q->start_form;
+	say $q->hidden($_) foreach qw(
+	  page table db sender locus ignore_existing
+	  submission_id project_id private user_header
+	);
+
+	$self->_print_submission_embargo_fieldset($table);
+	say $q->hidden( checked_buffer => $filename );
+	$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
+	say $q->end_form;
+	return;
+}
+
+sub _print_batch_import_preview {
+	my ( $self, $args ) = @_;
+	my ( $buffer, $show_preview, $record_total ) =
+	  @{$args}{qw(buffer show_preview record_total)};
+	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
+	if ($show_preview) {
+		say q(<p>The following table shows your data.  Any field with red text has a )
+		  . q(problem and needs to be checked.</p>);
+		say $$buffer;
+	} else {
+		my $plural = $record_total == 1 ? q() : q(s);
+		say qq(<p>$record_total record$plural submitted for validation.</p>);
+		my $limit = $self->{'config'}->{'batch_isolate_preview_limit'};
+		if ( BIGSdb::Utils::is_int($limit) && $limit != 0 ) {
+			say q(<p>The data preview has been omitted because the number of records )
+			  . q(exceeds the configured preview limit.</p>);
+		}
+	}
+	say q(</div>);
+	return;
+}
+
 sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
@@ -1426,20 +1485,7 @@ sub _report_check {
 		} elsif ($structured_diagnostics) {
 			$self->_print_structured_diagnostics( $diagnostics, 'error' );
 		} else {
-			say q(<table class="resultstable">);
-			say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
-			my $td = 1;
-			foreach my $id ( sort keys %$problems ) {
-				my $display_id = BIGSdb::Utils::escape_html($id);
-				my $message;
-
-				$problems->{$id} =~ s/'null'/<em>null<\/em>/gx;
-				$message = $problems->{$id};
-
-				say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$message</td></tr>);
-				$td = $td == 1 ? 2 : 1;
-			}
-			say q(</table>);
+			$self->_print_legacy_diagnostics( $problems, 'error' );
 		}
 		say q(</div>);
 	} else {
@@ -1480,31 +1526,16 @@ sub _report_check {
 			say q(</div>);
 			return;
 		}
-		my $filename = $self->make_temp_file(@$checked_buffer);
-		say $q->start_form;
-		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing
-		  submission_id project_id private user_header);
-		$self->_print_submission_embargo_fieldset($table);
-		say $q->hidden( checked_buffer => $filename );
-		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
-		say $q->end_form;
+		$self->_print_batch_import_form( $checked_buffer, $table );
 		say q(</div>);
 	}
-	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
-	if ($show_preview) {
-		say q(<p>The following table shows your data.  Any field with red text has a )
-		  . q(problem and needs to be checked.</p>);
-		say $$buffer;
-	} else {
-		my $plural = $record_total == 1 ? q() : q(s);
-		say qq(<p>$record_total record$plural submitted for validation.</p>);
-		my $limit = $self->{'config'}->{'batch_isolate_preview_limit'};
-		if ( BIGSdb::Utils::is_int($limit) && $limit != 0 ) {
-			say q(<p>The data preview has been omitted because the number of records )
-			  . q(exceeds the configured preview limit.</p>);
+	$self->_print_batch_import_preview(
+		{
+			buffer       => $buffer,
+			show_preview => $show_preview,
+			record_total => $record_total
 		}
-	}
-	say q(</div>);
+	);
 	my %counts = ( error => 0, advisory => 0 );
 	foreach my $id ( keys %$diagnostics ) {
 		foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
