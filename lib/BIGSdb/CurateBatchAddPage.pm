@@ -1341,6 +1341,53 @@ sub _write_validation_report {
 
 }
 
+sub _print_structured_diagnostics {
+	my ( $self, $diagnostics, $type ) = @_;
+	say q(<table class="resultstable">);
+	say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
+	my $td = 1;
+	foreach my $id ( sort keys %$diagnostics ) {
+		my $display_id = BIGSdb::Utils::escape_html($id);
+
+		foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
+			next if $diagnostic->{'type'} ne $type;
+
+			my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
+			my $message = $self->_format_validation_message($diagnostic);
+			my $label   = ucfirst($type);
+
+			say qq(<tr class="td$td"><td>$display_id</td><td>$label</td>)
+			  . qq(<td>$field</td><td style="text-align:left">$message</td></tr>);
+
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	say q(</table>);
+	return;
+}
+
+sub _print_duplicate_isolate_advisory {
+	my ( $self, $diagnostics ) = @_;
+
+	my $label_field = $self->{'system'}->{'labelfield'};
+
+	foreach my $id ( keys %$diagnostics ) {
+		foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
+			next if $diagnostic->{'type'} ne 'advisory';
+			next if ( $diagnostic->{'field'} // q() ) ne $label_field;
+			next if $diagnostic->{'message'} !~ /already\sexists\sin\sthe\sdatabase/x;
+
+			say q(<p>)
+			  . ucfirst($label_field)
+			  . q( names are not guaranteed to be unique so this alone may not be enough to prevent upload, )
+			  . q(but please check if there are public records from the same country and/or submitting laboratory )
+			  . q(with the same names as these are likely to be duplicates.</p>);
+			return;
+		}
+	}
+	return;
+}
+
 sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
@@ -1374,29 +1421,10 @@ sub _report_check {
 	if ($has_errors) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		if ($large_isolate_import) {
-			say q(<p>Problems were identified in the submitted data. ) . q(The import cannot proceed.</p>);
+			say q(<p>Problems were identified in the submitted data. The import cannot proceed.</p>);
 			$self->_print_validation_report_link($report_files);
 		} elsif ($structured_diagnostics) {
-			say q(<table class="resultstable">);
-			say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
-
-			my $td = 1;
-			foreach my $id ( sort keys %$diagnostics ) {
-				my $display_id = BIGSdb::Utils::escape_html($id);
-
-				foreach my $diagnostic ( @{ $diagnostics->{$id} // [] } ) {
-					next if $diagnostic->{'type'} ne 'error';
-
-					my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
-					my $message = $self->_format_validation_message($diagnostic);
-
-					say qq(<tr class="td$td"><td>$display_id</td><td>Error</td>)
-					  . qq(<td>$field</td><td style="text-align:left">$message</td></tr>);
-
-					$td = $td == 1 ? 2 : 1;
-				}
-			}
-			say q(</table>);
+			$self->_print_structured_diagnostics( $diagnostics, 'error' );
 		} else {
 			say q(<table class="resultstable">);
 			say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
@@ -1427,36 +1455,9 @@ sub _report_check {
 			if ($large_isolate_import) {
 				$self->_print_validation_report_link($report_files);
 			} elsif ($structured_diagnostics) {
-				my $dup_isolate;
-				say q(<table class="resultstable">);
-				say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
-
-				my $td = 1;
-				foreach my $id ( sort keys %$diagnostics ) {
-					my $display_id = BIGSdb::Utils::escape_html($id);
-
-					foreach my $diagnostic ( @{ $diagnostics->{$id} // [] } ) {
-						next if $diagnostic->{'type'} ne 'advisory';
-
-						my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
-						my $message = $self->_format_validation_message($diagnostic);
-						say qq(<tr class="td$td"><td>$display_id</td><td>Advisory</td>)
-						  . qq(<td>$field</td><td style="text-align:left">$message</td></tr>);
-
-						$td          = $td == 1 ? 2 : 1;
-						$dup_isolate = 1
-						  if ( $diagnostic->{'field'} // q() ) eq $self->{'system'}->{'labelfield'}
-						  && $diagnostic->{'message'} =~ /already\sexists\sin\sthe\sdatabase/x;
-					}
-				}
-				say q(</table>);
-				if ( $table eq 'isolates' && $dup_isolate ) {
-					say q(<p>)
-					  . ucfirst( $self->{'system'}->{'labelfield'} )
-					  . q( names are not guaranteed to be unique so this alone may not be enough to prevent upload, )
-					  . q(but please check if there are public records from the same country and/or submitting laboratory )
-					  . q(with the same names as these are likely to be duplicates.</p>);
-				}
+				$self->_print_structured_diagnostics( $diagnostics, 'advisory' );
+				$self->_print_duplicate_isolate_advisory($diagnostics)
+				  if $table eq 'isolates';
 			} else {
 
 				say q(<table class="resultstable">);
