@@ -1486,30 +1486,47 @@ sub _print_batch_validation_advisories {
 	return;
 }
 
+sub _get_batch_validation_status {
+	my ( $self, $args ) = @_;
+	my ( $structured_diagnostics, $diagnostics, $problems, $advisories ) =
+	  @{$args}{qw(structured_diagnostics diagnostics problems advisories)};
+	my ( $has_errors, $has_advisories );
+	if ($structured_diagnostics) {
+		$has_errors = grep { $self->_has_validation_message( $diagnostics, $_, 'error' ) } keys %$diagnostics;
+
+		$has_advisories = grep { $self->_has_validation_message( $diagnostics, $_, 'advisory' ) } keys %$diagnostics;
+	} else {
+		$has_errors     = scalar keys %$problems;
+		$has_advisories = scalar keys %$advisories;
+	}
+	return {
+		has_errors     => $has_errors     ? 1 : 0,
+		has_advisories => $has_advisories ? 1 : 0
+	};
+}
+
 sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
 	my $diagnostics            = $data->{'diagnostics'} // {};
 	my $structured_diagnostics = $table eq 'isolates' || $table eq 'refs';
-	my $has_errors;
-	my $has_advisories;
-
-	if ($structured_diagnostics) {
-		$has_errors     = grep { $self->_has_validation_message( $diagnostics, $_, 'error' ) } keys %$diagnostics;
-		$has_advisories = grep { $self->_has_validation_message( $diagnostics, $_, 'advisory' ) } keys %$diagnostics;
-
-	} else {
-		$has_errors     = scalar keys %$problems;
-		$has_advisories = scalar keys %$advisories;
-	}
+	my $status                 = $self->_get_batch_validation_status(
+		{
+			structured_diagnostics => $structured_diagnostics,
+			diagnostics            => $diagnostics,
+			problems               => $problems,
+			advisories             => $advisories
+		}
+	);
+	my $has_errors     = $status->{'has_errors'};
+	my $has_advisories = $status->{'has_advisories'};
 
 	if ( !@$checked_buffer ) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		say q(<p>No valid records to upload after filtering.</p></div>);
 		return;
 	}
-	my $q                    = $self->{'cgi'};
 	my $large_isolate_import = $table eq 'isolates' && !$show_preview;
 	my $report_files;
 
