@@ -2502,9 +2502,9 @@ sub _upload_data {
 		if ($grandkid) {
 			CORE::exit(0);
 		} else {
-			open STDIN,  '<', '/dev/null' || $self->{'logger'}->error("Can't detach STDIN: $!");
-			open STDOUT, '>', '/dev/null' || $self->{'logger'}->error("Can't detach STDOUT: $!");
-			open STDERR, '>&STDOUT' || $self->{'logger'}->error("Can't detach STDERR: $!");
+			open STDIN,  '<',  '/dev/null' || $self->{'logger'}->error("Can't detach STDIN: $!");
+			open STDOUT, '>',  '/dev/null' || $self->{'logger'}->error("Can't detach STDOUT: $!");
+			open STDERR, '>&', \*STDOUT    || $self->{'logger'}->error("Can't detach STDERR: $!");
 			my $uploader = BIGSdb::Offline::BatchUploader->new(
 				{
 					config_dir       => $self->{'config_dir'},
