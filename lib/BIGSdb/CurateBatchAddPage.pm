@@ -1447,6 +1447,45 @@ sub _print_batch_import_preview {
 	return;
 }
 
+sub _print_batch_validation_errors {
+	my ( $self, $args ) = @_;
+	my ( $large_isolate_import, $structured_diagnostics, $diagnostics, $problems, $report_files ) =
+	  @{$args}{qw(large_isolate_import structured_diagnostics diagnostics problems report_files)};
+	say q(<div class="box" id="statusbad"><h2>Import status</h2>);
+	if ($large_isolate_import) {
+		say q(<p>Problems were identified in the submitted data. The import cannot proceed.</p>);
+		$self->_print_validation_report_link($report_files);
+	} elsif ($structured_diagnostics) {
+		$self->_print_structured_diagnostics( $diagnostics, 'error' );
+	} else {
+		$self->_print_legacy_diagnostics( $problems, 'error' );
+	}
+
+	say q(</div>);
+	return;
+}
+
+sub _print_batch_validation_advisories {
+	my ( $self, $args ) = @_;
+	my ( $table, $large_isolate_import, $structured_diagnostics, $diagnostics, $advisories, $report_files ) =
+	  @{$args}{qw(table large_isolate_import structured_diagnostics diagnostics advisories report_files)};
+	if ($large_isolate_import) {
+		say q(<p>Data can be uploaded, but validation advisories were identified. )
+		  . q(Please review the downloadable report before proceeding.</p>);
+		$self->_print_validation_report_link($report_files);
+		return;
+	}
+	say q(<p>Data can be uploaded but please note the following advisories:</p>);
+	if ($structured_diagnostics) {
+		$self->_print_structured_diagnostics( $diagnostics, 'advisory' );
+		$self->_print_duplicate_isolate_advisory($diagnostics)
+		  if $table eq 'isolates';
+	} else {
+		$self->_print_legacy_diagnostics( $advisories, 'advisory' );
+	}
+	return;
+}
+
 sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
@@ -1478,38 +1517,33 @@ sub _report_check {
 		$report_files = $self->_write_validation_report($diagnostics);
 	}
 	if ($has_errors) {
-		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
-		if ($large_isolate_import) {
-			say q(<p>Problems were identified in the submitted data. The import cannot proceed.</p>);
-			$self->_print_validation_report_link($report_files);
-		} elsif ($structured_diagnostics) {
-			$self->_print_structured_diagnostics( $diagnostics, 'error' );
-		} else {
-			$self->_print_legacy_diagnostics( $problems, 'error' );
-		}
-		say q(</div>);
+		$self->_print_batch_validation_errors(
+			{
+				large_isolate_import   => $large_isolate_import,
+				structured_diagnostics => $structured_diagnostics,
+				diagnostics            => $diagnostics,
+				problems               => $problems,
+				report_files           => $report_files
+			}
+		);
 	} else {
 		say qq(<div class="box" id="resultspanel"><h2>Import status</h2>$$sender_message);
-		if ($has_advisories) {
-			if ($large_isolate_import) {
-				say q(<p>Data can be uploaded, but validation advisories were identified. )
-				  . q(Please review the downloadable report before proceeding.</p>);
-			} else {
-				say q(<p>Data can be uploaded but please note the following advisories:</p>);
-			}
 
-			if ($large_isolate_import) {
-				$self->_print_validation_report_link($report_files);
-			} elsif ($structured_diagnostics) {
-				$self->_print_structured_diagnostics( $diagnostics, 'advisory' );
-				$self->_print_duplicate_isolate_advisory($diagnostics)
-				  if $table eq 'isolates';
-			} else {
-				$self->_print_legacy_diagnostics( $advisories, 'advisory' );
-			}
+		if ($has_advisories) {
+			$self->_print_batch_validation_advisories(
+				{
+					table                  => $table,
+					large_isolate_import   => $large_isolate_import,
+					structured_diagnostics => $structured_diagnostics,
+					diagnostics            => $diagnostics,
+					advisories             => $advisories,
+					report_files           => $report_files
+				}
+			);
 		} else {
 			say q(<p>No obvious problems identified so far.</p>);
 		}
+
 		if ( $large_isolate_import && $has_advisories && !$report_files ) {
 			say q(</div>);
 			return;
