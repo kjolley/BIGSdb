@@ -699,6 +699,9 @@ sub _check_data {
 						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
 							$new_args->{'diagnostics'} );
 					},
+					profile_refs => sub {
+						$self->_check_corresponding_profile_exists($new_args);
+					},
 					sequence_extended_attributes => sub {
 						$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
 							$problems, $pk_combination );
@@ -1150,6 +1153,33 @@ sub _check_corresponding_sequence_exists {
 				pk_combination => $pk_combination,
 				field          => 'allele_id',
 				message        => "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist."
+			}
+		);
+	}
+	return;
+}
+
+sub _check_corresponding_profile_exists {
+	my ( $self, $args ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	return if !defined $file_header_pos->{'scheme_id'};
+	return if !defined $file_header_pos->{'profile_id'};
+	my $scheme_id  = $data->[ $file_header_pos->{'scheme_id'} ];
+	my $profile_id = $data->[ $file_header_pos->{'profile_id'} ];
+
+	return if !defined $scheme_id || !defined $profile_id;
+	return if $scheme_id eq q()   || $profile_id eq q();
+
+	if ( !$self->{'datastore'}->profile_exists( $scheme_id, $profile_id ) ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				problems       => $args->{'problems'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'profile_id',
+				message        => "Profile $profile_id does not exist."
 			}
 		);
 	}
