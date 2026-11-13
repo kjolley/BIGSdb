@@ -516,8 +516,9 @@ sub _check_data {
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
-	my $first_record           = 1;
-	my $structured_diagnostics = $table eq 'isolates' || $table eq 'refs';
+	my $first_record                  = 1;
+	my %structured_diagnostics_tables = map { $_ => 1 } qw(isolates refs project_members);
+	my $structured_diagnostics        = $structured_diagnostics_tables{$table};
   RECORD: foreach my $record (@records) {
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
@@ -1509,9 +1510,10 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
-	my $diagnostics            = $data->{'diagnostics'} // {};
-	my $structured_diagnostics = $table eq 'isolates' || $table eq 'refs';
-	my $status                 = $self->_get_batch_validation_status(
+	my $diagnostics                   = $data->{'diagnostics'} // {};
+	my %structured_diagnostics_tables = map { $_ => 1 } qw(isolates refs project_members);
+	my $structured_diagnostics        = $structured_diagnostics_tables{$table};
+	my $status                        = $self->_get_batch_validation_status(
 		{
 			structured_diagnostics => $structured_diagnostics,
 			diagnostics            => $diagnostics,
@@ -2147,7 +2149,7 @@ sub _check_data_primary_key {
 			if ( $warn_tables{ $arg_ref->{'table'} } ) {
 				my $message = 'Primary key already exists in the database - upload will be skipped.';
 
-				if ( $arg_ref->{'table'} eq 'refs' ) {
+				if ( $arg_ref->{'diagnostics'} ) {
 					my $already_reported =
 					  $self->_has_validation_message( $arg_ref->{'diagnostics'}, $pk_combination, 'advisory' );
 
