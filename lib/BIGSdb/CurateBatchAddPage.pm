@@ -484,7 +484,7 @@ sub _uses_structured_diagnostics {
 	my ( $self, $table ) = @_;
 	my %tables = map { $_ => 1 } qw(
 	  isolates refs project_members scheme_members locus_aliases
-	  profile_refs sequence_refs codon_tables isolate_aliases
+	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	);
 	return $tables{$table} // 0;
 }
