@@ -482,7 +482,10 @@ sub _show_preview {
 
 sub _uses_structured_diagnostics {
 	my ( $self, $table ) = @_;
-	my %tables = map { $_ => 1 } qw(isolates refs project_members scheme_members locus_aliases);
+	my %tables = map { $_ => 1 } qw(
+	  isolates refs project_members scheme_members locus_aliases
+	  profile_refs sequence_refs
+	);
 	return $tables{$table} // 0;
 }
 
@@ -691,8 +694,10 @@ sub _check_data {
 						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 					},
 					sequence_refs => sub {
-						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination,
+							$new_args->{'diagnostics'} );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
+							$new_args->{'diagnostics'} );
 					},
 					sequence_extended_attributes => sub {
 						$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
@@ -1104,9 +1109,10 @@ sub _check_validation_conditions {
 }
 
 sub check_permissions {
-	my ( $self, $locus, $args, $problems, $pk_combination ) = @_;
-	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
+	my ( $self, $locus, $args, $problems, $pk_combination, $diagnostics ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	return if $self->is_admin;
+
 	my $data = $args->{'data'};
 	if (  !defined $locus
 		&& defined $args->{'file_header_pos'}->{'locus'}
@@ -1117,18 +1123,35 @@ sub check_permissions {
 	if ( defined $locus
 		&& !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) )
 	{
-		$problems->{$pk_combination} .= "Your user account is not allowed to add or modify records for locus $locus. ";
+		$self->record_validation_message(
+			{
+				problems       => $problems,
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => 'locus',
+				message        => "Your user account is not allowed to add or modify records for locus $locus."
+			}
+		);
 	}
 	return;
 }
 
 sub _check_corresponding_sequence_exists {
-	my ( $self, $pk_values_ref, $problems, $pk_combination ) = @_;
+	my ( $self, $pk_values_ref, $problems, $pk_combination, $diagnostics ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	return if !defined $pk_values_ref->[0];
 	return if !defined $pk_values_ref->[1];
+
 	if ( !$self->{'datastore'}->sequence_exists(@$pk_values_ref) ) {
-		$problems->{$pk_combination} .= "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist. ";
+		$self->record_validation_message(
+			{
+				problems       => $problems,
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => 'allele_id',
+				message        => "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist."
+			}
+		);
 	}
 	return;
 }
