@@ -480,6 +480,12 @@ sub _show_preview {
 	return $record_count <= $limit ? 1 : 0;
 }
 
+sub _uses_structured_diagnostics {
+    my ( $self, $table ) = @_;
+    my %tables = map { $_ => 1 } qw(isolates refs project_members);
+    return $tables{$table} // 0;
+}
+
 sub _check_data {
 	my ( $self, $args ) = @_;
 	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
@@ -517,8 +523,7 @@ sub _check_data {
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
 	my $first_record                  = 1;
-	my %structured_diagnostics_tables = map { $_ => 1 } qw(isolates refs project_members);
-	my $structured_diagnostics        = $structured_diagnostics_tables{$table};
+	my $structured_diagnostics = $self->_uses_structured_diagnostics($table);
   RECORD: foreach my $record (@records) {
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
@@ -1511,8 +1516,7 @@ sub _report_check {
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
 	my $diagnostics                   = $data->{'diagnostics'} // {};
-	my %structured_diagnostics_tables = map { $_ => 1 } qw(isolates refs project_members);
-	my $structured_diagnostics        = $structured_diagnostics_tables{$table};
+	my $structured_diagnostics = $self->_uses_structured_diagnostics($table);
 	my $status                        = $self->_get_batch_validation_status(
 		{
 			structured_diagnostics => $structured_diagnostics,
