@@ -481,12 +481,12 @@ sub _show_preview {
 }
 
 sub _uses_structured_diagnostics {
-	my ( $self, $table ) = @_;
-	my %tables = map { $_ => 1 } qw(
-	  isolates refs project_members scheme_members locus_aliases
-	  profile_refs sequence_refs codon_tables
-	);
-	return $tables{$table} // 0;
+    my ( $self, $table ) = @_;
+    my %tables = map { $_ => 1 } qw(
+      isolates refs project_members scheme_members locus_aliases
+      profile_refs sequence_refs codon_tables isolate_aliases
+    );
+    return $tables{$table} // 0;
 }
 
 sub _check_data {
@@ -2104,29 +2104,44 @@ sub _check_data_codon_table {
 
 sub _check_data_isolate_aliases {
 
-	#special case to check that isolate aliases don't duplicate isolate name or consist of null values
-	#when batch uploading isolate aliases
+	# Check that aliases do not duplicate the isolate name or contain null terms.
 	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
+	my $field = $arg_ref->{'field'};
+	return if $field ne 'alias';
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	my $isolate_id     = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{'isolate_id'} ];
-	if ( $field eq 'alias' && BIGSdb::Utils::is_int($isolate_id) ) {
-		my $isolate_name =
-		  $self->{'datastore'}->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
-			$isolate_id, { cache => 'CurateBatchAddPage::check_data_isolates_aliases' } );
-		return if !defined $isolate_name;
-		if ( $value eq $isolate_name ) {
-			my $problem_text = 'Alias duplicates isolate name.<br />';
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
-		my %null_terms = map { lc($_) => 1 } NULL_TERMS;
-		if ( $null_terms{ lc($value) } ) {
-			my $problem_text = 'Alias contains an invalid term.<br />';
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
+	return if !BIGSdb::Utils::is_int($isolate_id);
+
+	my $isolate_name =
+	  $self->{'datastore'}->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
+		$isolate_id, { cache => 'CurateBatchAddPage::check_data_isolates_aliases' } );
+
+	return if !defined $isolate_name;
+	if ( defined $value && $value eq $isolate_name ) {
+		$self->record_validation_message(
+			{
+				problems       => $arg_ref->{'problems'},
+				diagnostics    => $arg_ref->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => 'alias',
+				message        => 'Alias duplicates isolate name.'
+			}
+		);
+		${ $arg_ref->{'special_problem'} } = 1;
+	}
+	my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+	if ( defined $value && $null_terms{ lc($value) } ) {
+		$self->record_validation_message(
+			{
+				problems       => $arg_ref->{'problems'},
+				diagnostics    => $arg_ref->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => 'alias',
+				message        => 'Alias contains an invalid term.'
+			}
+		);
+		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
 }
