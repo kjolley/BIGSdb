@@ -481,9 +481,9 @@ sub _show_preview {
 }
 
 sub _uses_structured_diagnostics {
-    my ( $self, $table ) = @_;
-    my %tables = map { $_ => 1 } qw(isolates refs project_members);
-    return $tables{$table} // 0;
+	my ( $self, $table ) = @_;
+	my %tables = map { $_ => 1 } qw(isolates refs project_members scheme_members);
+	return $tables{$table} // 0;
 }
 
 sub _check_data {
@@ -522,7 +522,7 @@ sub _check_data {
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
-	my $first_record                  = 1;
+	my $first_record           = 1;
 	my $structured_diagnostics = $self->_uses_structured_diagnostics($table);
   RECORD: foreach my $record (@records) {
 		$record =~ s/\r//gx;
@@ -1515,9 +1515,9 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
-	my $diagnostics                   = $data->{'diagnostics'} // {};
+	my $diagnostics            = $data->{'diagnostics'} // {};
 	my $structured_diagnostics = $self->_uses_structured_diagnostics($table);
-	my $status                        = $self->_get_batch_validation_status(
+	my $status                 = $self->_get_batch_validation_status(
 		{
 			structured_diagnostics => $structured_diagnostics,
 			diagnostics            => $diagnostics,
@@ -2166,8 +2166,8 @@ sub _check_data_primary_key {
 								type           => 'advisory'
 							}
 						);
-						BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
 					}
+					BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
 				} else {
 					my $warning_text = qq($message<br />);
 					if ( !defined $arg_ref->{'problems'}->{$pk_combination}
