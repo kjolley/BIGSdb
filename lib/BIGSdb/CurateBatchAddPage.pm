@@ -481,12 +481,12 @@ sub _show_preview {
 }
 
 sub _uses_structured_diagnostics {
-    my ( $self, $table ) = @_;
-    my %tables = map { $_ => 1 } qw(
-      isolates refs project_members scheme_members locus_aliases
-      profile_refs sequence_refs codon_tables isolate_aliases
-    );
-    return $tables{$table} // 0;
+	my ( $self, $table ) = @_;
+	my %tables = map { $_ => 1 } qw(
+	  isolates refs project_members scheme_members locus_aliases
+	  profile_refs sequence_refs codon_tables isolate_aliases
+	);
+	return $tables{$table} // 0;
 }
 
 sub _check_data {
@@ -2223,35 +2223,26 @@ sub _check_data_primary_key {
 		}
 		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
 		if ($exists) {
-			my %warn_tables = map { $_ => 1 } qw(codon_tables project_members refs isolate_aliases locus_aliases
-			  scheme_members profile_refs sequence_refs);
+			my %warn_tables = map { $_ => 1 } qw(
+			  codon_tables project_members refs isolate_aliases locus_aliases
+			  scheme_members profile_refs sequence_refs
+			);
+
 			if ( $warn_tables{ $arg_ref->{'table'} } ) {
 				my $message = 'Primary key already exists in the database - upload will be skipped.';
-
-				if ( $arg_ref->{'diagnostics'} ) {
-					my $already_reported =
-					  $self->_has_validation_message( $arg_ref->{'diagnostics'}, $pk_combination, 'advisory' );
-
-					if ( !$already_reported ) {
-						$self->record_validation_message(
-							{
-								diagnostics    => $arg_ref->{'diagnostics'},
-								pk_combination => $pk_combination,
-								message        => $message,
-								type           => 'advisory'
-							}
-						);
-					}
-					BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
-				} else {
-					my $warning_text = qq($message<br />);
-					if ( !defined $arg_ref->{'problems'}->{$pk_combination}
-						|| ( $arg_ref->{'advisories'}->{$pk_combination} // q() ) !~ /\Q$warning_text\E/x )
-					{
-						$arg_ref->{'advisories'}->{$pk_combination} .= $warning_text;
-						BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
-					}
+				my $already_reported =
+				  $self->_has_validation_message( $arg_ref->{'diagnostics'}, $pk_combination, 'advisory' );
+				if ( !$already_reported ) {
+					$self->record_validation_message(
+						{
+							diagnostics    => $arg_ref->{'diagnostics'},
+							pk_combination => $pk_combination,
+							message        => $message,
+							type           => 'advisory'
+						}
+					);
 				}
+				BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
 			} else {
 				$self->_record_primary_key_problem( $arg_ref, 'Primary key already exists in the database.' );
 			}
