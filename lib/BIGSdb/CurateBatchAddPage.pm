@@ -481,12 +481,12 @@ sub _show_preview {
 }
 
 sub _uses_structured_diagnostics {
-    my ( $self, $table ) = @_;
-    my %tables = map { $_ => 1 } qw(
-      isolates refs project_members scheme_members locus_aliases
-      profile_refs sequence_refs codon_tables
-    );
-    return $tables{$table} // 0;
+	my ( $self, $table ) = @_;
+	my %tables = map { $_ => 1 } qw(
+	  isolates refs project_members scheme_members locus_aliases
+	  profile_refs sequence_refs codon_tables
+	);
+	return $tables{$table} // 0;
 }
 
 sub _check_data {
@@ -1624,7 +1624,14 @@ sub _report_check {
 			say q(</div>);
 			return;
 		}
-		$self->_print_batch_import_form( $checked_buffer, $table );
+		my $records_to_upload = grep { defined $_ && $_ ne q() } @$checked_buffer[ 1 .. $#$checked_buffer ];
+
+		if ($records_to_upload) {
+			$self->_print_batch_import_form( $checked_buffer, $table );
+		} else {
+			say q(<p>No records remain to be imported.</p>);
+		}
+
 		say q(</div>);
 	}
 	$self->_print_batch_import_preview(
