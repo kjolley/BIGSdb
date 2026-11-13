@@ -2180,73 +2180,90 @@ sub _record_primary_key_problem {
 	return;
 }
 
-sub _check_data_primary_key {
-	my ( $self, $arg_ref ) = @_;
-	my $pk_combination = $arg_ref->{'pk_combination'};
-	my @primary_keys   = @{ $arg_ref->{'primary_keys'} };
+sub _execute_primary_key_check {
+	my ( $self, $args ) = @_;
+	my @primary_keys = @{ $args->{'primary_keys'} };
+
+	# Use DBI directly because Datastore::run_query catches execution errors.
+	# We need to distinguish invalid primary-key values from missing records.
 	if ( !$self->{'sql'}->{'primary_key_check'} ) {
 		local $" = '=? AND ';
-		my $qry = "SELECT EXISTS(SELECT * FROM $arg_ref->{'table'} WHERE @primary_keys=?)";
+		my $qry = "SELECT EXISTS(SELECT * FROM $args->{'table'} WHERE @primary_keys=?)";
 		$self->{'sql'}->{'primary_key_check'} = $self->{'db'}->prepare($qry);
 	}
-	if ( $self->{'primary_key_combination'}->{$pk_combination} && $pk_combination !~ /\:\s*$/x ) {
-		$self->_record_primary_key_problem( $arg_ref, 'Primary key submitted more than once in this batch.' );
+	eval { $self->{'sql'}->{'primary_key_check'}->execute( @{ $args->{'pk_values'} } ); };
+	if ($@) {
+		$self->_handle_primary_key_check_error( $args, $@ );
+	}
+	my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
+	return $exists;
+}
+
+sub _handle_primary_key_check_error {
+	my ( $self, $args, $message ) = @_;
+	my @primary_keys = @{ $args->{'primary_keys'} };
+	local $" = ', ';
+	$logger->debug( "Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: "
+		  . "@{$args->{'pk_values'}} $message" );
+	my $plural = @primary_keys > 1 ? 's' : '';
+	if ( $message =~ /invalid input/ ) {
+		$self->print_bad_status(
+			{
+				message => qq(Your pasted data has invalid primary key field$plural ) . qq((@primary_keys) data.)
+			}
+		);
+		BIGSdb::Exception::Data->throw('Invalid primary key');
+	}
+	$self->print_bad_status(
+		{
+			message => q(Your pasted data does not appear to contain the primary )
+			  . qq(key field$plural (@primary_keys) required for this table.)
+		}
+	);
+	BIGSdb::Exception::Data->throw("no primary key field$plural (@primary_keys)");
+	return;
+}
+
+sub _record_existing_primary_key {
+	my ( $self, $args ) = @_;
+	my %warn_tables = map { $_ => 1 } qw(
+	  codon_tables project_members refs isolate_aliases locus_aliases
+	  scheme_members profile_refs sequence_refs
+	);
+	if ( !$warn_tables{ $args->{'table'} } ) {
+		$self->_record_primary_key_problem( $args, 'Primary key already exists in the database.' );
+		return;
+	}
+	my $message        = 'Primary key already exists in the database - upload will be skipped.';
+	my $pk_combination = $args->{'pk_combination'};
+
+	my $already_reported = $self->_has_validation_message( $args->{'diagnostics'}, $pk_combination, 'advisory' );
+	if ( !$already_reported ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $pk_combination,
+				message        => $message,
+				type           => 'advisory'
+			}
+		);
+	}
+	BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
+	return;
+}
+
+sub _check_data_primary_key {
+	my ( $self, $args ) = @_;
+	my $pk_combination = $args->{'pk_combination'};
+	if (   $self->{'primary_key_combination'}->{$pk_combination}
+		&& $pk_combination !~ /\:\s*$/x )
+	{
+		$self->_record_primary_key_problem( $args, 'Primary key submitted more than once in this batch.' );
 	}
 	$self->{'primary_key_combination'}->{$pk_combination}++;
-
-	#Check if primary key already in database
-	if ( @{ $arg_ref->{'pk_values'} } ) {
-		eval { $self->{'sql'}->{'primary_key_check'}->execute( @{ $arg_ref->{'pk_values'} } ) };
-		if ($@) {
-			my $message = $@;
-			local $" = ', ';
-			$logger->debug(
-					"Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: "
-				  . "@{$arg_ref->{'pk_values'}} $message" );
-			my $plural = scalar @primary_keys > 1 ? 's' : '';
-			if ( $message =~ /invalid input/ ) {
-				$self->print_bad_status(
-					{
-						message => qq(Your pasted data has invalid primary key field$plural )
-						  . qq((@primary_keys) data.)
-					}
-				);
-				BIGSdb::Exception::Data->throw('Invalid primary key');
-			}
-			$self->print_bad_status(
-				{
-					message => q(Your pasted data does not appear to contain the primary )
-					  . qq(key field$plural (@primary_keys) required for this table.)
-				}
-			);
-			BIGSdb::Exception::Data->throw("no primary key field$plural (@primary_keys)");
-		}
-		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
-		if ($exists) {
-			my %warn_tables = map { $_ => 1 } qw(
-			  codon_tables project_members refs isolate_aliases locus_aliases
-			  scheme_members profile_refs sequence_refs
-			);
-
-			if ( $warn_tables{ $arg_ref->{'table'} } ) {
-				my $message = 'Primary key already exists in the database - upload will be skipped.';
-				my $already_reported =
-				  $self->_has_validation_message( $arg_ref->{'diagnostics'}, $pk_combination, 'advisory' );
-				if ( !$already_reported ) {
-					$self->record_validation_message(
-						{
-							diagnostics    => $arg_ref->{'diagnostics'},
-							pk_combination => $pk_combination,
-							message        => $message,
-							type           => 'advisory'
-						}
-					);
-				}
-				BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
-			} else {
-				$self->_record_primary_key_problem( $arg_ref, 'Primary key already exists in the database.' );
-			}
-		}
+	return if !@{ $args->{'pk_values'} };
+	if ( $self->_execute_primary_key_check($args) ) {
+		$self->_record_existing_primary_key($args);
 	}
 	return;
 }
