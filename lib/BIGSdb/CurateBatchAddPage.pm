@@ -489,7 +489,7 @@ sub _uses_structured_diagnostics {
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
 	  projects classification_group_field_values lincode_prefixes geography_point_lookup
 	  validation_conditions isolate_field_extended_attributes locus_descriptions locus_links
-	  accession sequence_extended_attributes
+	  accession sequence_extended_attributes dna_mutations peptide_mutations
 	);
 	return $tables{$table} // 0;
 }
@@ -2056,56 +2056,91 @@ sub _check_schemes {
 }
 
 sub _check_mutation_fields {
-	my ( $self, $arg_ref, $type ) = @_;
-	my ( $variant_field, $wt_field, $value_type );
-	if ( $type eq 'peptide' ) {
-		$variant_field = 'variant_aa';
-		$wt_field      = 'wild_type_aa';
-		$value_type    = 'amino acid';
-	} else {
-		$variant_field = 'variant_nuc';
-		$wt_field      = 'wild_type_nuc';
-		$value_type    = 'nucleotide';
-	}
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
-	my $pk_combination = $arg_ref->{'pk_combination'};
+	my ( $self, $args, $type ) = @_;
+	my $field = $args->{'field'};
 	if ( $field eq 'locus' && $type eq 'dna' ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($value);
-		if ( $locus_info->{'data_type'} eq 'peptide' ) {
-			$arg_ref->{'problems'}->{$pk_combination} .= 'You cannot define SNPs for peptide loci.<br />';
-		}
+		$self->_check_mutation_locus($args);
 	}
+	my $variant_field = $type eq 'peptide' ? 'variant_aa' : 'variant_nuc';
 	if ( $field eq $variant_field ) {
-		$value =~ s/\s//gx;
-		my @variants = split /;/x, $value;
-		my %used_variant;
-		my $wt_string = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{$wt_field} ];
-		my @wt        = split /\s*;\s*/x, $wt_string;
-		my %wt        = map { $_ => 1 } @wt;
-		my %used_wt;
-		foreach my $variant (@variants) {
-			if ( $wt{$variant} ) {
-				$arg_ref->{'problems'}->{$pk_combination} .=
-				  "Variant $value_type '$variant' is the same as wild-type.<br />";
-			}
-			if ( $used_variant{$variant} ) {
-				$arg_ref->{'problems'}->{$pk_combination} .= "Variant '$variant' is listed more than once.<br />";
-			}
-			$used_variant{$variant} = 1;
-		}
-		foreach my $wt (@wt) {
-			if ( $used_wt{$wt} ) {
-				$arg_ref->{'problems'}->{$pk_combination} .= "WT '$wt' is listed more than once.";
-			}
-			$used_wt{$wt} = 1;
-		}
+		$self->_check_mutation_variants( $args, $type );
 	}
 	if ( $field eq 'locus_position' || $field eq 'reported_position' ) {
-		if ( $value < 1 ) {
-			$arg_ref->{'problems'}->{$pk_combination} .= uc($field) . ' must be a positive integer.<br />';
-		}
+		$self->_check_mutation_position($args);
 	}
+	return;
+}
+
+sub _record_mutation_problem {
+	my ( $self, $args, $message ) = @_;
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $args->{'field'},
+			message        => $message
+		}
+	);
+	return;
+}
+
+sub _check_mutation_locus {
+	my ( $self, $args ) = @_;
+	my $locus = ${ $args->{'value'} };
+	return if !defined $locus || $locus eq q();
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	return if !$locus_info;
+	if ( ( $locus_info->{'data_type'} // q() ) eq 'peptide' ) {
+		$self->_record_mutation_problem( $args, 'You cannot define SNPs for peptide loci.' );
+	}
+	return;
+}
+
+sub _check_mutation_variants {
+	my ( $self, $args, $type ) = @_;
+	my $variant_field = $type eq 'peptide' ? 'variant_aa'   : 'variant_nuc';
+	my $wt_field      = $type eq 'peptide' ? 'wild_type_aa' : 'wild_type_nuc';
+	my $value_type    = $type eq 'peptide' ? 'amino acid'   : 'nucleotide';
+	my $value         = ${ $args->{'value'} };
+	return if !defined $value;
+	$value =~ s/\s//gx;
+	my @variants        = split /;/x, $value;
+	my $file_header_pos = $args->{'file_header_pos'};
+	return if !defined $file_header_pos->{$wt_field};
+	my $wt_string = $args->{'data'}->[ $file_header_pos->{$wt_field} ];
+	return if !defined $wt_string;
+	my @wt = split /\s*;\s*/x, $wt_string;
+	my %wt = map { $_ => 1 } @wt;
+	my %used_variant;
+
+	foreach my $variant (@variants) {
+		if ( $wt{$variant} ) {
+			$self->_record_mutation_problem( $args, "Variant $value_type '$variant' is the same as wild-type." );
+		}
+		if ( $used_variant{$variant} ) {
+			$self->_record_mutation_problem( $args, "Variant '$variant' is listed more than once." );
+		}
+		$used_variant{$variant} = 1;
+	}
+
+	my %used_wt;
+	foreach my $wt (@wt) {
+		if ( $used_wt{$wt} ) {
+			$self->_record_mutation_problem( $args, "WT '$wt' is listed more than once." );
+		}
+		$used_wt{$wt} = 1;
+	}
+	return;
+}
+
+sub _check_mutation_position {
+	my ( $self, $args ) = @_;
+	my $value = ${ $args->{'value'} };
+	return if !defined $value;
+	return if !BIGSdb::Utils::is_int($value);
+	return if $value >= 1;
+	$self->_record_mutation_problem( $args, uc( $args->{'field'} ) . ' must be a positive integer.' );
 	return;
 }
 
