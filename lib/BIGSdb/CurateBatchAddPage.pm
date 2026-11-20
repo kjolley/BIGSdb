@@ -489,7 +489,7 @@ sub _uses_structured_diagnostics {
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
 	  projects classification_group_field_values lincode_prefixes geography_point_lookup
 	  validation_conditions isolate_field_extended_attributes locus_descriptions locus_links
-	  accession sequence_extended_attributes dna_mutations peptide_mutations
+	  accession sequence_extended_attributes dna_mutations peptide_mutations schemes
 	);
 	return $tables{$table} // 0;
 }
@@ -2037,19 +2037,25 @@ sub _check_data_refs {
 }
 
 sub _check_schemes {
-	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
-	my $pk_combination = $arg_ref->{'pk_combination'};
-	if ( $field eq 'NCBI_taxon' ) {
-		my @values = split /\s*;\s*/x, $value;
-		foreach my $id (@values) {
-			if ( !BIGSdb::Utils::is_int($id) ) {
-				$arg_ref->{'problems'}->{$pk_combination} .=
-				  'Taxon ids should be a semi-colon(;)-separated list of integers.';
-				return;
+	my ( $self, $args ) = @_;
+	return if $args->{'field'} ne 'NCBI_taxon';
+	my $value = ${ $args->{'value'} };
+	return if !defined $value || $value eq q();
+	my @values = split /\s*;\s*/x, $value;
+	foreach my $id (@values) {
+		next if BIGSdb::Utils::is_int($id);
+		$self->record_validation_message(
+			{
+				problems       => $args->{'problems'},
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'NCBI_taxon',
+				message        => 'Taxon ids should be a semi-colon(;)-separated list of integers.'
 			}
-		}
+		);
+
+		${ $args->{'special_problem'} } = 1;
+		last;
 	}
 	return;
 }
