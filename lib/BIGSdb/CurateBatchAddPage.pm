@@ -490,6 +490,7 @@ sub _uses_structured_diagnostics {
 	  projects classification_group_field_values lincode_prefixes geography_point_lookup
 	  validation_conditions isolate_field_extended_attributes locus_descriptions locus_links
 	  accession sequence_extended_attributes dna_mutations peptide_mutations schemes
+	  classification_group_fields
 	);
 	return $tables{$table} // 0;
 }
@@ -1314,7 +1315,8 @@ sub _run_table_specific_field_checks {
 			$self->_check_retired_isolate_id($new_args);
 		},
 		classification_group_fields => sub {
-			$self->_check_data_scheme_fields($new_args);
+			$self->_check_scheme_field_name($new_args)
+			  if $new_args->{'field'} eq 'field';
 		},
 		peptide_mutations => sub {
 			$self->_check_mutation_fields( $new_args, 'peptide' );
@@ -1967,7 +1969,7 @@ sub _check_scheme_field_name {
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => 'field',
-			message        => "Scheme fields cannot be called 'id'."
+			message        => q(Fields cannot be called 'id'.)
 		}
 	);
 	${ $args->{'special_problem'} } = 1;
