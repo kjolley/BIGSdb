@@ -486,7 +486,7 @@ sub _uses_structured_diagnostics {
 	  isolates refs project_members scheme_members locus_aliases
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
-	  retired_profiles
+	  retired_profiles retired_isolates
 	);
 	return $tables{$table} // 0;
 }
@@ -2446,14 +2446,22 @@ sub _check_retired_profile_id {
 
 sub _check_retired_isolate_id {
 	my ( $self, $arg_ref ) = @_;
-	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
-	return if $field ne 'isolate_id';
-	return if !BIGSdb::Utils::is_int( $arg_ref->{'data'}->[ $file_header_pos->{'isolate_id'} ] );
-	if ( $self->{'datastore'}->isolate_exists( $arg_ref->{'data'}->[ $file_header_pos->{'isolate_id'} ], ) ) {
-		$arg_ref->{'problems'}->{$pk_combination} .=
-		  'Isolate has already been defined - delete it before you retire the identifier.';
-		${ $arg_ref->{'special_problem'} } = 1;
-	}
+	return if $arg_ref->{'field'} ne 'isolate_id';
+	my $isolate_id = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{'isolate_id'} ];
+
+	return if !BIGSdb::Utils::is_int($isolate_id);
+	return if !$self->{'datastore'}->isolate_exists($isolate_id);
+
+	$self->record_validation_message(
+		{
+			problems       => $arg_ref->{'problems'},
+			diagnostics    => $arg_ref->{'diagnostics'},
+			pk_combination => $arg_ref->{'pk_combination'},
+			field          => 'isolate_id',
+			message        => 'Isolate has already been defined - delete it before you retire the identifier.'
+		}
+	);
+	${ $arg_ref->{'special_problem'} } = 1;
 	return;
 }
 
