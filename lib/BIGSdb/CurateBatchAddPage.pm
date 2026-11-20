@@ -485,7 +485,7 @@ sub _uses_structured_diagnostics {
 	my %tables = map { $_ => 1 } qw(
 	  isolates refs project_members scheme_members locus_aliases
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
-	  scheme_group_scheme_members scheme_group_group_members
+	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
 	);
 	return $tables{$table} // 0;
 }
@@ -2379,21 +2379,27 @@ sub _check_data_scheme_group_group_members {
 
 sub _check_retired_allele_ids {
 	my ( $self, $arg_ref ) = @_;
-	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
-	if ( $field eq 'allele_id' ) {
-		my $exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS (SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-			[
-				$arg_ref->{'data'}->[ $file_header_pos->{'locus'} ],
-				$arg_ref->{'data'}->[ $file_header_pos->{'allele_id'} ]
-			]
-		);
-		if ($exists) {
-			$arg_ref->{'problems'}->{$pk_combination} .=
-			  'This allele has already been defined - delete it before you retire the identifier.';
-			${ $arg_ref->{'special_problem'} } = 1;
+	return if $arg_ref->{'field'} ne 'allele_id';
+	my $data            = $arg_ref->{'data'};
+	my $file_header_pos = $arg_ref->{'file_header_pos'};
+	my $locus           = $data->[ $file_header_pos->{'locus'} ];
+	my $allele_id       = $data->[ $file_header_pos->{'allele_id'} ];
+	return if !defined $locus || !defined $allele_id;
+
+	my $exists = $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS (SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))', [ $locus, $allele_id ] );
+	return if !$exists;
+
+	$self->record_validation_message(
+		{
+			problems       => $arg_ref->{'problems'},
+			diagnostics    => $arg_ref->{'diagnostics'},
+			pk_combination => $arg_ref->{'pk_combination'},
+			field          => 'allele_id',
+			message        => 'This allele has already been defined - delete it before you retire the identifier.'
 		}
-	}
+	);
+	${ $arg_ref->{'special_problem'} } = 1;
 	return;
 }
 
