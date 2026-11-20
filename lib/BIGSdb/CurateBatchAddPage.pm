@@ -487,7 +487,7 @@ sub _uses_structured_diagnostics {
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
-	  projects
+	  projects classification_group_field_values
 	);
 	return $tables{$table} // 0;
 }
@@ -726,7 +726,7 @@ sub _check_data {
 						$self->_check_projects($new_args);
 					},
 					classification_group_field_values => sub {
-						$self->_check_classification_field_values( $new_args, $problems, $pk_combination );
+						$self->_check_classification_field_values($new_args);
 					},
 					validation_conditions => sub {
 						$self->_check_validation_conditions( $new_args, $problems, $pk_combination );
@@ -1005,32 +1005,41 @@ sub _check_projects {
 }
 
 sub _check_classification_field_values {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	if (
-		!$self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?))',
-			[ $data->[ $file_header_pos->{'cg_scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ]
-		)
-	  )
-	{
-		$problems->{$pk_combination} .= q(Selected field has not been defined for the selected classification scheme.);
-	}
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my $scheme_id       = $data->[ $file_header_pos->{'cg_scheme_id'} ];
+	my $field           = $data->[ $file_header_pos->{'field'} ];
+	my $value           = $data->[ $file_header_pos->{'value'} ];
+	return if !BIGSdb::Utils::is_int($scheme_id);
+
 	my $format = $self->{'datastore'}->run_query(
 		'SELECT type,value_regex FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?)',
-		[ $data->[ $file_header_pos->{'cg_scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ],
+		[ $scheme_id, $field ],
 		{ fetch => 'row_hashref' }
 	);
-	return if !$format;
-	if ( $format->{'type'} eq 'integer'
-		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
-	{
-		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
-	} elsif ( $format->{'value_regex'} && $data->[ $file_header_pos->{'value'} ] !~ /$format->{'value_regex'}/x ) {
-		$problems->{$pk_combination} .=
-			"$data->[$file_header_pos->{'field'}] value is invalid - "
-		  . "it must match the regular expression /$format->{'value_regex'}/.";
+	my $message;
+	my $problem_field;
+	if ( !$format ) {
+		$problem_field = 'field';
+		$message       = 'Selected field has not been defined for the selected classification scheme.';
+	} elsif ( $format->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+		$problem_field = 'value';
+		$message       = "$field must be an integer.";
+	} elsif ( $format->{'value_regex'} && defined $value && $value !~ /$format->{'value_regex'}/x ) {
+		$problem_field = 'value';
+		$message       = "$field value is invalid - it must match the regular expression /$format->{'value_regex'}/.";
 	}
+	return if !defined $message;
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $problem_field,
+			message        => $message
+		}
+	);
 	return;
 }
 
