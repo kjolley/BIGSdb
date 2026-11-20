@@ -486,7 +486,7 @@ sub _uses_structured_diagnostics {
 	  isolates refs project_members scheme_members locus_aliases
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
-	  retired_profiles retired_isolates users scheme_fields allele_designations
+	  retired_profiles retired_isolates users scheme_fields allele_designations loci
 	);
 	return $tables{$table} // 0;
 }
@@ -2286,27 +2286,49 @@ sub _check_data_primary_key {
 }
 
 sub _check_data_loci {
+	my ( $self, $args ) = @_;
 
-	#special case to ensure that a locus length is set if it is not marked as variable length
-	my ( $self, $arg_ref ) = @_;
-	my @data            = @{ $arg_ref->{'data'} };
-	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
-	my $pk_combination  = $arg_ref->{'pk_combination'};
-	if (
-		(
-			   defined $file_header_pos{'length_varies'}
-			&& defined $data[ $file_header_pos{'length_varies'} ]
-			&& none { $data[ $file_header_pos{'length_varies'} ] eq $_ } qw (true TRUE 1)
-		)
-		&& !$data[ $file_header_pos{'length'} ]
-	  )
-	{
-		$arg_ref->{'problems'}->{$pk_combination} .= 'Locus set as non variable length but no length is set.<br />';
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+
+	my $length_varies =
+	  defined $file_header_pos->{'length_varies'}
+	  ? $data->[ $file_header_pos->{'length_varies'} ]
+	  : undef;
+
+	my $length =
+	  defined $file_header_pos->{'length'}
+	  ? $data->[ $file_header_pos->{'length'} ]
+	  : undef;
+	my %true = map { $_ => 1 } qw(true TRUE 1);
+	if ( defined $length_varies && !$true{$length_varies} && !$length ) {
+		$self->record_validation_message(
+			{
+				problems       => $args->{'problems'},
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'length',
+				message        => 'Locus set as non variable length but no length is set.'
+			}
+		);
 	}
-	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_\-']/x ) {
-		$arg_ref->{'problems'}->{$pk_combination} .=
-			q(Locus names can only contain alphanumeric, underscore (_), hyphen (-) )
-		  . q(and prime (') characters (no spaces or other symbols).<br />);
+
+	my $locus =
+	  defined $file_header_pos->{'id'}
+	  ? $data->[ $file_header_pos->{'id'} ]
+	  : undef;
+
+	if ( defined $locus && $locus =~ /[^\w_\-']/x ) {
+		$self->record_validation_message(
+			{
+				problems       => $args->{'problems'},
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'id',
+				message        => q(Locus names can only contain alphanumeric, underscore (_), hyphen (-) )
+				  . q(and prime (') characters (no spaces or other symbols).)
+			}
+		);
 	}
 	return;
 }
