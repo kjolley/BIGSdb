@@ -130,7 +130,6 @@ sub characters {
 	my $data = $element->{'Data'};
 	$data =~ s/\r?\n/ /gx;
 	$data =~ s/\s+/ /gx;
-	$data =~ s/^\s+|\s+$//gx;
 	return unless length $data;
 	my $stack = $self->{'_field_stack'} // [];
 	my $ctx   = @$stack ? $stack->[-1] : undef;
