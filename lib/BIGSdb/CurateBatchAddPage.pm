@@ -488,7 +488,7 @@ sub _uses_structured_diagnostics {
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
 	  projects classification_group_field_values lincode_prefixes geography_point_lookup
-	  validation_conditions isolate_field_extended_attributes
+	  validation_conditions isolate_field_extended_attributes locus_descriptions locus_links
 	);
 	return $tables{$table} // 0;
 }
@@ -715,10 +715,12 @@ sub _check_data {
 						$self->_check_data_loci($new_args);
 					},
 					locus_descriptions => sub {
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
+							$new_args->{'diagnostics'} );
 					},
 					locus_links => sub {
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
+							$new_args->{'diagnostics'} );
 					},
 					retired_allele_ids => sub {
 						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
