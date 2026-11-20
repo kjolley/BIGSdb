@@ -490,7 +490,7 @@ sub _uses_structured_diagnostics {
 	  projects classification_group_field_values lincode_prefixes geography_point_lookup
 	  validation_conditions isolate_field_extended_attributes locus_descriptions locus_links
 	  accession sequence_extended_attributes dna_mutations peptide_mutations schemes
-	  classification_group_fields locus_extended_attributes
+	  classification_group_fields locus_extended_attributes user_groups user_group_members
 	);
 	return $tables{$table} // 0;
 }
