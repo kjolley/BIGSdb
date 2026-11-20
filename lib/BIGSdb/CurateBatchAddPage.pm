@@ -1297,7 +1297,6 @@ sub _run_table_specific_field_checks {
 			$self->_check_data_refs($new_args);
 			$self->_check_data_codon_table($new_args);
 			$self->_check_data_aliases($new_args);
-			$self->_check_isolate_id_not_retired($new_args);
 		},
 		scheme_fields => sub {
 			$self->_check_data_scheme_fields($new_args);
@@ -2620,26 +2619,6 @@ sub _check_retired_isolate_id {
 		}
 	);
 	${ $arg_ref->{'special_problem'} } = 1;
-	return;
-}
-
-sub _check_isolate_id_not_retired {
-	my ( $self, $arg_ref ) = @_;
-	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
-	return
-		 if $field ne 'id'
-	  || !defined $file_header_pos->{'id'}
-	  || !BIGSdb::Utils::is_int( $arg_ref->{'data'}->[ $file_header_pos->{'id'} ] );
-	if (
-		$self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)',
-			$arg_ref->{'data'}->[ $file_header_pos->{'id'} ],
-		)
-	  )
-	{
-		$arg_ref->{'problems'}->{$pk_combination} .= 'Isolate id has been retired.';
-		${ $arg_ref->{'special_problem'} } = 1;
-	}
 	return;
 }
 
