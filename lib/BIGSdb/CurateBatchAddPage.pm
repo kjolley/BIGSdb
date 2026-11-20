@@ -487,7 +487,7 @@ sub _uses_structured_diagnostics {
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
-	  projects classification_group_field_values lincode_prefixes
+	  projects classification_group_field_values lincode_prefixes geography_point_lookup
 	);
 	return $tables{$table} // 0;
 }
@@ -738,7 +738,7 @@ sub _check_data {
 						$self->_check_lincode_prefix_values($new_args);
 					},
 					geography_point_lookup => sub {
-						$self->_check_geography_point_values( $new_args, $problems, $pk_combination );
+						$self->_check_geography_point_values($new_args);
 					}
 				);
 				$record_checks{$table}->() if $record_checks{$table};
@@ -1081,19 +1081,32 @@ sub _check_lincode_prefix_values {
 }
 
 sub _check_geography_point_values {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	my $location = $data->[ $file_header_pos->{'location'} ];
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my $location        = $data->[ $file_header_pos->{'location'} ];
+	my $field           = $data->[ $file_header_pos->{'field'} ];
+	return if !defined $location;
+	my $message;
 	if ( $location =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
 		my ( $lat, $long ) = ( $1, $2 );
 		if ( $lat < -90 || $lat > 90 || $long < -180 || $long > 180 ) {
-			$problems->{$pk_combination} .= qq('$data->[$file_header_pos->{'field'}]' latitude must be in the )
-			  . q(range: -90 - 90; longitude must be in the range: -180 - 180 );
+			$message =
+			  qq('$field' latitude must be in the range: -90 - 90; ) . q(longitude must be in the range: -180 - 180);
 		}
 	} else {
-		$problems->{$pk_combination} .=
-		  "$data->[$file_header_pos->{'field'}] should be in the format '[Latitude], [Longitude]'.";
+		$message = "$field should be in the format '[Latitude], [Longitude]'.";
 	}
+	return if !defined $message;
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'location',
+			message        => $message
+		}
+	);
 	return;
 }
 
