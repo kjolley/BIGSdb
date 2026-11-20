@@ -487,7 +487,7 @@ sub _uses_structured_diagnostics {
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
-	  projects classification_group_field_values
+	  projects classification_group_field_values lincode_prefixes
 	);
 	return $tables{$table} // 0;
 }
@@ -735,7 +735,7 @@ sub _check_data {
 						$self->_check_isolate_field_extended_attributes( $new_args, $problems, $pk_combination );
 					},
 					lincode_prefixes => sub {
-						$self->_check_lincode_prefix_values( $new_args, $problems, $pk_combination );
+						$self->_check_lincode_prefix_values($new_args);
 					},
 					geography_point_lookup => sub {
 						$self->_check_geography_point_values( $new_args, $problems, $pk_combination );
@@ -1044,31 +1044,39 @@ sub _check_classification_field_values {
 }
 
 sub _check_lincode_prefix_values {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	my $scheme_id = $data->[ $file_header_pos->{'scheme_id'} ];
-	my $type      = $self->{'datastore'}->run_query(
-		'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
-		[ $scheme_id, $data->[ $file_header_pos->{'field'} ] ]
-	);
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my $scheme_id       = $data->[ $file_header_pos->{'scheme_id'} ];
+	my $field           = $data->[ $file_header_pos->{'field'} ];
+	my $value           = $data->[ $file_header_pos->{'value'} ];
+	return if !BIGSdb::Utils::is_int($scheme_id);
+	my $type = $self->{'datastore'}
+	  ->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)', [ $scheme_id, $field ] );
+	my ( $problem_field, $message );
+
 	if ( !defined $type ) {
-		$problems->{$pk_combination} .=
-		  "Field $data->[$file_header_pos->{'field'}] is not a valid field for this scheme.";
-	} elsif ( $type eq 'integer'
-		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
+		$problem_field = 'field';
+		$message       = "Field $field is not a valid field for this scheme.";
+	} elsif ( $type eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+		$problem_field = 'value';
+		$message       = "$field must be an integer.";
+	} elsif ( !$self->is_admin
+		&& !$self->{'datastore'}->is_scheme_curator( $scheme_id, $self->get_curator_id ) )
 	{
-		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
-	} elsif ( !$self->is_admin ) {
-		if (
-			!$self->{'datastore'}->run_query(
-				'SELECT EXISTS(SELECT * FROM scheme_curators WHERE (scheme_id,curator_id)=(?,?))',
-				[ $scheme_id, $self->get_curator_id ]
-			)
-		  )
-		{
-			$problems->{$pk_combination} .= 'You are not a curator for this scheme.';
-		}
+		$problem_field = 'scheme_id';
+		$message       = 'You are not a curator for this scheme.';
 	}
+	return if !defined $message;
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $problem_field,
+			message        => $message
+		}
+	);
 	return;
 }
 
