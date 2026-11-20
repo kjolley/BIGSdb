@@ -488,7 +488,7 @@ sub _uses_structured_diagnostics {
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
 	  projects classification_group_field_values lincode_prefixes geography_point_lookup
-	  validation_conditions
+	  validation_conditions isolate_field_extended_attributes
 	);
 	return $tables{$table} // 0;
 }
@@ -733,7 +733,7 @@ sub _check_data {
 						$self->_check_validation_conditions($new_args);
 					},
 					isolate_field_extended_attributes => sub {
-						$self->_check_isolate_field_extended_attributes( $new_args, $problems, $pk_combination );
+						$self->_check_isolate_field_extended_attributes($new_args);
 					},
 					lincode_prefixes => sub {
 						$self->_check_lincode_prefix_values($new_args);
@@ -1256,11 +1256,21 @@ sub _check_corresponding_profile_exists {
 }
 
 sub _check_isolate_field_extended_attributes {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	if ( $self->{'xmlHandler'}->is_field( $data->[ $file_header_pos->{'attribute'} ] ) ) {
-		$problems->{$pk_combination} .= 'A standard field already exists with this name.';
-	}
+	my ( $self, $args ) = @_;
+	my $file_header_pos = $args->{'file_header_pos'};
+	return if !defined $file_header_pos->{'attribute'};
+	my $attribute = $args->{'data'}->[ $file_header_pos->{'attribute'} ];
+	return if !defined $attribute;
+	return if !$self->{'xmlHandler'}->is_field($attribute);
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'attribute',
+			message        => 'A standard field already exists with this name.'
+		}
+	);
 	return;
 }
 
