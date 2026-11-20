@@ -486,7 +486,7 @@ sub _uses_structured_diagnostics {
 	  isolates refs project_members scheme_members locus_aliases
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
-	  retired_profiles retired_isolates
+	  retired_profiles retired_isolates users
 	);
 	return $tables{$table} // 0;
 }
@@ -1812,31 +1812,27 @@ sub _check_data_isolate_record_locus_fields {
 }
 
 sub _check_data_users {
-
-	#special case to prevent a new user with curator or admin status unless user is admin themselves
-	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
-	my $pk_combination = $arg_ref->{'pk_combination'};
-	my $check          = {
-		status => sub {
-			if ( defined $value && $value ne 'user' && !$self->is_admin ) {
-				$arg_ref->{'problems'}->{$pk_combination} .=
-				  q(Only a user with admin status can add a user with a status other than 'user'.<br />);
-				${ $arg_ref->{'special_problem'} } = 1;
-			}
-		},
-		user_db => sub {
-			if ( defined $value && $value ne q() ) {
-				$arg_ref->{'problems'}->{$pk_combination} .= q(You cannot batch add users from external )
-				  . q(user databases using this function. You need to import them.);
-				${ $arg_ref->{'special_problem'} } = 1;
-			}
-		}
-	};
-	if ( $check->{$field} ) {
-		$check->{$field}->();
+	my ( $self, $args ) = @_;
+	my $field = $args->{'field'};
+	my $value = ${ $args->{'value'} };
+	my $message;
+	if ( $field eq 'status' && defined $value && $value ne 'user' && !$self->is_admin ) {
+		$message = q(Only a user with admin status can add a user with a status other than 'user'.);
+	} elsif ( $field eq 'user_db' && defined $value && $value ne q() ) {
+		$message = q(You cannot batch add users from external user databases using this function. )
+		  . q(You need to import them.);
 	}
+	return if !defined $message;
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $field,
+			message        => $message
+		}
+	);
+	${ $args->{'special_problem'} } = 1;
 	return;
 }
 
@@ -2297,24 +2293,23 @@ sub _check_data_loci {
 }
 
 sub check_data_duplicates {
-
-	#check if unique value exists twice in submission
 	my ( $self, $arg_ref ) = @_;
 	my $field = $arg_ref->{'field'};
 	my $value = ${ $arg_ref->{'value'} };
 	return if !defined $value;
-	my $pk_combination = $arg_ref->{'pk_combination'};
-	if ( $arg_ref->{'unique_field'}->{$field} ) {
-		if ( $self->{'unique_values'}->{$field}->{$value} ) {
-			my $problem_text =
-			  "unique field '$field' already has a value of '$value' set within this submission.<br />";
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-			  if !defined $arg_ref->{'problems'}->{$pk_combination}
-			  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
-		$self->{'unique_values'}->{$field}->{$value}++;
+	return if !$arg_ref->{'unique_field'}->{$field};
+	if ( $self->{'unique_values'}->{$field}->{$value} ) {
+		my $message = "Unique field '$field' already has a value of '$value' set within this submission.";
+
+		$self->record_field_problem(
+			$field, $message,
+			$arg_ref->{'problems'},
+			$arg_ref->{'pk_combination'},
+			$arg_ref->{'diagnostics'}
+		);
+		${ $arg_ref->{'special_problem'} } = 1;
 	}
+	$self->{'unique_values'}->{$field}->{$value}++;
 	return;
 }
 
