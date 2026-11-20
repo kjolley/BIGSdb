@@ -727,7 +727,8 @@ sub _check_data {
 							$new_args->{'diagnostics'} );
 					},
 					retired_allele_ids => sub {
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
+							$new_args->{'diagnostics'} );
 					},
 					projects => sub {
 						$self->_check_projects($new_args);
