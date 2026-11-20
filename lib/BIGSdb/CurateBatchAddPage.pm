@@ -486,7 +486,7 @@ sub _uses_structured_diagnostics {
 	  isolates refs project_members scheme_members locus_aliases
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
-	  retired_profiles retired_isolates users scheme_fields
+	  retired_profiles retired_isolates users scheme_fields allele_designations
 	);
 	return $tables{$table} // 0;
 }
@@ -2333,39 +2333,42 @@ sub check_data_duplicates {
 }
 
 sub _check_data_allele_designations {
+	my ( $self, $args ) = @_;
+	return if $args->{'field'} ne 'allele_id';
+	my $file_header_pos = $args->{'file_header_pos'};
+	return if !defined $file_header_pos->{'locus'};
+	my $locus = $args->{'data'}->[ $file_header_pos->{'locus'} ];
+	return if !defined $locus || $locus eq q();
+	my $format = $self->{'datastore'}
+	  ->run_query( 'SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?', $locus, { fetch => 'row_hashref' } );
+	return if !$format;
+	my $value = ${ $args->{'value'} };
+	my $message;
 
-	#special case to check for allele id format and regex which is defined in loci table
-	my ( $self, $arg_ref ) = @_;
-	my $field           = $arg_ref->{'field'};
-	my $pk_combination  = $arg_ref->{'pk_combination'};
-	my @data            = @{ $arg_ref->{'data'} };
-	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
-	if ( $field eq 'allele_id' ) {
-		if ( defined $file_header_pos{'locus'} ) {
-			my $format = $self->{'datastore'}->run_query(
-				'SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?',
-				$data[ $file_header_pos{'locus'} ],
-				{ fetch => 'row_hashref' }
-			);
-			if (   defined $format->{'allele_id_format'}
-				&& $format->{'allele_id_format'} eq 'integer'
-				&& !BIGSdb::Utils::is_int( ${ $arg_ref->{'value'} } ) )
-			{
-				my $problem_text = "$field must be an integer.<br />";
-				$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-				  if !defined $arg_ref->{'problems'}->{$pk_combination}
-				  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
-				${ $arg_ref->{'special_problem'} } = 1;
-			} elsif ( $format->{'allele_id_regex'}
-				&& ${ $arg_ref->{'value'} } !~ /$format->{'allele_id_regex'}/x )
-			{
-				$arg_ref->{'problems'}->{$pk_combination} .=
-					qq($field value is invalid - it must match the regular )
-				  . qq(expression /$format->{'allele_id_regex'}/.<br />);
-				${ $arg_ref->{'special_problem'} } = 1;
-			}
-		}
+	if (   defined $format->{'allele_id_format'}
+		&& $format->{'allele_id_format'} eq 'integer'
+		&& !BIGSdb::Utils::is_int($value) )
+	{
+		$message = 'Must be an integer.';
+	} elsif ( $format->{'allele_id_regex'}
+		&& defined $value
+		&& $value !~ /$format->{'allele_id_regex'}/x )
+	{
+		$message = "Value is invalid - it must match the regular expression /$format->{'allele_id_regex'}/.";
 	}
+
+	return if !defined $message;
+
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'allele_id',
+			message        => $message
+		}
+	);
+	${ $args->{'special_problem'} } = 1;
 	return;
 }
 
