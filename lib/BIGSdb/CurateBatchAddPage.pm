@@ -485,7 +485,7 @@ sub _uses_structured_diagnostics {
 	my %tables = map { $_ => 1 } qw(
 	  isolates refs project_members scheme_members locus_aliases
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
-	  scheme_group_scheme_members
+	  scheme_group_scheme_members scheme_group_group_members
 	);
 	return $tables{$table} // 0;
 }
@@ -2356,16 +2356,24 @@ sub _check_data_allele_designations {
 
 sub _check_data_scheme_group_group_members {
 	my ( $self, $arg_ref ) = @_;
-	my $field           = $arg_ref->{'field'};
-	my $pk_combination  = $arg_ref->{'pk_combination'};
-	my @data            = @{ $arg_ref->{'data'} };
-	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
-	if (   $field eq 'group_id'
-		&& $data[ $file_header_pos{'parent_group_id'} ] == $data[ $file_header_pos{'group_id'} ] )
-	{
-		$arg_ref->{'problems'}->{$pk_combination} .= q(A scheme group can't be a member of itself.);
-		${ $arg_ref->{'special_problem'} } = 1;
-	}
+	return if $arg_ref->{'field'} ne 'group_id';
+	my $data            = $arg_ref->{'data'};
+	my $file_header_pos = $arg_ref->{'file_header_pos'};
+	my $parent_group_id = $data->[ $file_header_pos->{'parent_group_id'} ];
+	my $group_id        = $data->[ $file_header_pos->{'group_id'} ];
+	return if !defined $parent_group_id || !defined $group_id;
+	return if $parent_group_id ne $group_id;
+
+	$self->record_validation_message(
+		{
+			problems       => $arg_ref->{'problems'},
+			diagnostics    => $arg_ref->{'diagnostics'},
+			pk_combination => $arg_ref->{'pk_combination'},
+			field          => 'group_id',
+			message        => 'A scheme group cannot be a member of itself.'
+		}
+	);
+	${ $arg_ref->{'special_problem'} } = 1;
 	return;
 }
 
