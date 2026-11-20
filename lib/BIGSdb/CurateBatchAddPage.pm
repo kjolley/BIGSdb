@@ -489,6 +489,7 @@ sub _uses_structured_diagnostics {
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
 	  projects classification_group_field_values lincode_prefixes geography_point_lookup
 	  validation_conditions isolate_field_extended_attributes locus_descriptions locus_links
+	  accession sequence_extended_attributes
 	);
 	return $tables{$table} // 0;
 }
@@ -694,8 +695,10 @@ sub _check_data {
 			if ( $table ne 'isolates' ) {
 				my %record_checks = (
 					accession => sub {
-						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination,
+							$new_args->{'diagnostics'} );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
+							$new_args->{'diagnostics'} );
 					},
 					sequence_refs => sub {
 						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination,
@@ -708,8 +711,9 @@ sub _check_data {
 					},
 					sequence_extended_attributes => sub {
 						$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
-							$problems, $pk_combination );
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+							$problems, $pk_combination, $new_args->{'diagnostics'} );
+						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
+							$new_args->{'diagnostics'} );
 					},
 					loci => sub {
 						$self->_check_data_loci($new_args);
