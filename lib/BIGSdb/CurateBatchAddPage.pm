@@ -488,6 +488,7 @@ sub _uses_structured_diagnostics {
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
 	  projects classification_group_field_values lincode_prefixes geography_point_lookup
+	  validation_conditions
 	);
 	return $tables{$table} // 0;
 }
@@ -729,7 +730,7 @@ sub _check_data {
 						$self->_check_classification_field_values($new_args);
 					},
 					validation_conditions => sub {
-						$self->_check_validation_conditions( $new_args, $problems, $pk_combination );
+						$self->_check_validation_conditions($new_args);
 					},
 					isolate_field_extended_attributes => sub {
 						$self->_check_isolate_field_extended_attributes( $new_args, $problems, $pk_combination );
@@ -1111,45 +1112,71 @@ sub _check_geography_point_values {
 }
 
 sub _check_validation_conditions {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	my %newdata = map { $_ => $data->[ $file_header_pos->{$_} ] } keys %$file_header_pos;
-	return if !defined $newdata{'field'};
-	if ( $newdata{'value'} eq 'null' ) {
-		if ( $newdata{'operator'} ne '=' && $newdata{'operator'} ne 'NOT' ) {
-			$problems->{$pk_combination} .= qq(The operator '$newdata{'operator'}' cannot be used for null values.);
-		}
-		return;
-	}
-	my $field_type = $self->get_field_type( $newdata{'field'} );
-	if ( $newdata{'value'} =~ /^\[(.+)\]$/x ) {
-		my $comp_field      = $1;
-		my $comp_field_type = $self->get_field_type($comp_field);
-		if ( !$comp_field_type ) {
-			$problems->{$pk_combination} .= qq(Comparison field '$comp_field' is not recognized.);
-			return;
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my %condition       = map { $_ => $data->[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+	return if !defined $condition{'field'};
+	return if !defined $condition{'value'};
+	my $message;
+	if ( $condition{'value'} eq 'null' ) {
+		$message = $self->_check_null_validation_condition( \%condition );
+	} else {
+		my $field_type = $self->get_field_type( $condition{'field'} );
+		return if !defined $field_type;
+
+		if ( $condition{'value'} =~ /^\[(.+)\]$/x ) {
+			$message = $self->_check_field_comparison_condition( \%condition, $field_type, $1 );
 		} else {
-			if ( lc( substr( $field_type, 0, 3 ) ) ne lc( substr( $comp_field_type, 0, 3 ) ) ) {
-				$problems->{$pk_combination} .=
-					qq(Comparison field '$comp_field' has a different data type )
-				  . qq(from '$newdata{'field'}' so cannot be compared.);
-				return;
-			}
+			$message = $self->_check_literal_validation_condition( \%condition, $field_type );
 		}
-		return;
 	}
-	if ( lc($field_type) =~ /^int/x && !BIGSdb::Utils::is_int( $newdata{'value'} ) ) {
-		$problems->{$pk_combination} .= qq('$newdata{'field'}' is an integer field.);
+	return if !defined $message;
+	my $problem_field = $condition{'value'} eq 'null' ? 'operator' : 'value';
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $problem_field,
+			message        => $message
+		}
+	);
+	return;
+}
+
+sub _check_null_validation_condition {
+	my ( $self, $condition ) = @_;
+	my $operator = $condition->{'operator'} // q();
+	return if $operator eq '=' || $operator eq 'NOT';
+	return "The operator '$operator' cannot be used for null values.";
+}
+
+sub _check_field_comparison_condition {
+	my ( $self, $condition, $field_type, $comp_field ) = @_;
+	my $comp_field_type = $self->get_field_type($comp_field);
+	return "Comparison field '$comp_field' is not recognized."
+	  if !$comp_field_type;
+	if ( lc( substr( $field_type, 0, 3 ) ) ne lc( substr( $comp_field_type, 0, 3 ) ) ) {
+		return "Comparison field '$comp_field' has a different data type "
+		  . "from '$condition->{'field'}' so cannot be compared.";
 	}
-	if ( lc($field_type) eq 'date' && !BIGSdb::Utils::is_date( $newdata{'value'} ) ) {
-		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a date field.);
-	}
-	if ( lc($field_type) eq 'float' && !BIGSdb::Utils::is_float( $newdata{'value'} ) ) {
-		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a float field.);
-	}
-	if ( lc($field_type) =~ /^bool/x && !BIGSdb::Utils::is_bool( $newdata{'value'} ) ) {
-		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a boolean field.);
-	}
+	return;
+}
+
+sub _check_literal_validation_condition {
+	my ( $self, $condition, $field_type ) = @_;
+	my $field = $condition->{'field'};
+	my $value = $condition->{'value'};
+	my $type  = lc($field_type);
+	return "'$field' is an integer field."
+	  if $type =~ /^int/x && !BIGSdb::Utils::is_int($value);
+	return "'$field' is a date field."
+	  if $type eq 'date' && !BIGSdb::Utils::is_date($value);
+	return "'$field' is a float field."
+	  if $type eq 'float' && !BIGSdb::Utils::is_float($value);
+	return "'$field' is a boolean field."
+	  if $type =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
 	return;
 }
 
