@@ -486,7 +486,7 @@ sub _uses_structured_diagnostics {
 	  isolates refs project_members scheme_members locus_aliases
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
-	  retired_profiles retired_isolates users
+	  retired_profiles retired_isolates users scheme_fields
 	);
 	return $tables{$table} // 0;
 }
@@ -1837,38 +1837,57 @@ sub _check_data_users {
 }
 
 sub _check_data_scheme_fields {
-	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
-	my $pk_combination = $arg_ref->{'pk_combination'};
+	my ( $self, $args ) = @_;
+	if ( $args->{'field'} eq 'primary_key' ) {
+		$self->_check_scheme_field_primary_key($args);
+	} elsif ( $args->{'field'} eq 'field' ) {
+		$self->_check_scheme_field_name($args);
+	}
+	return;
+}
 
-	#special case to check that only one primary key field is set for a scheme field
-	my $field_order = $arg_ref->{'file_header_pos'};
+sub _check_scheme_field_primary_key {
+	my ( $self, $args ) = @_;
+	my $value = ${ $args->{'value'} };
+	my %false = map { $_ => 1 } qw(false 0);
+	return if !defined $value || $false{ lc $value };
+	my $field_order = $args->{'file_header_pos'};
 	my $scheme_id =
 	  defined $field_order->{'scheme_id'}
-	  ? $arg_ref->{'data'}->[ $field_order->{'scheme_id'} ]
+	  ? $args->{'data'}->[ $field_order->{'scheme_id'} ]
 	  : undef;
-	my %false = map { $_ => 1 } qw(false 0);
-	if ( $field eq 'primary_key' && !$false{ lc $value } ) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		if ( $scheme_info->{'primary_key'} || $self->{'pk_already_in_this_upload'}->{$scheme_id} ) {
-			my $problem_text = q(This scheme already has a primary key field set.<br />);
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
-		$self->{'pk_already_in_this_upload'}->{$scheme_id} = 1;
-	}
+	return if !BIGSdb::Utils::is_int($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 
-	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
-	if ( $field eq 'field' && $value eq 'id' ) {
-		my $problem_text = q(Scheme fields can not be called 'id'.<br />);
-		if ( !defined $arg_ref->{'problems'}->{$pk_combination}
-			|| $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x )
-		{
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-		}
-		${ $arg_ref->{'special_problem'} } = 1;
+	if ( $scheme_info->{'primary_key'} || $self->{'pk_already_in_this_upload'}->{$scheme_id} ) {
+		$self->record_validation_message(
+			{
+				problems       => $args->{'problems'},
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'primary_key',
+				message        => 'This scheme already has a primary key field set.'
+			}
+		);
+		${ $args->{'special_problem'} } = 1;
 	}
+	$self->{'pk_already_in_this_upload'}->{$scheme_id} = 1;
+	return;
+}
+
+sub _check_scheme_field_name {
+	my ( $self, $args ) = @_;
+	return if ${ $args->{'value'} } ne 'id';
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'field',
+			message        => "Scheme fields cannot be called 'id'."
+		}
+	);
+	${ $args->{'special_problem'} } = 1;
 	return;
 }
 
