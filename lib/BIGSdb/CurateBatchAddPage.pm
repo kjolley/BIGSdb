@@ -486,6 +486,7 @@ sub _uses_structured_diagnostics {
 	  isolates refs project_members scheme_members locus_aliases
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
+	  retired_profiles
 	);
 	return $tables{$table} // 0;
 }
@@ -2404,29 +2405,41 @@ sub _check_retired_allele_ids {
 }
 
 sub _check_retired_profile_id {
-	my ( $self, $arg_ref ) = @_;
-	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
+	my ( $self,  $arg_ref )         = @_;
+	my ( $field, $file_header_pos ) = @{$arg_ref}{qw(field file_header_pos)};
+	my $scheme_id = $arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ];
+	return if !BIGSdb::Utils::is_int($scheme_id);
 	if ( $field eq 'profile_id' ) {
-		if (
-			$self->{'datastore'}->profile_exists(
-				$arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ],
-				$arg_ref->{'data'}->[ $file_header_pos->{'profile_id'} ]
-			)
-		  )
-		{
-			$arg_ref->{'problems'}->{$pk_combination} .=
-			  'Profile has already been defined - delete it before you retire the identifier.';
+		my $profile_id = $arg_ref->{'data'}->[ $file_header_pos->{'profile_id'} ];
+
+		if ( $self->{'datastore'}->profile_exists( $scheme_id, $profile_id ) ) {
+			$self->record_validation_message(
+				{
+					problems       => $arg_ref->{'problems'},
+					diagnostics    => $arg_ref->{'diagnostics'},
+					pk_combination => $arg_ref->{'pk_combination'},
+					field          => 'profile_id',
+					message        => 'Profile has already been defined - delete it before you retire the identifier.'
+				}
+			);
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
 	}
-	if ( $field eq 'scheme_id' ) {
-		if (   !$self->is_admin
-			&& !$self->{'datastore'}
-			->is_scheme_curator( $arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ], $self->get_curator_id ) )
-		{
-			$arg_ref->{'problems'}->{$pk_combination} .= 'You are not a curator for this scheme.';
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
+
+	if (   $field eq 'scheme_id'
+		&& !$self->is_admin
+		&& !$self->{'datastore'}->is_scheme_curator( $scheme_id, $self->get_curator_id ) )
+	{
+		$self->record_validation_message(
+			{
+				problems       => $arg_ref->{'problems'},
+				diagnostics    => $arg_ref->{'diagnostics'},
+				pk_combination => $arg_ref->{'pk_combination'},
+				field          => 'scheme_id',
+				message        => 'You are not a curator for this scheme.'
+			}
+		);
+		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
 }
