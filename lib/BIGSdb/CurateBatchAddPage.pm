@@ -487,6 +487,7 @@ sub _uses_structured_diagnostics {
 	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
 	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
 	  retired_profiles retired_isolates users scheme_fields allele_designations loci
+	  projects
 	);
 	return $tables{$table} // 0;
 }
@@ -722,7 +723,7 @@ sub _check_data {
 						$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
 					},
 					projects => sub {
-						$self->_check_projects( $new_args, $problems, $pk_combination );
+						$self->_check_projects($new_args);
 					},
 					classification_group_field_values => sub {
 						$self->_check_classification_field_values( $new_args, $problems, $pk_combination );
@@ -982,15 +983,24 @@ sub check_field_bad {
 }
 
 sub _check_projects {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my $data    = $args->{'data'};
-	my $list    = $data->[ $args->{'file_header_pos'}->{'list'} ];
-	my $private = $data->[ $args->{'file_header_pos'}->{'private'} ];
-	my %true    = map { $_ => 1 } qw(true 1);
-	if ( $true{ lc $private } && $true{ lc $list } ) {
-		$problems->{$pk_combination} .=
-		  'You cannot make a project both private and list it on the projects or isolate information pages. ';
-	}
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my $list            = $data->[ $file_header_pos->{'list'} ];
+	my $private         = $data->[ $file_header_pos->{'private'} ];
+	return if !defined $list || !defined $private;
+	my %true = map { $_ => 1 } qw(true 1);
+	return if !$true{ lc $private } || !$true{ lc $list };
+	$self->record_validation_message(
+		{
+			problems       => $args->{'problems'},
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'private',
+			message        =>
+			  'You cannot make a project both private and list it on the projects or isolate information pages.'
+		}
+	);
 	return;
 }
 
