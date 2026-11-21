@@ -44,6 +44,7 @@ sub run {
 	  @{ $self->_get_locus_extended_attributes($locus) }{qw(extended_attributes required_extended_exist)};
 	my %last_id;
 	my $problems     = {};
+	my $diagnostics  = {};
 	my $table_header = $self->_get_field_table_header;
 	my $table_buffer =
 	  qq(<div class="scrollable"><table class="tablesorter"><thead><tr>$table_header</tr></thead><tbody>);
@@ -101,6 +102,7 @@ sub run {
 					continue                => \$continue,
 					last_id                 => \%last_id,
 					extended_attributes     => $extended_attributes,
+					diagnostics             => $diagnostics
 				};
 				$self->check_data_duplicates($new_args);
 				$new_args->{'file_header_pos'}->{'allele_id'} = keys %{ $new_args->{'file_header_pos'} }
@@ -111,7 +113,7 @@ sub run {
 				#Validate field independently of HTML formatting.
 				my $problem = $self->check_field_bad( 'sequences', $field, $value, $problems, $pk_combination );
 
-				$self->record_field_problem( $field, $problem, $problems, $pk_combination );
+				$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
 
 				#Display field - highlight in red if invalid.
 				$rowbuffer .= $self->format_display_value(
@@ -119,7 +121,7 @@ sub run {
 						table           => 'sequences',
 						field           => $field,
 						value           => $value,
-						problem        => $problem,
+						problem         => $problem,
 						pk_combination  => $pk_combination,
 						special_problem => $special_problem
 					}
@@ -133,28 +135,33 @@ sub run {
 			my $new_args = {
 				file_header_pos => $file_header_pos,
 				data            => \@data,
+				pk_combination  => $pk_combination,
+				diagnostics     => $diagnostics
 			};
 			$table_buffer .= qq(</tr>\n);
-			$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
+			$self->check_permissions( $locus, $new_args );
 		}
 		push @$checked_buffer, $checked_record;
 	}
 	$table_buffer .= q(</tbody></table></div>);
+
 	my $html = $self->_report_check(
 		$data_file,
 		{
 			table_buffer => $table_buffer,
 			checked      => $checked_buffer,
-			problems     => $problems,
+			diagnostics  => $diagnostics,
 			record_count => $record_count
 		}
 	);
+
 	$self->_write_results_file(
 		$full_path,
 		encode_json(
 			{
 				html         => $html,
 				checked      => $checked_buffer,
+				diagnostics  => $diagnostics,
 				problems     => $problems,
 				record_count => $record_count
 			}
@@ -287,7 +294,20 @@ sub _check_data_sequences {
 	$buffer .= $self->_check_super_sequence( $locus, $args );
 
 	if ($buffer) {
-		$args->{'problems'}->{$pk_combination} .= $buffer;
+		my @messages = split /<br\s*\/?>/x, $buffer;
+		foreach my $message (@messages) {
+			$message =~ s/^\s+|\s+$//gx;
+			next if $message eq q();
+
+			$self->record_validation_message(
+				{
+					diagnostics    => $args->{'diagnostics'},
+					pk_combination => $args->{'pk_combination'},
+					field          => $field,
+					message        => $message
+				}
+			);
+		}
 		${ $args->{'special_problem'} } = 1;
 	}
 	return;
@@ -653,10 +673,31 @@ sub _update_status_file {
 	return;
 }
 
+sub _format_offline_diagnostics {
+	my ( $self, $diagnostics ) = @_;
+	my $buffer = q(<table class="resultstable">);
+	$buffer .= q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
+	my $td = 1;
+	foreach my $id ( sort keys %$diagnostics ) {
+		my $display_id = BIGSdb::Utils::escape_html($id);
+		foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
+			next if $diagnostic->{'type'} ne 'error';
+			my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
+			my $message = $self->_format_validation_message($diagnostic);
+			$buffer .= qq(<tr class="td$td"><td>$display_id</td><td>Error</td>)
+			  . qq(<td>$field</td><td style="text-align:left">$message</td></tr>);
+
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	$buffer .= q(</table>);
+	return $buffer;
+}
+
 sub _report_check {
 	my ( $self, $results_file, $results ) = @_;
-	my ( $table_buffer, $checked, $problems, $record_count ) =
-	  @{$results}{qw (table_buffer checked problems record_count)};
+	my ( $table_buffer, $checked, $diagnostics, $record_count ) =
+	  @{$results}{qw(table_buffer checked diagnostics record_count)};
 	my $sender_message = $self->get_sender_message( { has_sender_field => 1 } );
 	my $buffer         = q();
 	if ( !$record_count ) {
@@ -677,39 +718,46 @@ sub _report_check {
 			}
 		);
 	}
+	my $has_errors =
+	  grep { $self->_has_validation_message( $diagnostics, $_, 'error' ) } keys %$diagnostics;
+
 	my $q = $self->{'cgi'};
-	if (%$problems) {
+	if ($has_errors) {
 		$buffer .= q(<div class="box" id="statusbad"><h2>Import status</h2>);
-		$buffer .= q(<table class="resultstable">);
-		$buffer .= q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
-		my $td = 1;
-		foreach my $id ( sort keys %$problems ) {
-			my $display_id = BIGSdb::Utils::escape_html($id);
-			$buffer .= qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$problems->{$id}</td></tr>);
-			$td = $td == 1 ? 2 : 1;    #row stripes
-		}
-		$buffer .= q(</table></div>);
+		$buffer .= $self->_format_offline_diagnostics($diagnostics);
+		$buffer .= q(</div>);
 	} else {
 		$buffer .= qq(<div class="box" id="resultsheader"><h2>Import status</h2>$sender_message);
 		$buffer .= q(<p>No obvious problems identified so far.</p>);
 		$buffer .= $q->start_form;
-		$buffer .= $q->hidden($_) foreach qw (page table db sender locus ignore_existing ignore_non_DNA
-		  complete_CDS ignore_similarity ignore_length reject_dissimilar reject_invalid_length);
+		$buffer .= $q->hidden($_) foreach qw(
+		  page table db sender locus ignore_existing ignore_non_DNA
+		  complete_CDS ignore_similarity ignore_length reject_dissimilar
+		  reject_invalid_length
+		);
 		$buffer .= $q->hidden( checked_file => $results_file );
 		$buffer .= $self->print_action_fieldset(
-			{ submit_label => 'Import data', no_reset => 1, get_only => 1, page => 'batchAddSequences' } );
+			{
+				submit_label => 'Import data',
+				no_reset     => 1,
+				get_only     => 1,
+				page         => 'batchAddSequences'
+			}
+		);
 		$buffer .= $q->end_form;
 		$buffer .= q(</div>);
 	}
+
 	$buffer .= q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
 	my $caveat =
 	  ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
 	  ? q(<em>Note: valid sequence flags are displayed with a red background not red text.</em>)
 	  : q();
-	$buffer .= q(<p>The following table shows your data.  Any field with red text has a )
+	$buffer .= q(<p>The following table shows your data. Any field with red text has a )
 	  . qq(problem and needs to be checked. $caveat</p>);
 	$buffer .= $table_buffer;
 	$buffer .= q(</div>);
 	return $buffer;
 }
+
 1;
