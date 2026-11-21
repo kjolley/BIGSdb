@@ -495,12 +495,14 @@ sub _check_data {
 	my $fields = $self->_get_fields_in_order( $table, $locus );
 	my %last_id;
 	return if $self->sender_needed($args);
-	my $sender_message = $self->get_sender_message($args);
-	my $problems       = {};
-	my $advisories     = {};
-	my $diagnostics    = {};
-	my @records        = split /\n/x, $q->param('data');
+	my $sender_message      = $self->get_sender_message($args);
+	my $problems            = {};
+	my $advisories          = {};
+	my $diagnostics         = {};
+	my @records             = split /\n/x, $q->param('data');
+	my $original_line_count = scalar @records;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
+	my $source_row = $original_line_count - scalar @records;
 
 	# The header has already been removed from @records.
 	my $record_total = grep { /\S/x } @records;
@@ -518,6 +520,7 @@ sub _check_data {
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
 	my $first_record = 1;
   RECORD: foreach my $record (@records) {
+		$source_row++;
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
 		my $checked_record;
@@ -543,6 +546,20 @@ sub _check_data {
 					record_count    => \$record_count
 				}
 			);
+			my $isolate_name = q();
+
+			if ( $table eq 'isolates' ) {
+				my $label_field = $self->{'system'}->{'labelfield'};
+
+				if ( defined $file_header_pos->{$label_field} ) {
+					$isolate_name = $data[ $file_header_pos->{$label_field} ] // q();
+				}
+			}
+
+			local $self->{'batch_diagnostic_context'} = {
+				row          => $source_row,
+				isolate_name => $isolate_name
+			};
 			my $rowbuffer;
 			my $continue = 1;
 		  FIELD: foreach my $field (@$fields) {
@@ -860,7 +877,6 @@ sub record_validation_message {
 	my ( $self, $args ) = @_;
 	my ( $diagnostics, $pk_combination, $field, $message, $type ) =
 	  @{$args}{qw(diagnostics pk_combination field message type)};
-
 	return if !defined $message || $message eq q();
 	$type //= 'error';
 	my $diagnostic = {
@@ -868,6 +884,10 @@ sub record_validation_message {
 		message => $message
 	};
 	$diagnostic->{'field'} = $field if defined $field;
+	if ( my $context = $self->{'batch_diagnostic_context'} ) {
+		$diagnostic->{'row'}          = $context->{'row'};
+		$diagnostic->{'isolate_name'} = $context->{'isolate_name'};
+	}
 	push @{ $diagnostics->{$pk_combination} }, $diagnostic;
 	return;
 }
@@ -1368,63 +1388,74 @@ sub _get_existing_label_field_values {
 
 sub _write_validation_report {
 	my ( $self, $diagnostics ) = @_;
-	my $filename = BIGSdb::Utils::get_random() . '_validation.tsv';
-	my $path     = "$self->{'config'}->{'tmp_dir'}/$filename";
-
+	my $label_field = ucfirst( $self->{'system'}->{'labelfield'} // 'isolate' );
+	my $filename    = BIGSdb::Utils::get_random() . '_validation.tsv';
+	my $path        = "$self->{'config'}->{'tmp_dir'}/$filename";
 	open( my $fh, '>:encoding(UTF-8)', $path )
 	  or do {
 		$logger->error("Cannot create validation report $path: $!");
 		return;
 	  };
 
-	binmode( $fh, ':encoding(UTF-8)' );
-
 	my $ok = eval {
-		say $fh qq(Primary key\tType\tField\tMessage)
+		say $fh qq(Row\t$label_field\tPrimary key\tType\tField\tMessage)
 		  or $logger->logdie("Cannot write validation report header: $!");
-
-		foreach my $id ( sort keys %$diagnostics ) {
+		my @report_rows;
+		foreach my $id ( keys %$diagnostics ) {
 			foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
-				my @values = (
-					$id,
-					ucfirst( $diagnostic->{'type'} // 'error' ),
-					$diagnostic->{'field'} // q(),
-					ucfirst( $diagnostic->{'message'} // q() )
-				);
-
-				foreach my $value (@values) {
-					$value =~ s/[\t\r\n]+/ /gx;
-
-					# Prevent spreadsheet formula evaluation.
-					$value = q(') . $value if $value =~ /^[=+\-@\t\r]/x;
-				}
-				local $" = qq(\t);
-				say $fh qq(@values)
-				  or $logger->logdie("Cannot write validation report row: $!");
+				push @report_rows,
+				  {
+					pk         => $id,
+					diagnostic => $diagnostic
+				  };
 			}
+		}
+		@report_rows =
+		  sort { ( $a->{'diagnostic'}->{'row'} // 0 ) <=> ( $b->{'diagnostic'}->{'row'} // 0 ) } @report_rows;
+		foreach my $report_row (@report_rows) {
+			my $id = $report_row->{'pk'};
+			$id =~ s/:\s+(\d+)/: $1/gx;
+			my $diagnostic = $report_row->{'diagnostic'};
+
+			my @values = (
+				$diagnostic->{'row'}          // q(),
+				$diagnostic->{'isolate_name'} // q(),
+				$id,
+				ucfirst( $diagnostic->{'type'} // 'error' ),
+				$diagnostic->{'field'} // q(),
+				ucfirst( $diagnostic->{'message'} // q() )
+			);
+			foreach my $value (@values) {
+				$value =~ s/[\t\r\n]+/ /gx;
+
+				# Prevent spreadsheet formula evaluation.
+				$value = q(') . $value if $value =~ /^[=+\-@\t\r]/x;
+			}
+
+			local $" = qq(\t);
+			say $fh qq(@values)
+			  or $logger->logdie("Cannot write validation report row: $!");
 		}
 		1;
 	};
 
 	my $error  = $@;
 	my $closed = close $fh;
-
 	if ( !$ok || !$closed ) {
 		$logger->error( "Cannot write validation report $path: " . ( $error || $! ) );
 		unlink $path;
 		return;
 	}
-
 	my $excel_path = BIGSdb::Utils::text2excel(
 		$path,
 		{
 			field_options => {
-				Message => { align => 'left' }
+				'Isolate name' => { align => 'left' },
+				Message        => { align => 'left' }
 			}
 		}
 	);
 	my $excel_file;
-
 	if ( defined $excel_path && -e $excel_path ) {
 		($excel_file) = $excel_path =~ /([^\/]+)$/x;
 	}
@@ -1432,7 +1463,6 @@ sub _write_validation_report {
 		text  => $filename,
 		excel => $excel_file
 	};
-
 }
 
 sub _print_structured_diagnostics {
