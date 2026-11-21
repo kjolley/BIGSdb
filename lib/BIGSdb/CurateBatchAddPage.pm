@@ -480,22 +480,6 @@ sub _show_preview {
 	return $record_count <= $limit ? 1 : 0;
 }
 
-sub _uses_structured_diagnostics {
-	my ( $self, $table ) = @_;
-	my %tables = map { $_ => 1 } qw(
-	  isolates refs project_members scheme_members locus_aliases
-	  profile_refs sequence_refs codon_tables isolate_aliases scheme_curators
-	  scheme_group_scheme_members scheme_group_group_members retired_allele_ids
-	  retired_profiles retired_isolates users scheme_fields allele_designations loci
-	  projects classification_group_field_values lincode_prefixes geography_point_lookup
-	  validation_conditions isolate_field_extended_attributes locus_descriptions locus_links
-	  accession sequence_extended_attributes dna_mutations peptide_mutations schemes
-	  classification_group_fields locus_extended_attributes user_groups user_group_members
-	  sets set_loci set_schemes scheme_groups classification_schemes
-	);
-	return $tables{$table} // 0;
-}
-
 sub _check_data {
 	my ( $self, $args ) = @_;
 	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
@@ -532,8 +516,7 @@ sub _check_data {
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
-	my $first_record           = 1;
-	my $structured_diagnostics = $self->_uses_structured_diagnostics($table);
+	my $first_record = 1;
   RECORD: foreach my $record (@records) {
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
@@ -592,7 +575,7 @@ sub _check_data {
 					last_id         => \%last_id,
 					unique_field    => $unique_field,
 					advisories      => $advisories,
-					diagnostics     => $structured_diagnostics ? $diagnostics : undef,
+					diagnostics     => $diagnostics
 				};
 				$self->check_data_duplicates($new_args);
 				$self->_run_table_specific_field_checks( $table, $new_args );
@@ -601,8 +584,7 @@ sub _check_data {
 				#Validate field independently of HTML formatting.
 				my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
 
-				$self->record_field_problem( $field, $problem, $problems, $pk_combination,
-					$structured_diagnostics ? $diagnostics : undef );
+				$self->record_field_problem( $field, $problem, $problems, $pk_combination, $diagnostics );
 
 				#Display field only when generating a preview.
 				if ($show_preview) {
@@ -645,7 +627,7 @@ sub _check_data {
 				advisories         => $advisories,
 				checked_record     => \$checked_record,
 				table              => $table,
-				diagnostics        => $structured_diagnostics ? $diagnostics : undef,
+				diagnostics        => $diagnostics,
 				show_preview       => $show_preview
 			};
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
@@ -675,10 +657,7 @@ sub _check_data {
 			$row_buffer .= qq(</tr>\n) if $show_preview;
 
 			#Check for various invalid combinations of fields
-			my $has_errors =
-				$structured_diagnostics
-			  ? $self->_has_validation_message( $diagnostics, $pk_combination, 'error' )
-			  : $problems->{$pk_combination};
+			my $has_errors = $self->_has_validation_message( $diagnostics, $pk_combination, 'error' );
 			if ( !$has_errors ) {
 				my $skip_record = 0;
 				try {
@@ -1657,7 +1636,7 @@ sub _report_check {
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
 	my $diagnostics            = $data->{'diagnostics'} // {};
-	my $structured_diagnostics = $self->_uses_structured_diagnostics($table);
+	my $structured_diagnostics = 1;
 	my $status                 = $self->_get_batch_validation_status(
 		{
 			structured_diagnostics => $structured_diagnostics,
