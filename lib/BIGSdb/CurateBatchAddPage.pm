@@ -858,27 +858,17 @@ sub _isolate_record_further_checks {
 
 sub record_validation_message {
 	my ( $self, $args ) = @_;
+	my ( $diagnostics, $pk_combination, $field, $message, $type ) =
+	  @{$args}{qw(diagnostics pk_combination field message type)};
 
-	my ( $diagnostics, $problems, $advisories, $pk_combination, $field, $message, $type ) =
-	  @{$args}{qw(diagnostics problems advisories pk_combination field message type)};
 	return if !defined $message || $message eq q();
 	$type //= 'error';
-
-	if ($diagnostics) {
-		my $diagnostic = {
-			type    => $type,
-			message => $message
-		};
-		$diagnostic->{'field'} = $field if defined $field;
-
-		push @{ $diagnostics->{$pk_combination} }, $diagnostic;
-	} else {
-
-		# Legacy reporting for batch tables not yet migrated.
-		my $legacy = $type eq 'advisory' ? $advisories : $problems;
-
-		$legacy->{$pk_combination} .= $self->_format_validation_message( { message => $message } ) . q(<br />);
-	}
+	my $diagnostic = {
+		type    => $type,
+		message => $message
+	};
+	$diagnostic->{'field'} = $field if defined $field;
+	push @{ $diagnostics->{$pk_combination} }, $diagnostic;
 	return;
 }
 
@@ -899,40 +889,18 @@ sub _format_validation_message {
 sub record_field_problem {
 	my ( $self, $field, $problem, $problems, $pk_combination, $diagnostics ) = @_;
 	return if !$problem;
-
-	if ($diagnostics) {
-		my $already_reported = grep {
-				 ( $_->{'type'} // q() ) eq 'error'
-			  && ( $_->{'field'} // q() ) eq $field
-			  && $_->{'message'} eq $problem
-		} @{ $diagnostics->{$pk_combination} // [] };
-
-		if ( !$already_reported ) {
-			$self->record_validation_message(
-				{
-					diagnostics    => $diagnostics,
-					pk_combination => $pk_combination,
-					field          => $field,
-					message        => $problem
-				}
-			);
-		}
-	} else {
-
-		# Preserve legacy behaviour for other batch import tables.
-		my $diagnostic = {
-			field   => $field,
-			message => $problem
-		};
-
-		my $problem_text =
-		  BIGSdb::Utils::escape_html($field) . q( ) . $self->_format_validation_message($diagnostic) . q(<br />);
-
-		if ( !defined $problems->{$pk_combination}
-			|| $problems->{$pk_combination} !~ /\Q$problem_text\E/x )
-		{
-			$problems->{$pk_combination} .= $problem_text;
-		}
+	my $already_reported =
+	  grep { ( $_->{'type'} // q() ) eq 'error' && ( $_->{'field'} // q() ) eq $field && $_->{'message'} eq $problem }
+	  @{ $diagnostics->{$pk_combination} // [] };
+	if ( !$already_reported ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => $field,
+				message        => $problem
+			}
+		);
 	}
 	return;
 }
@@ -1514,26 +1482,6 @@ sub _print_duplicate_isolate_advisory {
 	return;
 }
 
-sub _print_legacy_diagnostics {
-	my ( $self, $messages, $type ) = @_;
-	my $heading = $type eq 'error' ? 'Problem(s)' : 'Note(s)';
-	say q(<table class="resultstable">);
-	say qq(<tr><th>Primary key</th><th>$heading</th></tr>);
-	my $td = 1;
-	foreach my $id ( sort keys %$messages ) {
-		my $display_id = BIGSdb::Utils::escape_html($id);
-		my $message    = $messages->{$id};
-
-		if ( $type eq 'error' ) {
-			$message =~ s/'null'/<em>null<\/em>/gx;
-		}
-		say qq(<tr class="td$td"><td>$display_id</td>) . qq(<td style="text-align:left">$message</td></tr>);
-		$td = $td == 1 ? 2 : 1;
-	}
-	say q(</table>);
-	return;
-}
-
 sub _print_batch_import_form {
 	my ( $self, $checked_buffer, $table ) = @_;
 	my $q        = $self->{'cgi'};
@@ -1575,56 +1523,39 @@ sub _print_batch_import_preview {
 
 sub _print_batch_validation_errors {
 	my ( $self, $args ) = @_;
-	my ( $large_isolate_import, $structured_diagnostics, $diagnostics, $problems, $report_files ) =
-	  @{$args}{qw(large_isolate_import structured_diagnostics diagnostics problems report_files)};
 	say q(<div class="box" id="statusbad"><h2>Import status</h2>);
-	if ($large_isolate_import) {
+	if ( $args->{'large_isolate_import'} ) {
 		say q(<p>Problems were identified in the submitted data. The import cannot proceed.</p>);
-		$self->_print_validation_report_link($report_files);
-	} elsif ($structured_diagnostics) {
-		$self->_print_structured_diagnostics( $diagnostics, 'error' );
+		$self->_print_validation_report_link( $args->{'report_files'} );
 	} else {
-		$self->_print_legacy_diagnostics( $problems, 'error' );
+		$self->_print_structured_diagnostics( $args->{'diagnostics'}, 'error' );
 	}
-
 	say q(</div>);
 	return;
 }
 
 sub _print_batch_validation_advisories {
 	my ( $self, $args ) = @_;
-	my ( $table, $large_isolate_import, $structured_diagnostics, $diagnostics, $advisories, $report_files ) =
-	  @{$args}{qw(table large_isolate_import structured_diagnostics diagnostics advisories report_files)};
-	if ($large_isolate_import) {
+	if ( $args->{'large_isolate_import'} ) {
 		say q(<p>Data can be uploaded, but validation advisories were identified. )
 		  . q(Please review the downloadable report before proceeding.</p>);
-		$self->_print_validation_report_link($report_files);
+		$self->_print_validation_report_link( $args->{'report_files'} );
 		return;
 	}
 	say q(<p>Data can be uploaded but please note the following advisories:</p>);
-	if ($structured_diagnostics) {
-		$self->_print_structured_diagnostics( $diagnostics, 'advisory' );
-		$self->_print_duplicate_isolate_advisory($diagnostics)
-		  if $table eq 'isolates';
-	} else {
-		$self->_print_legacy_diagnostics( $advisories, 'advisory' );
-	}
+	$self->_print_structured_diagnostics( $args->{'diagnostics'}, 'advisory' );
+	$self->_print_duplicate_isolate_advisory( $args->{'diagnostics'} )
+	  if $args->{'table'} eq 'isolates';
 	return;
 }
 
 sub _get_batch_validation_status {
 	my ( $self, $args ) = @_;
-	my ( $structured_diagnostics, $diagnostics, $problems, $advisories ) =
-	  @{$args}{qw(structured_diagnostics diagnostics problems advisories)};
-	my ( $has_errors, $has_advisories );
-	if ($structured_diagnostics) {
-		$has_errors = grep { $self->_has_validation_message( $diagnostics, $_, 'error' ) } keys %$diagnostics;
-
-		$has_advisories = grep { $self->_has_validation_message( $diagnostics, $_, 'advisory' ) } keys %$diagnostics;
-	} else {
-		$has_errors     = scalar keys %$problems;
-		$has_advisories = scalar keys %$advisories;
-	}
+	my $diagnostics = $args->{'diagnostics'};
+	my $has_errors =
+	  grep { $self->_has_validation_message( $diagnostics, $_, 'error' ) } keys %$diagnostics;
+	my $has_advisories =
+	  grep { $self->_has_validation_message( $diagnostics, $_, 'advisory' ) } keys %$diagnostics;
 	return {
 		has_errors     => $has_errors     ? 1 : 0,
 		has_advisories => $has_advisories ? 1 : 0
@@ -1635,16 +1566,8 @@ sub _report_check {
 	my ( $self, $data ) = @_;
 	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
 	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
-	my $diagnostics            = $data->{'diagnostics'} // {};
-	my $structured_diagnostics = 1;
-	my $status                 = $self->_get_batch_validation_status(
-		{
-			structured_diagnostics => $structured_diagnostics,
-			diagnostics            => $diagnostics,
-			problems               => $problems,
-			advisories             => $advisories
-		}
-	);
+	my $diagnostics    = $data->{'diagnostics'} // {};
+	my $status         = $self->_get_batch_validation_status( { diagnostics => $diagnostics } );
 	my $has_errors     = $status->{'has_errors'};
 	my $has_advisories = $status->{'has_advisories'};
 
@@ -1662,25 +1585,20 @@ sub _report_check {
 	if ($has_errors) {
 		$self->_print_batch_validation_errors(
 			{
-				large_isolate_import   => $large_isolate_import,
-				structured_diagnostics => $structured_diagnostics,
-				diagnostics            => $diagnostics,
-				problems               => $problems,
-				report_files           => $report_files
+				large_isolate_import => $large_isolate_import,
+				diagnostics          => $diagnostics,
+				report_files         => $report_files
 			}
 		);
 	} else {
 		say qq(<div class="box" id="resultspanel"><h2>Import status</h2>$$sender_message);
-
 		if ($has_advisories) {
 			$self->_print_batch_validation_advisories(
 				{
-					table                  => $table,
-					large_isolate_import   => $large_isolate_import,
-					structured_diagnostics => $structured_diagnostics,
-					diagnostics            => $diagnostics,
-					advisories             => $advisories,
-					report_files           => $report_files
+					table                => $table,
+					large_isolate_import => $large_isolate_import,
+					diagnostics          => $diagnostics,
+					report_files         => $report_files
 				}
 			);
 		} else {
@@ -1714,7 +1632,6 @@ sub _report_check {
 			$counts{ $diagnostic->{'type'} }++;
 		}
 	}
-	$logger->debug("Batch import structured diagnostics: $counts{'error'} errors, $counts{'advisory'} advisories.");
 	return;
 }
 
@@ -2271,34 +2188,20 @@ sub _check_data_isolate_aliases {
 
 sub _record_primary_key_problem {
 	my ( $self, $args, $message ) = @_;
-
 	my $pk_combination = $args->{'pk_combination'};
-
-	if ( $args->{'diagnostics'} ) {
-		my $field            = $args->{'table'} eq 'isolates' ? 'id' : undef;
-		my $already_reported = grep {
-				 $_->{'type'} eq 'error'
-			  && ( $_->{'field'} // q() ) eq ( $field // q() )
-			  && $_->{'message'} eq $message
-		} @{ $args->{'diagnostics'}->{$pk_combination} // [] };
-
-		if ( !$already_reported ) {
-			$self->record_validation_message(
-				{
-					diagnostics    => $args->{'diagnostics'},
-					pk_combination => $pk_combination,
-					field          => $field,
-					message        => $message
-				}
-			);
-		}
-	} else {
-		my $problem_text = qq($message<br />);
-		if ( !defined $args->{'problems'}->{$pk_combination}
-			|| $args->{'problems'}->{$pk_combination} !~ /\Q$problem_text\E/x )
-		{
-			$args->{'problems'}->{$pk_combination} .= $problem_text;
-		}
+	my $field          = $args->{'table'} eq 'isolates' ? 'id' : undef;
+	my $already_reported =
+	  grep { $_->{'type'} eq 'error' && ( $_->{'field'} // q() ) eq ( $field // q() ) && $_->{'message'} eq $message }
+	  @{ $args->{'diagnostics'}->{$pk_combination} // [] };
+	if ( !$already_reported ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => $field,
+				message        => $message
+			}
+		);
 	}
 	return;
 }
