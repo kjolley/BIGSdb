@@ -601,7 +601,7 @@ sub _check_data {
 				#Validate field independently of HTML formatting.
 				my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
 
-				$self->record_field_problem( $field, $problem, $problems, $pk_combination, $diagnostics );
+				$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
 
 				#Display field only when generating a preview.
 				if ($show_preview) {
@@ -693,40 +693,32 @@ sub _check_data {
 			if ( $table ne 'isolates' ) {
 				my %record_checks = (
 					accession => sub {
-						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination,
-							$new_args->{'diagnostics'} );
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
-							$new_args->{'diagnostics'} );
+						$self->_check_corresponding_sequence_exists( $pk_values_ref, $new_args );
+						$self->check_permissions( $locus, $new_args );
 					},
 					sequence_refs => sub {
-						$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination,
-							$new_args->{'diagnostics'} );
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
-							$new_args->{'diagnostics'} );
+						$self->_check_corresponding_sequence_exists( $pk_values_ref, $new_args );
+						$self->check_permissions( $locus, $new_args );
 					},
 					profile_refs => sub {
 						$self->_check_corresponding_profile_exists($new_args);
 					},
 					sequence_extended_attributes => sub {
 						$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
-							$problems, $pk_combination, $new_args->{'diagnostics'} );
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
-							$new_args->{'diagnostics'} );
+							$new_args );
+						$self->check_permissions( $locus, $new_args );
 					},
 					loci => sub {
 						$self->_check_data_loci($new_args);
 					},
 					locus_descriptions => sub {
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
-							$new_args->{'diagnostics'} );
+						$self->check_permissions( $locus, $new_args );
 					},
 					locus_links => sub {
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
-							$new_args->{'diagnostics'} );
+						$self->check_permissions( $locus, $new_args );
 					},
 					retired_allele_ids => sub {
-						$self->check_permissions( $locus, $new_args, $problems, $pk_combination,
-							$new_args->{'diagnostics'} );
+						$self->check_permissions( $locus, $new_args );
 					},
 					projects => sub {
 						$self->_check_projects($new_args);
@@ -907,7 +899,7 @@ sub _format_validation_message {
 }
 
 sub record_field_problem {
-	my ( $self, $field, $problem, $problems, $pk_combination, $diagnostics ) = @_;
+	my ( $self, $field, $problem, $pk_combination, $diagnostics ) = @_;
 	return if !$problem;
 	my $already_reported =
 	  grep { ( $_->{'type'} // q() ) eq 'error' && ( $_->{'field'} // q() ) eq $field && $_->{'message'} eq $problem }
@@ -1157,10 +1149,9 @@ sub _check_literal_validation_condition {
 }
 
 sub check_permissions {
-	my ( $self, $locus, $args, $problems, $pk_combination, $diagnostics ) = @_;
+	my ( $self, $locus, $args ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	return if $self->is_admin;
-
 	my $data = $args->{'data'};
 	if (  !defined $locus
 		&& defined $args->{'file_header_pos'}->{'locus'}
@@ -1168,14 +1159,14 @@ sub check_permissions {
 	{
 		$locus = $data->[ $args->{'file_header_pos'}->{'locus'} ];
 	}
+
 	if ( defined $locus
 		&& !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) )
 	{
 		$self->record_validation_message(
 			{
-				problems       => $problems,
-				diagnostics    => $diagnostics,
-				pk_combination => $pk_combination,
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
 				field          => 'locus',
 				message        => "Your user account is not allowed to add or modify records for locus $locus."
 			}
@@ -1185,17 +1176,15 @@ sub check_permissions {
 }
 
 sub _check_corresponding_sequence_exists {
-	my ( $self, $pk_values_ref, $problems, $pk_combination, $diagnostics ) = @_;
+	my ( $self, $pk_values_ref, $args ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	return if !defined $pk_values_ref->[0];
 	return if !defined $pk_values_ref->[1];
-
 	if ( !$self->{'datastore'}->sequence_exists(@$pk_values_ref) ) {
 		$self->record_validation_message(
 			{
-				problems       => $problems,
-				diagnostics    => $diagnostics,
-				pk_combination => $pk_combination,
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
 				field          => 'allele_id',
 				message        => "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist."
 			}
@@ -1450,8 +1439,8 @@ sub _write_validation_report {
 		$path,
 		{
 			field_options => {
-				'Isolate name' => { align => 'left' },
-				Message        => { align => 'left' }
+				$label_field => { align => 'left' },
+				Message      => { align => 'left' }
 			}
 		}
 	);
@@ -2381,12 +2370,7 @@ sub check_data_duplicates {
 	if ( $self->{'unique_values'}->{$field}->{$value} ) {
 		my $message = "Unique field '$field' already has a value of '$value' set within this submission.";
 
-		$self->record_field_problem(
-			$field, $message,
-			$arg_ref->{'problems'},
-			$arg_ref->{'pk_combination'},
-			$arg_ref->{'diagnostics'}
-		);
+		$self->record_field_problem( $field, $message, $arg_ref->{'pk_combination'}, $arg_ref->{'diagnostics'} );
 		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	$self->{'unique_values'}->{$field}->{$value}++;
