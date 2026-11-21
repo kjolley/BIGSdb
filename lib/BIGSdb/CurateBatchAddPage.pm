@@ -491,6 +491,7 @@ sub _uses_structured_diagnostics {
 	  validation_conditions isolate_field_extended_attributes locus_descriptions locus_links
 	  accession sequence_extended_attributes dna_mutations peptide_mutations schemes
 	  classification_group_fields locus_extended_attributes user_groups user_group_members
+	  sets set_loci set_schemes
 	);
 	return $tables{$table} // 0;
 }
