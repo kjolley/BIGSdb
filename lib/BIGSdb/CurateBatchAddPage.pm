@@ -496,8 +496,6 @@ sub _check_data {
 	my %last_id;
 	return if $self->sender_needed($args);
 	my $sender_message      = $self->get_sender_message($args);
-	my $problems            = {};
-	my $advisories          = {};
 	my $diagnostics         = {};
 	my @records             = split /\n/x, $q->param('data');
 	my $original_line_count = scalar @records;
@@ -586,12 +584,10 @@ sub _check_data {
 					file_header_pos => $file_header_pos,
 					data            => \@data,
 					pk_combination  => $pk_combination,
-					problems        => $problems,
 					special_problem => \$special_problem,
 					continue        => \$continue,
 					last_id         => \%last_id,
 					unique_field    => $unique_field,
-					advisories      => $advisories,
 					diagnostics     => $diagnostics
 				};
 				$self->check_data_duplicates($new_args);
@@ -599,7 +595,7 @@ sub _check_data {
 				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
 				#Validate field independently of HTML formatting.
-				my $problem = $self->check_field_bad( $table, $field, $value, $problems, $pk_combination );
+				my $problem = $self->check_field_bad( $table, $field, $value, $diagnostics, $pk_combination );
 
 				$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
 
@@ -640,8 +636,6 @@ sub _check_data {
 				primary_keys       => \@primary_keys,
 				pk_combination     => $pk_combination,
 				pk_values          => $pk_values_ref,
-				problems           => $problems,
-				advisories         => $advisories,
 				checked_record     => \$checked_record,
 				table              => $table,
 				diagnostics        => $diagnostics,
@@ -664,8 +658,7 @@ sub _check_data {
 					}
 				}
 				my $extra_html =
-				  $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination,
-					$diagnostics );
+				  $self->_isolate_record_further_checks( $table, $new_args, $pk_combination, $diagnostics );
 				$row_buffer .= $extra_html if $show_preview;
 			}
 			$header_complete = 1;
@@ -763,8 +756,6 @@ sub _check_data {
 		{
 			table          => $table,
 			buffer         => \$tablebuffer,
-			problems       => $problems,
-			advisories     => $advisories,
 			checked_buffer => \@checked_buffer,
 			sender_message => \$sender_message,
 			show_preview   => $show_preview,
@@ -818,7 +809,7 @@ sub _is_over_quota {
 }
 
 sub _isolate_record_further_checks {
-	my ( $self, $table, $args, $advisories, $pk_combination, $diagnostics ) = @_;
+	my ( $self, $table, $args, $pk_combination, $diagnostics ) = @_;
 	return q() if $table ne 'isolates';
 	if ( !$self->{'cache'}->{'label_field_values'} ) {
 		$self->{'cache'}->{'label_field_values'} = $self->_get_existing_label_field_values;
@@ -945,8 +936,11 @@ sub format_display_value {
 }
 
 sub check_field_bad {
-	my ( $self, $table, $field, $value, $problems, $pk_combination ) = @_;
-	return if ( $table eq 'sequences' && $field eq 'allele_id' && defined $problems->{$pk_combination} );
+	my ( $self, $table, $field, $value, $diagnostics, $pk_combination ) = @_;
+	return
+		 if $table eq 'sequences'
+	  && $field eq 'allele_id'
+	  && $self->_has_validation_message( $diagnostics, $pk_combination, 'error' );
 	my $set_id = $self->get_set_id;
 	return $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
 }
@@ -962,7 +956,6 @@ sub _check_projects {
 	return if !$true{ lc $private } || !$true{ lc $list };
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => 'private',
@@ -1002,7 +995,6 @@ sub _check_classification_field_values {
 	return if !defined $message;
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => $problem_field,
@@ -1039,7 +1031,6 @@ sub _check_lincode_prefix_values {
 	return if !defined $message;
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => $problem_field,
@@ -1069,7 +1060,6 @@ sub _check_geography_point_values {
 	return if !defined $message;
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => 'location',
@@ -1103,7 +1093,6 @@ sub _check_validation_conditions {
 	my $problem_field = $condition{'value'} eq 'null' ? 'operator' : 'value';
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => $problem_field,
@@ -1210,7 +1199,6 @@ sub _check_corresponding_profile_exists {
 		$self->record_validation_message(
 			{
 				diagnostics    => $args->{'diagnostics'},
-				problems       => $args->{'problems'},
 				pk_combination => $args->{'pk_combination'},
 				field          => 'profile_id',
 				message        => "Profile $profile_id does not exist."
@@ -1229,7 +1217,6 @@ sub _check_isolate_field_extended_attributes {
 	return if !$self->{'xmlHandler'}->is_field($attribute);
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => 'attribute',
@@ -1583,8 +1570,8 @@ sub _get_batch_validation_status {
 
 sub _report_check {
 	my ( $self, $data ) = @_;
-	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message, $show_preview, $record_total ) =
-	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message show_preview record_total)};
+	my ( $table, $buffer, $checked_buffer, $sender_message, $show_preview, $record_total ) =
+	  @{$data}{qw(table buffer checked_buffer sender_message show_preview record_total)};
 	my $diagnostics    = $data->{'diagnostics'} // {};
 	my $status         = $self->_get_batch_validation_status( { diagnostics => $diagnostics } );
 	my $has_errors     = $status->{'has_errors'};
@@ -1826,7 +1813,6 @@ sub _check_data_users {
 	return if !defined $message;
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => $field,
@@ -1863,7 +1849,6 @@ sub _check_scheme_field_primary_key {
 	if ( $scheme_info->{'primary_key'} || $self->{'pk_already_in_this_upload'}->{$scheme_id} ) {
 		$self->record_validation_message(
 			{
-				problems       => $args->{'problems'},
 				diagnostics    => $args->{'diagnostics'},
 				pk_combination => $args->{'pk_combination'},
 				field          => 'primary_key',
@@ -1881,7 +1866,6 @@ sub _check_scheme_field_name {
 	return if ${ $args->{'value'} } ne 'id';
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => 'field',
@@ -1908,7 +1892,6 @@ sub _check_data_refs {
 				if ( $used{$ref} ) {
 					$self->record_validation_message(
 						{
-							problems       => $arg_ref->{'problems'},
 							diagnostics    => $arg_ref->{'diagnostics'},
 							pk_combination => $pk_combination,
 							field          => 'references',
@@ -1921,7 +1904,6 @@ sub _check_data_refs {
 				if ( !BIGSdb::Utils::is_int($ref) ) {
 					$self->record_validation_message(
 						{
-							problems       => $arg_ref->{'problems'},
 							diagnostics    => $arg_ref->{'diagnostics'},
 							pk_combination => $pk_combination,
 							field          => 'references',
@@ -1936,7 +1918,6 @@ sub _check_data_refs {
 					if ( !$already_reported ) {
 						$self->record_validation_message(
 							{
-								advisories     => $arg_ref->{'advisories'},
 								diagnostics    => $arg_ref->{'diagnostics'},
 								pk_combination => $pk_combination,
 								field          => 'references',
@@ -1964,7 +1945,6 @@ sub _check_schemes {
 		next if BIGSdb::Utils::is_int($id);
 		$self->record_validation_message(
 			{
-				problems       => $args->{'problems'},
 				diagnostics    => $args->{'diagnostics'},
 				pk_combination => $args->{'pk_combination'},
 				field          => 'NCBI_taxon',
@@ -1998,7 +1978,6 @@ sub _record_mutation_problem {
 	my ( $self, $args, $message ) = @_;
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => $args->{'field'},
@@ -2089,7 +2068,6 @@ sub _check_data_aliases {
 					if ( $used{$alias} ) {
 						$self->record_validation_message(
 							{
-								problems       => $arg_ref->{'problems'},
 								diagnostics    => $arg_ref->{'diagnostics'},
 								pk_combination => $pk_combination,
 								field          => 'aliases',
@@ -2102,7 +2080,6 @@ sub _check_data_aliases {
 					if ( $alias eq $isolate_name ) {
 						$self->record_validation_message(
 							{
-								problems       => $arg_ref->{'problems'},
 								diagnostics    => $arg_ref->{'diagnostics'},
 								pk_combination => $pk_combination,
 								field          => 'aliases',
@@ -2117,7 +2094,6 @@ sub _check_data_aliases {
 				if ( $null_terms{ lc($alias) } ) {
 					$self->record_validation_message(
 						{
-							problems       => $arg_ref->{'problems'},
 							diagnostics    => $arg_ref->{'diagnostics'},
 							pk_combination => $pk_combination,
 							field          => 'aliases',
@@ -2149,7 +2125,6 @@ sub _check_data_codon_table {
 		local $" = q(, );
 		$self->record_validation_message(
 			{
-				problems       => $arg_ref->{'problems'},
 				diagnostics    => $arg_ref->{'diagnostics'},
 				pk_combination => $pk_combination,
 				field          => 'codon_table',
@@ -2180,7 +2155,6 @@ sub _check_data_isolate_aliases {
 	if ( defined $value && $value eq $isolate_name ) {
 		$self->record_validation_message(
 			{
-				problems       => $arg_ref->{'problems'},
 				diagnostics    => $arg_ref->{'diagnostics'},
 				pk_combination => $pk_combination,
 				field          => 'alias',
@@ -2193,7 +2167,6 @@ sub _check_data_isolate_aliases {
 	if ( defined $value && $null_terms{ lc($value) } ) {
 		$self->record_validation_message(
 			{
-				problems       => $arg_ref->{'problems'},
 				diagnostics    => $arg_ref->{'diagnostics'},
 				pk_combination => $pk_combination,
 				field          => 'alias',
@@ -2332,7 +2305,6 @@ sub _check_data_loci {
 	if ( defined $length_varies && !$true{$length_varies} && !$length ) {
 		$self->record_validation_message(
 			{
-				problems       => $args->{'problems'},
 				diagnostics    => $args->{'diagnostics'},
 				pk_combination => $args->{'pk_combination'},
 				field          => 'length',
@@ -2349,7 +2321,6 @@ sub _check_data_loci {
 	if ( defined $locus && $locus =~ /[^\w_\-']/x ) {
 		$self->record_validation_message(
 			{
-				problems       => $args->{'problems'},
 				diagnostics    => $args->{'diagnostics'},
 				pk_combination => $args->{'pk_combination'},
 				field          => 'id',
@@ -2406,7 +2377,6 @@ sub _check_data_allele_designations {
 
 	$self->record_validation_message(
 		{
-			problems       => $args->{'problems'},
 			diagnostics    => $args->{'diagnostics'},
 			pk_combination => $args->{'pk_combination'},
 			field          => 'allele_id',
@@ -2429,7 +2399,6 @@ sub _check_data_scheme_group_group_members {
 
 	$self->record_validation_message(
 		{
-			problems       => $arg_ref->{'problems'},
 			diagnostics    => $arg_ref->{'diagnostics'},
 			pk_combination => $arg_ref->{'pk_combination'},
 			field          => 'group_id',
@@ -2455,7 +2424,6 @@ sub _check_retired_allele_ids {
 
 	$self->record_validation_message(
 		{
-			problems       => $arg_ref->{'problems'},
 			diagnostics    => $arg_ref->{'diagnostics'},
 			pk_combination => $arg_ref->{'pk_combination'},
 			field          => 'allele_id',
@@ -2477,7 +2445,6 @@ sub _check_retired_profile_id {
 		if ( $self->{'datastore'}->profile_exists( $scheme_id, $profile_id ) ) {
 			$self->record_validation_message(
 				{
-					problems       => $arg_ref->{'problems'},
 					diagnostics    => $arg_ref->{'diagnostics'},
 					pk_combination => $arg_ref->{'pk_combination'},
 					field          => 'profile_id',
@@ -2494,7 +2461,6 @@ sub _check_retired_profile_id {
 	{
 		$self->record_validation_message(
 			{
-				problems       => $arg_ref->{'problems'},
 				diagnostics    => $arg_ref->{'diagnostics'},
 				pk_combination => $arg_ref->{'pk_combination'},
 				field          => 'scheme_id',
@@ -2516,7 +2482,6 @@ sub _check_retired_isolate_id {
 
 	$self->record_validation_message(
 		{
-			problems       => $arg_ref->{'problems'},
 			diagnostics    => $arg_ref->{'diagnostics'},
 			pk_combination => $arg_ref->{'pk_combination'},
 			field          => 'isolate_id',

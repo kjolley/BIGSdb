@@ -43,7 +43,6 @@ sub run {
 	my ( $extended_attributes, $required_extended_exist ) =
 	  @{ $self->_get_locus_extended_attributes($locus) }{qw(extended_attributes required_extended_exist)};
 	my %last_id;
-	my $problems     = {};
 	my $diagnostics  = {};
 	my $table_header = $self->_get_field_table_header;
 	my $table_buffer =
@@ -97,7 +96,6 @@ sub run {
 					data                    => \@data,
 					required_extended_exist => $required_extended_exist,
 					pk_combination          => $pk_combination,
-					problems                => $problems,
 					special_problem         => \$special_problem,
 					continue                => \$continue,
 					last_id                 => \%last_id,
@@ -111,7 +109,7 @@ sub run {
 				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
 				#Validate field independently of HTML formatting.
-				my $problem = $self->check_field_bad( 'sequences', $field, $value, $problems, $pk_combination );
+				my $problem = $self->check_field_bad( 'sequences', $field, $value, $diagnostics, $pk_combination );
 
 				$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
 
@@ -162,7 +160,6 @@ sub run {
 				html         => $html,
 				checked      => $checked_buffer,
 				diagnostics  => $diagnostics,
-				problems     => $problems,
 				record_count => $record_count
 			}
 		)
