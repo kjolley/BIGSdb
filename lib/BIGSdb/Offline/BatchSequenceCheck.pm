@@ -291,7 +291,7 @@ sub _check_data_sequences {
 	$buffer .= $self->_check_super_sequence( $locus, $args );
 
 	if ($buffer) {
-		my @messages = split /<br\s*\/?>/x, $buffer;
+		my @messages = split /\n/x, $buffer;
 		foreach my $message (@messages) {
 			$message =~ s/^\s+|\s+$//gx;
 			next if $message eq q();
@@ -320,7 +320,7 @@ sub _check_sequence_allele_id {
 			&& any { $_ eq $data->[ $file_header_pos->{'locus'} ] } @{ $args->{'required_extended_exist'} } )
 		{
 			$buffer .= qq(Locus $locus has required extended attributes - please use specific )
-			  . q(batch upload form for this locus.<br />);
+			  . qq(batch upload form for this locus.\n);
 		}
 		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 		if (
@@ -353,16 +353,16 @@ sub _check_sequence_allele_id {
 			&& defined $locus_info->{'allele_id_format'}
 			&& $locus_info->{'allele_id_format'} eq 'integer' )
 		{
-			$buffer .= 'Allele id must be an integer.<br />';
+			$buffer .= "Allele id must be an integer.\n";
 		} elsif ( defined $file_header_pos->{'allele_id'}
 			&& defined $data->[ $file_header_pos->{'allele_id'} ]
 			&& $data->[ $file_header_pos->{'allele_id'} ] =~ /\s/x )
 		{
-			$buffer .= 'Allele id must not contain spaces - try substituting with underscores (_).<br />';
+			$buffer .= "Allele id must not contain spaces - try substituting with underscores (_).\n";
 		}
 		my $regex = $locus_info->{'allele_id_regex'};
 		if ( $regex && ( $data->[ $file_header_pos->{'allele_id'} ] // q() ) !~ /$regex/x ) {
-			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.<br />";
+			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.\n";
 		}
 		if ( $data->[ $file_header_pos->{'allele_id'} ] ) {
 			my $exists = $self->{'datastore'}->run_query(
@@ -371,14 +371,14 @@ sub _check_sequence_allele_id {
 				{ cache => 'CurateBatchAddPage::allele_id_exists' }
 			);
 			if ($exists) {
-				$buffer .= 'Allele id already exists.<br />';
+				$buffer .= "Allele id already exists.\n";
 			}
 			my $retired =
 			  $self->{'datastore'}
 			  ->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
 				[ $locus, $data->[ $file_header_pos->{'allele_id'} ] ] );
 			if ($retired) {
-				$buffer .= 'Allele id has been retired.<br />';
+				$buffer .= "Allele id has been retired.\n";
 			}
 		}
 	}
@@ -413,7 +413,7 @@ sub _check_sequence_length {
 		}
 		my $problem_text =
 			"Sequence is $length $units long but this locus is set as a standard length of "
-		  . "$locus_info->{'length'} $units.<br />";
+		  . "$locus_info->{'length'} $units.\n";
 		$buffer .= $problem_text
 		  if !$buffer || $buffer !~ /$problem_text/x;
 		${ $args->{'special_problem'} } = 1;
@@ -424,13 +424,13 @@ sub _check_sequence_length {
 		&& !$self->{'options'}->{'ignore_length'} )
 	{
 		$buffer .= "Sequence is $length $units long but this locus is set with a minimum length of "
-		  . "$locus_info->{'min_length'} $units.<br />";
+		  . "$locus_info->{'min_length'} $units.\n";
 	} elsif ( $locus_info->{'max_length'}
 		&& $length > $locus_info->{'max_length'}
 		&& !$self->{'options'}->{'ignore_length'} )
 	{
 		$buffer .= "Sequence is $length $units long but this locus is set with a maximum length of "
-		  . "$locus_info->{'max_length'} $units.<br />";
+		  . "$locus_info->{'max_length'} $units.\n";
 	}
 	if ( $buffer && $self->{'options'}->{'reject_invalid_length'} ) {
 		${ $args->{'continue'} } = 0;
@@ -457,7 +457,7 @@ sub _check_sequence_already_exists {
 		if ( $self->{'options'}->{'ignore_existing'} ) {
 			${ $args->{'continue'} } = 0;
 		} else {
-			$buffer .= 'Sequence appears more than once in this submission.<br />';
+			$buffer .= "Sequence appears more than once in this submission.\n";
 		}
 	}
 	my $existing_allele = $self->{'datastore'}->run_query(
@@ -469,7 +469,7 @@ sub _check_sequence_already_exists {
 		if ( $self->{'options'}->{'complete_CDS'} || $self->{'options'}->{'ignore_existing'} ) {
 			${ $args->{'continue'} } = 0;
 		} else {
-			$buffer .= "Sequence already exists in the database ($locus: $existing_allele).<br />";
+			$buffer .= "Sequence already exists in the database ($locus: $existing_allele).\n";
 		}
 	}
 	return $buffer;
@@ -510,7 +510,7 @@ sub _check_sequence_field {
 		} else {
 			my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
 			local $" = '|';
-			$buffer .= "Sequence contains non nucleotide (@chars) characters.<br />";
+			$buffer .= "Sequence contains non nucleotide (@chars) characters.\n";
 		}
 	} elsif ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
 		&& $self->{'datastore'}->sequences_exist($locus)
@@ -532,17 +532,17 @@ sub _check_sequence_field {
 			  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
 			  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
 			  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
-			  . q[sure that the 'Override sequence similarity check' box is ticked.<br />];
+			  . qq[sure that the 'Override sequence similarity check' box is ticked.\n];
 		} elsif ( $check->{'subsequence_of'} ) {
 			$buffer .=
 				qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
 			  . q[complete length but is shorter. If you're sure you want to add this sequence then make ]
-			  . q[sure that the 'Override sequence similarity check' box is ticked.<br />];
+			  . qq[sure that the 'Override sequence similarity check' box is ticked.\n];
 		} elsif ( $check->{'supersequence_of'} ) {
 			$buffer .=
 				qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
 			  . q[complete length of this allele but is longer. If you're sure you want to add this sequence then ]
-			  . q[make sure that the 'Override sequence similarity check' box is ticked.<br />];
+			  . qq[make sure that the 'Override sequence similarity check' box is ticked.\n];
 		}
 	}
 	return $buffer;
@@ -566,7 +566,7 @@ sub _check_sequence_extended_attributes {
 			|| $data->[ $file_header_pos->{$field} ] eq q() )
 	  )
 	{
-		return "'$field' is a required field and cannot be left blank.<br />";
+		return "'$field' is a required field and cannot be left blank.\n";
 	}
 	if (   $args->{'extended_attributes'}->{$field}->{'option_list'}
 		&& defined $file_header_pos->{$field}
@@ -575,7 +575,7 @@ sub _check_sequence_extended_attributes {
 		&& !$options{ $data->[ $file_header_pos->{$field} ] } )
 	{
 		local $" = ', ';
-		return "Field '$field' value is not on the allowed list (@optlist).<br />";
+		return "Field '$field' value is not on the allowed list (@optlist).\n";
 	}
 	if (
 		   $args->{'extended_attributes'}->{$field}->{'format'}
@@ -586,7 +586,7 @@ sub _check_sequence_extended_attributes {
 		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{$field} ] )
 	  )
 	{
-		return "Field '$field' must be an integer.<br />";
+		return "Field '$field' must be an integer.\n";
 	}
 	if (
 		   $args->{'extended_attributes'}->{$field}->{'format'}
@@ -596,7 +596,7 @@ sub _check_sequence_extended_attributes {
 			&& lc( $data->[ $file_header_pos->{$field} ] ) ne 'true' )
 	  )
 	{
-		return "Field '$field' must be boolean (either true or false).<br />";
+		return "Field '$field' must be boolean (either true or false).\n";
 	}
 	if (   defined $file_header_pos->{$field}
 		&& defined $data->[ $file_header_pos->{$field} ]
@@ -604,7 +604,7 @@ sub _check_sequence_extended_attributes {
 		&& $args->{'extended_attributes'}->{$field}->{'regex'}
 		&& $data->[ $file_header_pos->{$field} ] !~ /$args->{'extended_attributes'}->{$field}->{'regex'}/x )
 	{
-		return "Field '$field' does not conform to specified format.<br />\n";
+		return "Field '$field' does not conform to specified format.\n";
 	}
 	return q();
 }
@@ -621,7 +621,7 @@ sub _check_sequence_flags {
 		my @flags = split /;/x, $data->[ $file_header_pos->{'flags'} ] // q();
 		foreach my $flag (@flags) {
 			if ( none { $flag eq $_ } ALLELE_FLAGS ) {
-				$buffer .= "Flag '$flag' is not on the list of allowed flags.<br />\n";
+				$buffer .= "Flag '$flag' is not on the list of allowed flags.\n";
 			}
 		}
 	}
