@@ -285,13 +285,10 @@ sub _check_data_sequences {
 	push @messages, @{ $self->_check_sequence_length( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_already_exists( $locus, $args ) } if !@messages;
 	$self->_check_sequence_CDS( $locus, $args );
-	my $buffer = $self->_check_sequence_field( $locus, $args ) if !@messages;
-
-	push @messages, split /\n/x, $buffer if defined $buffer;
+	push @messages, @{ $self->_check_sequence_field( $locus, $args ) } if !@messages;
 	push @messages, @{ $self->_check_super_sequence( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_extended_attributes( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_flags( $locus, $args ) };
-
 	foreach my $message (@messages) {
 		$message =~ s/^\s+|\s+$//gx;
 		next if $message eq q();
@@ -487,12 +484,13 @@ sub _check_sequence_CDS {
 }
 
 sub _check_sequence_field {
-	my ( $self,  $locus,           $args ) = @_;
-	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
-	my $buffer = q();
-	return $buffer if !( defined $locus && $field eq 'sequence' );
-	return $buffer if !${ $args->{'continue'} };
+	my ( $self, $locus, $args ) = @_;
+	my $field = $args->{'field'};
+	return [] if !( defined $locus && $field eq 'sequence' );
+	return [] if !${ $args->{'continue'} };
+
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	my @messages;
 	if (
 		( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
 		&& !BIGSdb::Utils::is_valid_DNA(
@@ -506,7 +504,7 @@ sub _check_sequence_field {
 		} else {
 			my @chars = ( $self->{'system'}->{'diploid'} // '' ) eq 'yes' ? DIPLOID : HAPLOID;
 			local $" = '|';
-			$buffer .= "Sequence contains non nucleotide (@chars) characters.\n";
+			push @messages, "Sequence contains non nucleotide (@chars) characters.";
 		}
 	} elsif ( ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' )
 		&& $self->{'datastore'}->sequences_exist($locus)
@@ -516,32 +514,32 @@ sub _check_sequence_field {
 		if ( !$check->{'similar'} ) {
 			if ( $self->{'options'}->{'reject_dissimilar'} ) {
 				${ $args->{'continue'} } = 0;
-				return;
+				return [];
 			}
 			my $id_threshold =
 			  BIGSdb::Utils::is_float( $locus_info->{'id_check_threshold'} )
 			  ? $locus_info->{'id_check_threshold'}
 			  : IDENTITY_THRESHOLD;
 			my $type = $locus_info->{'id_check_type_alleles'} ? q( type) : q();
-			$buffer .=
+			push @messages,
 				qq[Sequence is too dissimilar to existing$type alleles (less than $id_threshold% identical or an ]
 			  . q[alignment of less than 90% its length).  Similarity is determined by the output of the best ]
 			  . q[match from the BLAST algorithm - this may be conservative.  This check will also fail if the ]
 			  . q[best match is in the reverse orientation. If you're sure you want to add this sequence then make ]
-			  . qq[sure that the 'Override sequence similarity check' box is ticked.\n];
+			  . q[sure that the 'Override sequence similarity check' box is ticked.];
 		} elsif ( $check->{'subsequence_of'} ) {
-			$buffer .=
+			push @messages,
 				qq[Sequence is a sub-sequence of allele-$check->{'subsequence_of'}, i.e. it is identical over its ]
 			  . q[complete length but is shorter. If you're sure you want to add this sequence then make ]
-			  . qq[sure that the 'Override sequence similarity check' box is ticked.\n];
+			  . q[sure that the 'Override sequence similarity check' box is ticked.];
 		} elsif ( $check->{'supersequence_of'} ) {
-			$buffer .=
+			push @messages,
 				qq[Sequence is a super-sequence of allele $check->{'supersequence_of'}, i.e. it is identical over the ]
 			  . q[complete length of this allele but is longer. If you're sure you want to add this sequence then ]
-			  . qq[make sure that the 'Override sequence similarity check' box is ticked.\n];
+			  . q[make sure that the 'Override sequence similarity check' box is ticked.];
 		}
 	}
-	return $buffer;
+	return \@messages;
 }
 
 sub _check_sequence_extended_attributes {
