@@ -287,26 +287,26 @@ sub _check_data_sequences {
 	$buffer .= $self->_check_sequence_CDS( $locus, $args );
 	$buffer .= $self->_check_sequence_field( $locus, $args ) if !$buffer;
 	$buffer .= $self->_check_sequence_extended_attributes( $locus, $args );
-	$buffer .= $self->_check_sequence_flags( $locus, $args );
 	$buffer .= $self->_check_super_sequence( $locus, $args );
 
-	if ($buffer) {
-		my @messages = split /\n/x, $buffer;
-		foreach my $message (@messages) {
-			$message =~ s/^\s+|\s+$//gx;
-			next if $message eq q();
+	my @messages = split /\n/x, $buffer;
+	push @messages, @{ $self->_check_sequence_flags( $locus, $args ) };
 
-			$self->record_validation_message(
-				{
-					diagnostics    => $args->{'diagnostics'},
-					pk_combination => $args->{'pk_combination'},
-					field          => $field,
-					message        => $message
-				}
-			);
-		}
-		${ $args->{'special_problem'} } = 1;
+	foreach my $message (@messages) {
+		$message =~ s/^\s+|\s+$//gx;
+		next if $message eq q();
+
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => $field,
+				message        => $message
+			}
+		);
 	}
+
+	${ $args->{'special_problem'} } = 1 if @messages;
 	return;
 }
 
@@ -610,22 +610,23 @@ sub _check_sequence_extended_attributes {
 }
 
 sub _check_sequence_flags {
-	my ( $self,  $locus,           $args ) = @_;
-	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
-	return q() if !defined $locus;
-	my $buffer = q();
-	if (   ( $self->{'system'}->{'allele_flags'} // '' ) eq 'yes'
+	my ( $self, $locus, $args ) = @_;
+	my ( $field, $file_header_pos, $data ) =
+	  @{$args}{qw(field file_header_pos data)};
+	my @messages;
+	return \@messages if !defined $locus;
+	if (   ( $self->{'system'}->{'allele_flags'} // q() ) eq 'yes'
 		&& $field eq 'flags'
 		&& defined $file_header_pos->{'flags'} )
 	{
-		my @flags = split /;/x, $data->[ $file_header_pos->{'flags'} ] // q();
+		my @flags = split /\s*;\s*/x, $data->[ $file_header_pos->{'flags'} ] // q();
 		foreach my $flag (@flags) {
 			if ( none { $flag eq $_ } ALLELE_FLAGS ) {
-				$buffer .= "Flag '$flag' is not on the list of allowed flags.\n";
+				push @messages, "Flag '$flag' is not on the list of allowed flags.";
 			}
 		}
 	}
-	return $buffer;
+	return \@messages;
 }
 
 sub _check_super_sequence {
