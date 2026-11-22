@@ -286,9 +286,9 @@ sub _check_data_sequences {
 	$buffer .= $self->_check_sequence_already_exists( $locus, $args ) if !$buffer;
 	$buffer .= $self->_check_sequence_CDS( $locus, $args );
 	$buffer .= $self->_check_sequence_field( $locus, $args ) if !$buffer;
-	$buffer .= $self->_check_super_sequence( $locus, $args );
 
 	my @messages = split /\n/x, $buffer;
+	push @messages, @{ $self->_check_super_sequence( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_extended_attributes( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_flags( $locus, $args ) };
 
@@ -638,28 +638,34 @@ sub _check_sequence_flags {
 }
 
 sub _check_super_sequence {
-	my ( $self,  $locus,           $args ) = @_;
-	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	my ( $self, $locus, $args ) = @_;
+	my ( $field, $file_header_pos, $data ) =
+	  @{$args}{qw(field file_header_pos data)};
+	my @messages;
 	my $q = $self->{'cgi'};
-	return q() if $q->param('ignore_similarity');
-	return q() if !( defined $locus && $field eq 'sequence' );
-	return q() if !${ $args->{'continue'} };
-	my $seq = $data->[ $args->{'file_header_pos'}->{'sequence'} ];
-	return q() if $self->{'cache'}->{'seqs'}->{$locus}->{$seq};
+	return \@messages if $q->param('ignore_similarity');
+	return \@messages if !( defined $locus && $field eq 'sequence' );
+	return \@messages if !${ $args->{'continue'} };
+	my $seq = $data->[ $file_header_pos->{'sequence'} ];
+	return \@messages if $self->{'cache'}->{'seqs'}->{$locus}->{$seq};
 	my $allele_id = $args->{'last_id'}->{$locus} // $data->[ $file_header_pos->{'allele_id'} ];
 
 	foreach my $test_seq ( keys %{ $self->{'cache'}->{'seqs'}->{$locus} } ) {
 		if ( $seq =~ /$test_seq/x ) {
-			return "Sequence is a super-sequence of allele $self->{'cache'}->{'seqs'}->{$locus}->{$test_seq} "
+			push @messages,
+			  "Sequence is a super-sequence of allele $self->{'cache'}->{'seqs'}->{$locus}->{$test_seq} "
 			  . 'submitted as part of this batch.';
+			return \@messages;
 		}
 		if ( $test_seq =~ /$seq/x ) {
-			return "Sequence is a sub-sequence of allele $self->{'cache'}->{'seqs'}->{$locus}->{$test_seq} "
+			push @messages,
+			  "Sequence is a sub-sequence of allele $self->{'cache'}->{'seqs'}->{$locus}->{$test_seq} "
 			  . 'submitted as part of this batch.';
+			return \@messages;
 		}
 	}
 	$self->{'cache'}->{'seqs'}->{$locus}->{$seq} = $allele_id;
-	return q();
+	return \@messages;
 }
 
 sub _write_results_file {
