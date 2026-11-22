@@ -283,7 +283,7 @@ sub _check_data_sequences {
 	}
 	my $buffer   = $self->_check_sequence_allele_id( $locus, $args );
 	my @messages = @{ $self->_check_sequence_length( $locus, $args ) };
-	$buffer .= $self->_check_sequence_already_exists( $locus, $args ) if !$buffer && !@messages;
+	push @messages, @{ $self->_check_sequence_already_exists( $locus, $args ) } if !$buffer && !@messages;
 	$buffer .= $self->_check_sequence_CDS( $locus, $args );
 	$buffer .= $self->_check_sequence_field( $locus, $args ) if !$buffer && !@messages;
 
@@ -437,11 +437,11 @@ sub _check_sequence_length {
 }
 
 sub _check_sequence_already_exists {
-	my ( $self,  $locus,           $args ) = @_;
-	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
-	return q() if !( defined $locus && $field eq 'sequence' );
+	my ( $self, $locus, $args ) = @_;
+	my $field = $args->{'field'};
+	return [] if !( defined $locus && $field eq 'sequence' );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-	my $buffer     = q();
+	my @messages;
 	${ $args->{'value'} } = uc( ${ $args->{'value'} } );
 	if ( !defined $locus_info->{'data_type'} || $locus_info->{'data_type'} eq 'DNA' ) {
 		${ $args->{'value'} } =~ s/[\W]//gx;
@@ -454,7 +454,7 @@ sub _check_sequence_already_exists {
 		if ( $self->{'options'}->{'ignore_existing'} ) {
 			${ $args->{'continue'} } = 0;
 		} else {
-			$buffer .= "Sequence appears more than once in this submission.\n";
+			push @messages, 'Sequence appears more than once in this submission.';
 		}
 	}
 	my $existing_allele = $self->{'datastore'}->run_query(
@@ -466,10 +466,10 @@ sub _check_sequence_already_exists {
 		if ( $self->{'options'}->{'complete_CDS'} || $self->{'options'}->{'ignore_existing'} ) {
 			${ $args->{'continue'} } = 0;
 		} else {
-			$buffer .= "Sequence already exists in the database ($locus: $existing_allele).\n";
+			push @messages, "Sequence already exists in the database ($locus: $existing_allele).";
 		}
 	}
-	return $buffer;
+	return \@messages;
 }
 
 sub _check_sequence_CDS {
