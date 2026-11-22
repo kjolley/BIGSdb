@@ -286,10 +286,10 @@ sub _check_data_sequences {
 	$buffer .= $self->_check_sequence_already_exists( $locus, $args ) if !$buffer;
 	$buffer .= $self->_check_sequence_CDS( $locus, $args );
 	$buffer .= $self->_check_sequence_field( $locus, $args ) if !$buffer;
-	$buffer .= $self->_check_sequence_extended_attributes( $locus, $args );
 	$buffer .= $self->_check_super_sequence( $locus, $args );
 
 	my @messages = split /\n/x, $buffer;
+	push @messages, @{ $self->_check_sequence_extended_attributes( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_flags( $locus, $args ) };
 
 	foreach my $message (@messages) {
@@ -549,10 +549,14 @@ sub _check_sequence_field {
 }
 
 sub _check_sequence_extended_attributes {
-	my ( $self,  $locus,           $args ) = @_;
-	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
-	return q() if !defined $locus;
-	return q() if !$args->{'extended_attributes'}->{$field};
+	my ( $self, $locus, $args ) = @_;
+	my ( $field, $file_header_pos, $data ) =
+	  @{$args}{qw(field file_header_pos data)};
+
+	my @messages;
+	return \@messages if !defined $locus;
+	return \@messages if !$args->{'extended_attributes'}->{$field};
+
 	my @optlist;
 	my %options;
 	if ( $args->{'extended_attributes'}->{$field}->{'option_list'} ) {
@@ -566,7 +570,8 @@ sub _check_sequence_extended_attributes {
 			|| $data->[ $file_header_pos->{$field} ] eq q() )
 	  )
 	{
-		return "'$field' is a required field and cannot be left blank.\n";
+		push @messages, "'$field' is a required field and cannot be left blank.";
+		return \@messages;
 	}
 	if (   $args->{'extended_attributes'}->{$field}->{'option_list'}
 		&& defined $file_header_pos->{$field}
@@ -575,18 +580,20 @@ sub _check_sequence_extended_attributes {
 		&& !$options{ $data->[ $file_header_pos->{$field} ] } )
 	{
 		local $" = ', ';
-		return "Field '$field' value is not on the allowed list (@optlist).\n";
+		push @messages, "Field '$field' value is not on the allowed list (@optlist).";
+		return \@messages;
 	}
 	if (
 		   $args->{'extended_attributes'}->{$field}->{'format'}
 		&& $args->{'extended_attributes'}->{$field}->{'format'} eq 'integer'
 		&& (   defined $file_header_pos->{$field}
 			&& defined $data->[ $file_header_pos->{$field} ]
-			&& $data->[ $file_header_pos->{$field} ] ne '' )
+			&& $data->[ $file_header_pos->{$field} ] ne q() )
 		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{$field} ] )
 	  )
 	{
-		return "Field '$field' must be an integer.\n";
+		push @messages, "Field '$field' must be an integer.";
+		return \@messages;
 	}
 	if (
 		   $args->{'extended_attributes'}->{$field}->{'format'}
@@ -596,17 +603,18 @@ sub _check_sequence_extended_attributes {
 			&& lc( $data->[ $file_header_pos->{$field} ] ) ne 'true' )
 	  )
 	{
-		return "Field '$field' must be boolean (either true or false).\n";
+		push @messages, "Field '$field' must be boolean (either true or false).";
+		return \@messages;
 	}
 	if (   defined $file_header_pos->{$field}
 		&& defined $data->[ $file_header_pos->{$field} ]
-		&& $data->[ $file_header_pos->{$field} ] ne ''
+		&& $data->[ $file_header_pos->{$field} ] ne q()
 		&& $args->{'extended_attributes'}->{$field}->{'regex'}
 		&& $data->[ $file_header_pos->{$field} ] !~ /$args->{'extended_attributes'}->{$field}->{'regex'}/x )
 	{
-		return "Field '$field' does not conform to specified format.\n";
+		push @messages, "Field '$field' does not conform to specified format.";
 	}
-	return q();
+	return \@messages;
 }
 
 sub _check_sequence_flags {
