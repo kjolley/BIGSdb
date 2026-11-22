@@ -281,13 +281,13 @@ sub _check_data_sequences {
 		  ? $data->[ $file_header_pos->{'locus'} ]
 		  : undef;
 	}
-	my $buffer   = $self->_check_sequence_allele_id( $locus, $args );
-	my @messages = @{ $self->_check_sequence_length( $locus, $args ) };
-	push @messages, @{ $self->_check_sequence_already_exists( $locus, $args ) } if !$buffer && !@messages;
-	$buffer .= $self->_check_sequence_CDS( $locus, $args );
-	$buffer .= $self->_check_sequence_field( $locus, $args ) if !$buffer && !@messages;
+	my @messages = @{ $self->_check_sequence_allele_id( $locus, $args ) };
+	push @messages, @{ $self->_check_sequence_length( $locus, $args ) };
+	push @messages, @{ $self->_check_sequence_already_exists( $locus, $args ) } if !@messages;
+	$self->_check_sequence_CDS( $locus, $args );
+	my $buffer = $self->_check_sequence_field( $locus, $args ) if !@messages;
 
-	unshift @messages, split /\n/x, $buffer;
+	push @messages, split /\n/x, $buffer if defined $buffer;
 	push @messages, @{ $self->_check_super_sequence( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_extended_attributes( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_flags( $locus, $args ) };
@@ -305,7 +305,6 @@ sub _check_data_sequences {
 			}
 		);
 	}
-
 	${ $args->{'special_problem'} } = 1 if @messages;
 	return;
 }
@@ -313,76 +312,76 @@ sub _check_data_sequences {
 sub _check_sequence_allele_id {
 	my ( $self,  $locus,           $args ) = @_;
 	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
-	my $buffer = q();
-	if ( defined $locus && $field eq 'allele_id' ) {
-		if (   defined $file_header_pos->{'locus'}
-			&& $data->[ $file_header_pos->{'locus'} ]
-			&& any { $_ eq $data->[ $file_header_pos->{'locus'} ] } @{ $args->{'required_extended_exist'} } )
-		{
-			$buffer .= qq(Locus $locus has required extended attributes - please use specific )
-			  . qq(batch upload form for this locus.\n);
+	return [] if !( defined $locus && $field eq 'allele_id' );
+
+	my @messages;
+	if (   defined $file_header_pos->{'locus'}
+		&& $data->[ $file_header_pos->{'locus'} ]
+		&& any { $_ eq $data->[ $file_header_pos->{'locus'} ] } @{ $args->{'required_extended_exist'} } )
+	{
+		push @messages,
+		  "Locus $locus has required extended attributes - please use specific " . 'batch upload form for this locus.';
+	}
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	if (
+		   defined $locus_info->{'allele_id_format'}
+		&& $locus_info->{'allele_id_format'} eq 'integer'
+		&& (   !defined $file_header_pos->{'allele_id'}
+			|| !defined $data->[ $file_header_pos->{'allele_id'} ]
+			|| $data->[ $file_header_pos->{'allele_id'} ] eq '' )
+	  )
+	{
+		if ( $args->{'last_id'}->{$locus} ) {
+			${ $args->{'value'} } = $args->{'last_id'}->{$locus};
+		} else {
+			${ $args->{'value'} } = $self->{'datastore'}->get_next_allele_id($locus) - 1;
 		}
-		my $locus_info = $self->{'datastore'}->get_locus_info($locus);
-		if (
-			   defined $locus_info->{'allele_id_format'}
-			&& $locus_info->{'allele_id_format'} eq 'integer'
-			&& (   !defined $file_header_pos->{'allele_id'}
-				|| !defined $data->[ $file_header_pos->{'allele_id'} ]
-				|| $data->[ $file_header_pos->{'allele_id'} ] eq '' )
-		  )
-		{
-			if ( $args->{'last_id'}->{$locus} ) {
-				${ $args->{'value'} } = $args->{'last_id'}->{$locus};
-			} else {
-				${ $args->{'value'} } = $self->{'datastore'}->get_next_allele_id($locus) - 1;
-			}
-			my $exists;
-			do {
-				${ $args->{'value'} }++;
-				$exists = $self->{'datastore'}->run_query(
-					'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)) OR '
-					  . 'EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
-					[ $locus, ${ $args->{'value'} }, $locus, ${ $args->{'value'} } ],
-					{ cache => 'CurateBatchAddPage::allele_id_exists_or_retired' }
-				);
-			} while $exists;
-			$args->{'last_id'}->{$locus} = ${ $args->{'value'} };
-			$args->{'pk_combination'} = "locus: $locus; allele_id: ${ $args->{'value'} }";
-		} elsif ( defined $file_header_pos->{'allele_id'}
-			&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'allele_id'} ] )
-			&& defined $locus_info->{'allele_id_format'}
-			&& $locus_info->{'allele_id_format'} eq 'integer' )
-		{
-			$buffer .= "Allele id must be an integer.\n";
-		} elsif ( defined $file_header_pos->{'allele_id'}
-			&& defined $data->[ $file_header_pos->{'allele_id'} ]
-			&& $data->[ $file_header_pos->{'allele_id'} ] =~ /\s/x )
-		{
-			$buffer .= "Allele id must not contain spaces - try substituting with underscores (_).\n";
-		}
-		my $regex = $locus_info->{'allele_id_regex'};
-		if ( $regex && ( $data->[ $file_header_pos->{'allele_id'} ] // q() ) !~ /$regex/x ) {
-			$buffer .= "Allele id value is invalid - it must match the regular expression /$regex/.\n";
-		}
-		if ( $data->[ $file_header_pos->{'allele_id'} ] ) {
-			my $exists = $self->{'datastore'}->run_query(
-				'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-				[ $locus, $data->[ $file_header_pos->{'allele_id'} ] ],
-				{ cache => 'CurateBatchAddPage::allele_id_exists' }
+		my $exists;
+		do {
+			${ $args->{'value'} }++;
+			$exists = $self->{'datastore'}->run_query(
+				'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?)) OR '
+				  . 'EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+				[ $locus, ${ $args->{'value'} }, $locus, ${ $args->{'value'} } ],
+				{ cache => 'CurateBatchAddPage::allele_id_exists_or_retired' }
 			);
-			if ($exists) {
-				$buffer .= "Allele id already exists.\n";
-			}
-			my $retired =
-			  $self->{'datastore'}
-			  ->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
-				[ $locus, $data->[ $file_header_pos->{'allele_id'} ] ] );
-			if ($retired) {
-				$buffer .= "Allele id has been retired.\n";
-			}
+		} while $exists;
+		$args->{'last_id'}->{$locus} = ${ $args->{'value'} };
+		$args->{'pk_combination'} = "locus: $locus; allele_id: ${ $args->{'value'} }";
+	} elsif ( defined $file_header_pos->{'allele_id'}
+		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'allele_id'} ] )
+		&& defined $locus_info->{'allele_id_format'}
+		&& $locus_info->{'allele_id_format'} eq 'integer' )
+	{
+		push @messages, 'Allele id must be an integer.';
+	} elsif ( defined $file_header_pos->{'allele_id'}
+		&& defined $data->[ $file_header_pos->{'allele_id'} ]
+		&& $data->[ $file_header_pos->{'allele_id'} ] =~ /\s/x )
+	{
+		push @messages, 'Allele id must not contain spaces - try substituting with underscores (_).';
+	}
+	my $regex = $locus_info->{'allele_id_regex'};
+	if ( $regex && ( $data->[ $file_header_pos->{'allele_id'} ] // q() ) !~ /$regex/x ) {
+		push @messages, "Allele id value is invalid - it must match the regular expression /$regex/.";
+	}
+	if ( $data->[ $file_header_pos->{'allele_id'} ] ) {
+		my $exists = $self->{'datastore'}->run_query(
+			'SELECT EXISTS(SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
+			[ $locus, $data->[ $file_header_pos->{'allele_id'} ] ],
+			{ cache => 'CurateBatchAddPage::allele_id_exists' }
+		);
+		if ($exists) {
+			push @messages, 'Allele id already exists.';
+		}
+		my $retired =
+		  $self->{'datastore'}
+		  ->run_query( 'SELECT EXISTS(SELECT * FROM retired_allele_ids WHERE (locus,allele_id)=(?,?))',
+			[ $locus, $data->[ $file_header_pos->{'allele_id'} ] ] );
+		if ($retired) {
+			push @messages, 'Allele id has been retired.';
 		}
 	}
-	return $buffer;
+	return \@messages;
 }
 
 sub _check_sequence_length {
