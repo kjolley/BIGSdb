@@ -281,13 +281,13 @@ sub _check_data_sequences {
 		  ? $data->[ $file_header_pos->{'locus'} ]
 		  : undef;
 	}
-	my $buffer = $self->_check_sequence_allele_id( $locus, $args );
-	$buffer .= $self->_check_sequence_length( $locus, $args );
-	$buffer .= $self->_check_sequence_already_exists( $locus, $args ) if !$buffer;
+	my $buffer   = $self->_check_sequence_allele_id( $locus, $args );
+	my @messages = @{ $self->_check_sequence_length( $locus, $args ) };
+	$buffer .= $self->_check_sequence_already_exists( $locus, $args ) if !$buffer && !@messages;
 	$buffer .= $self->_check_sequence_CDS( $locus, $args );
-	$buffer .= $self->_check_sequence_field( $locus, $args ) if !$buffer;
+	$buffer .= $self->_check_sequence_field( $locus, $args ) if !$buffer && !@messages;
 
-	my @messages = split /\n/x, $buffer;
+	unshift @messages, split /\n/x, $buffer;
 	push @messages, @{ $self->_check_super_sequence( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_extended_attributes( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_flags( $locus, $args ) };
@@ -386,12 +386,10 @@ sub _check_sequence_allele_id {
 }
 
 sub _check_sequence_length {
-	my ( $self,  $locus,           $args ) = @_;
-	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
+	my ( $self, $locus, $args ) = @_;
+	my $field = $args->{'field'};
 
-	#Check for sequence length, doesn't already exist, and is similar to existing.
-	my $buffer = q();
-	return $buffer if !( defined $locus && $field eq 'sequence' );
+	return [] if !( defined $locus && $field eq 'sequence' );
 	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
 	${ $args->{'value'} } //= '';
 	${ $args->{'value'} } =~ s/ //g;
@@ -400,7 +398,7 @@ sub _check_sequence_length {
 
 	if ( $length == 0 ) {
 		${ $args->{'continue'} } = 0;
-		return $buffer;
+		return [];
 	}
 	if (   !$locus_info->{'length_varies'}
 		&& defined $locus_info->{'length'}
@@ -409,34 +407,33 @@ sub _check_sequence_length {
 	{
 		if ( $self->{'options'}->{'reject_invalid_length'} ) {
 			${ $args->{'continue'} } = 0;
-			return q();
+			return [];
 		}
-		my $problem_text =
-			"Sequence is $length $units long but this locus is set as a standard length of "
-		  . "$locus_info->{'length'} $units.\n";
-		$buffer .= $problem_text
-		  if !$buffer || $buffer !~ /$problem_text/x;
 		${ $args->{'special_problem'} } = 1;
-		return $buffer;
+		return ["Sequence is $length $units long but this locus is set as a standard length of "
+			  . "$locus_info->{'length'} $units." ];
 	}
+	my @messages;
 	if (   $locus_info->{'min_length'}
 		&& $length < $locus_info->{'min_length'}
 		&& !$self->{'options'}->{'ignore_length'} )
 	{
-		$buffer .= "Sequence is $length $units long but this locus is set with a minimum length of "
-		  . "$locus_info->{'min_length'} $units.\n";
+		push @messages,
+		  "Sequence is $length $units long but this locus is set with a minimum length of "
+		  . "$locus_info->{'min_length'} $units.";
 	} elsif ( $locus_info->{'max_length'}
 		&& $length > $locus_info->{'max_length'}
 		&& !$self->{'options'}->{'ignore_length'} )
 	{
-		$buffer .= "Sequence is $length $units long but this locus is set with a maximum length of "
-		  . "$locus_info->{'max_length'} $units.\n";
+		push @messages,
+		  "Sequence is $length $units long but this locus is set with a maximum length of "
+		  . "$locus_info->{'max_length'} $units.";
 	}
-	if ( $buffer && $self->{'options'}->{'reject_invalid_length'} ) {
+	if ( @messages && $self->{'options'}->{'reject_invalid_length'} ) {
 		${ $args->{'continue'} } = 0;
-		return q();
+		return [];
 	}
-	return $buffer;
+	return \@messages;
 }
 
 sub _check_sequence_already_exists {
