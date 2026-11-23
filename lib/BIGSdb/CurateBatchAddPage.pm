@@ -558,65 +558,28 @@ sub _check_data {
 				row          => $source_row,
 				isolate_name => $isolate_name
 			};
-			my $rowbuffer;
+
 			my $continue = 1;
-		  FIELD: foreach my $field (@$fields) {
-
-				#Prepare checked header
-				if ( !$header_complete && ( defined $file_header_pos->{$field} || $field eq 'id' ) ) {
-					$header_row .= "$field\t";
-				}
-
-				#Check individual values for correctness.
-				my $value = $self->extract_value(
-					{
-						field           => $field,
-						data            => \@data,
-						id              => $id,
-						file_header_pos => $file_header_pos,
-					}
-				);
-				my $special_problem;
-				my $new_args = {
+			my ( $checked_pk_combination, $checked_values, $rowbuffer ) = $self->_check_batch_record_fields(
+				{
+					table           => $table,
 					locus           => $locus,
-					field           => $field,
-					value           => \$value,
+					fields          => $fields,
 					file_header_pos => $file_header_pos,
 					data            => \@data,
+					id              => $id,
 					pk_combination  => $pk_combination,
-					special_problem => \$special_problem,
+					header_complete => \$header_complete,
+					header_row      => \$header_row,
 					continue        => \$continue,
 					last_id         => \%last_id,
 					unique_field    => $unique_field,
-					diagnostics     => $diagnostics
-				};
-				$self->check_data_duplicates($new_args);
-				$self->_run_table_specific_field_checks( $table, $new_args );
-				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
-
-				#Validate field independently of HTML formatting.
-				my $problem = $self->check_field_bad( $table, $field, $value, $diagnostics, $pk_combination );
-
-				$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
-
-				#Display field only when generating a preview.
-				if ($show_preview) {
-					$rowbuffer .= $self->format_display_value(
-						{
-							table           => $table,
-							field           => $field,
-							value           => $value,
-							problem         => $problem,
-							special_problem => $special_problem
-						}
-					);
+					diagnostics     => $diagnostics,
+					show_preview    => $show_preview
 				}
-				$value //= q();
-				$self->_run_table_specific_reformatting( $table, $new_args );
-				if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
-					$checked_record .= qq($value\t);
-				}
-			}
+			);
+			$pk_combination = $checked_pk_combination;
+			$checked_record = $checked_values;
 			if ( !$continue ) {
 				undef $header_row if $first_record;
 				next;
@@ -708,6 +671,71 @@ sub _check_data {
 		}
 	);
 	return;
+}
+
+sub _check_batch_record_fields {
+	my ( $self, $args ) = @_;
+	my ( $table, $locus, $fields, $file_header_pos, $data, $id, $diagnostics, $show_preview ) =
+	  @{$args}{qw(table locus fields file_header_pos data id diagnostics show_preview)};
+	my $pk_combination = $args->{'pk_combination'};
+	my ( $checked_record, $rowbuffer );
+	foreach my $field (@$fields) {
+
+		#Prepare checked header
+		if ( !${ $args->{'header_complete'} } && ( defined $file_header_pos->{$field} || $field eq 'id' ) ) {
+			${ $args->{'header_row'} } .= "$field\t";
+		}
+
+		#Check individual values for correctness.
+		my $value = $self->extract_value(
+			{
+				field           => $field,
+				data            => $data,
+				id              => $id,
+				file_header_pos => $file_header_pos,
+			}
+		);
+		my $special_problem;
+		my $new_args = {
+			locus           => $locus,
+			field           => $field,
+			value           => \$value,
+			file_header_pos => $file_header_pos,
+			data            => $data,
+			pk_combination  => $pk_combination,
+			special_problem => \$special_problem,
+			continue        => $args->{'continue'},
+			last_id         => $args->{'last_id'},
+			unique_field    => $args->{'unique_field'},
+			diagnostics     => $diagnostics
+		};
+		$self->check_data_duplicates($new_args);
+		$self->_run_table_specific_field_checks( $table, $new_args );
+		$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
+
+		#Validate field independently of HTML formatting.
+		my $problem = $self->check_field_bad( $table, $field, $value, $diagnostics, $pk_combination );
+		$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
+
+		#Display field only when generating a preview.
+		if ($show_preview) {
+			$rowbuffer .= $self->format_display_value(
+				{
+					table           => $table,
+					field           => $field,
+					value           => $value,
+					problem         => $problem,
+					special_problem => $special_problem
+				}
+			);
+		}
+		$value //= q();
+		$self->_run_table_specific_reformatting( $table, $new_args );
+		if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
+			$checked_record .= qq($value\t);
+		}
+	}
+	return ( $pk_combination, $checked_record, $rowbuffer );
 }
 
 sub _run_table_specific_record_checks {
