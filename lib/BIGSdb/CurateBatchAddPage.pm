@@ -683,57 +683,7 @@ sub _check_data {
 				next RECORD if $skip_record;
 			}
 			$tablebuffer .= $row_buffer if $show_preview;
-			if ( $table ne 'isolates' ) {
-				my %record_checks = (
-					accession => sub {
-						$self->_check_corresponding_sequence_exists( $pk_values_ref, $new_args );
-						$self->check_permissions( $locus, $new_args );
-					},
-					sequence_refs => sub {
-						$self->_check_corresponding_sequence_exists( $pk_values_ref, $new_args );
-						$self->check_permissions( $locus, $new_args );
-					},
-					profile_refs => sub {
-						$self->_check_corresponding_profile_exists($new_args);
-					},
-					sequence_extended_attributes => sub {
-						$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
-							$new_args );
-						$self->check_permissions( $locus, $new_args );
-					},
-					loci => sub {
-						$self->_check_data_loci($new_args);
-					},
-					locus_descriptions => sub {
-						$self->check_permissions( $locus, $new_args );
-					},
-					locus_links => sub {
-						$self->check_permissions( $locus, $new_args );
-					},
-					retired_allele_ids => sub {
-						$self->check_permissions( $locus, $new_args );
-					},
-					projects => sub {
-						$self->_check_projects($new_args);
-					},
-					classification_group_field_values => sub {
-						$self->_check_classification_field_values($new_args);
-					},
-					validation_conditions => sub {
-						$self->_check_validation_conditions($new_args);
-					},
-					isolate_field_extended_attributes => sub {
-						$self->_check_isolate_field_extended_attributes($new_args);
-					},
-					lincode_prefixes => sub {
-						$self->_check_lincode_prefix_values($new_args);
-					},
-					geography_point_lookup => sub {
-						$self->_check_geography_point_values($new_args);
-					}
-				);
-				$record_checks{$table}->() if $record_checks{$table};
-			}
+			$self->_run_table_specific_record_checks( $table, $locus, $pk_values_ref, $new_args );
 		}
 		if ( defined $checked_record ) {
 			$td = $td == 1 ? 2 : 1;    #row stripes
@@ -763,6 +713,60 @@ sub _check_data {
 			diagnostics    => $diagnostics,
 		}
 	);
+	return;
+}
+
+sub _run_table_specific_record_checks {
+	my ( $self, $table, $locus, $pk_values_ref, $args ) = @_;
+	return if $table eq 'isolates';
+	my %record_checks = (
+		accession => sub {
+			$self->_check_corresponding_sequence_exists( $pk_values_ref, $args );
+			$self->check_permissions( $locus, $args );
+		},
+		sequence_refs => sub {
+			$self->_check_corresponding_sequence_exists( $pk_values_ref, $args );
+			$self->check_permissions( $locus, $args );
+		},
+		profile_refs => sub {
+			$self->_check_corresponding_profile_exists($args);
+		},
+		sequence_extended_attributes => sub {
+			$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ], $args );
+			$self->check_permissions( $locus, $args );
+		},
+		loci => sub {
+			$self->_check_data_loci($args);
+		},
+		locus_descriptions => sub {
+			$self->check_permissions( $locus, $args );
+		},
+		locus_links => sub {
+			$self->check_permissions( $locus, $args );
+		},
+		retired_allele_ids => sub {
+			$self->check_permissions( $locus, $args );
+		},
+		projects => sub {
+			$self->_check_projects($args);
+		},
+		classification_group_field_values => sub {
+			$self->_check_classification_field_values($args);
+		},
+		validation_conditions => sub {
+			$self->_check_validation_conditions($args);
+		},
+		isolate_field_extended_attributes => sub {
+			$self->_check_isolate_field_extended_attributes($args);
+		},
+		lincode_prefixes => sub {
+			$self->_check_lincode_prefix_values($args);
+		},
+		geography_point_lookup => sub {
+			$self->_check_geography_point_values($args);
+		}
+	);
+	$record_checks{$table}->() if $record_checks{$table};
 	return;
 }
 
