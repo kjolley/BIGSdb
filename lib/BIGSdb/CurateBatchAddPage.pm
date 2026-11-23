@@ -775,9 +775,17 @@ sub _check_batch_record_fields {
 		my $field_benchmark = $args->{'field_benchmark'};
 		my $start_time      = time if $field_benchmark;
 
-		my $problem =
-		  $self->check_field_bad( $table, $field, $value, $diagnostics, $pk_combination, $field_benchmark,
-			$args->{'set_id'} );
+		my $problem = $self->check_field_bad(
+			{
+				table          => $table,
+				field          => $field,
+				value          => $value,
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				benchmark      => $field_benchmark,
+				set_id         => $args->{'set_id'}
+			}
+		);
 
 		if ($field_benchmark) {
 			$field_benchmark->{'elapsed'} += time - $start_time;
@@ -1051,22 +1059,22 @@ sub format_display_value {
 }
 
 sub check_field_bad {
-	my ( $self, $table, $field, $value, $diagnostics, $pk_combination, $benchmark, $set_id ) = @_;
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $value, $diagnostics, $pk_combination, $benchmark ) =
+	  @{$args}{qw(table field value diagnostics pk_combination benchmark)};
 	return
 		 if $table eq 'sequences'
 	  && $field eq 'allele_id'
 	  && $self->_has_validation_message( $diagnostics, $pk_combination, 'error' );
-
-	if ( @_ < 8 ) {
+	my $set_id = $args->{'set_id'};
+	if ( !exists $args->{'set_id'} ) {
 		my $start_time = time if $benchmark;
 		$set_id = $self->get_set_id;
 		$benchmark->{'set_id'} += time - $start_time if $benchmark;
 	}
-
 	my $start_time = time if $benchmark;
 	my $problem    = $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
 	$benchmark->{'validation'} += time - $start_time if $benchmark;
-
 	return $problem;
 }
 

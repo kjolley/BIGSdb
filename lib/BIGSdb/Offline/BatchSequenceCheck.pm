@@ -109,7 +109,15 @@ sub run {
 				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
 				#Validate field independently of HTML formatting.
-				my $problem = $self->check_field_bad( 'sequences', $field, $value, $diagnostics, $pk_combination );
+				my $problem = $self->check_field_bad(
+					{
+						table          => 'sequences',
+						field          => $field,
+						value          => $value,
+						diagnostics    => $diagnostics,
+						pk_combination => $pk_combination
+					}
+				);
 
 				$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
 
