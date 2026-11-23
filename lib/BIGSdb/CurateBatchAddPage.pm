@@ -500,8 +500,9 @@ sub _check_data {
 	my ( $self, $args ) = @_;
 	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
 
-	my $benchmark  = $logger->is_debug;
-	my $start_time = time if $benchmark;
+	my $benchmark       = $logger->is_debug;
+	my $start_time      = time if $benchmark;
+	my $field_benchmark = $benchmark ? { elapsed => 0, calls => 0 } : undef;
 
 	my $q = $self->{'cgi'};
 	if ( !$q->param('data') ) {
@@ -595,7 +596,8 @@ sub _check_data {
 					last_id         => \%last_id,
 					unique_field    => $unique_field,
 					diagnostics     => $diagnostics,
-					show_preview    => $show_preview
+					show_preview    => $show_preview,
+					field_benchmark => $field_benchmark
 				}
 			);
 			$pk_combination = $checked_pk_combination;
@@ -699,6 +701,17 @@ sub _check_data {
 				$table, $record_total, $elapsed, $record_total / ( $elapsed || 0.000001 )
 			)
 		);
+		$logger->debug(
+			sprintf(
+				'Generic field validation: elapsed=%.3fs, calls=%d, average=%.1f us/call, total=%.1f%%',
+				$field_benchmark->{'elapsed'},
+				$field_benchmark->{'calls'},
+				$field_benchmark->{'calls'}
+				? 1_000_000 * $field_benchmark->{'elapsed'} / $field_benchmark->{'calls'}
+				: 0,
+				$elapsed ? 100 * $field_benchmark->{'elapsed'} / $elapsed : 0
+			)
+		);
 	}
 
 	return;
@@ -745,7 +758,13 @@ sub _check_batch_record_fields {
 		$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
 		#Validate field independently of HTML formatting.
-		my $problem = $self->check_field_bad( $table, $field, $value, $diagnostics, $pk_combination );
+		my $field_benchmark = $args->{'field_benchmark'};
+		my $start_time      = time if $field_benchmark;
+		my $problem         = $self->check_field_bad( $table, $field, $value, $diagnostics, $pk_combination );
+		if ($field_benchmark) {
+			$field_benchmark->{'elapsed'} += time - $start_time;
+			$field_benchmark->{'calls'}++;
+		}
 		$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
 
 		#Display field only when generating a preview.
