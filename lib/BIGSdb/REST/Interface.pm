@@ -189,6 +189,7 @@ sub _before {
 	return if !$self->{'system'}->{'dbtype'};    #We are in resources database
 	_check_kiosk();
 	_check_authorization();
+	_check_sequence_query_authorization();
 	$self->_initiate_view;
 	$self->_set_page_options;
 	return;
@@ -323,6 +324,39 @@ sub _check_api_key {
 	$self->_check_user_authorization($username);
 	return 1;
 }
+
+
+sub _check_sequence_query_authorization {
+    my $self = setting('self');
+    return if request->method ne 'POST';
+
+    my $subdir = setting('subdir');
+    my $db     = $self->{'instance'};
+    my $path   = request->path;
+    return if $path !~
+      m{^\Q$subdir\E/db/\Q$db\E/
+        (?:
+            sequence
+          | loci/[^/]+/sequence
+          | schemes/[^/]+/(?:sequence|designations)
+        )$}x;
+
+    my $setting =
+      $self->{'system'}->{'api_seq_queries_require_authentication'} // q();
+
+    # Database-specific 'no' overrides the global setting.
+    return if $setting eq 'no';
+
+    my $requires_login =
+         $self->{'config'}->{'api_seq_queries_require_authentication'}
+      || $setting eq 'yes';
+
+    return if !$requires_login;
+    return if $self->{'username'};
+    send_error( 'Sequence queries require API authentication', 401 );
+    return;
+}
+
 
 sub _check_authorization {
 	my $self             = setting('self');
