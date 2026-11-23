@@ -641,24 +641,18 @@ sub _check_data {
 				diagnostics        => $diagnostics,
 				show_preview       => $show_preview
 			};
+
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-				my %newdata             = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
-				my $validation_failures = $self->{'submissionHandler'}->run_validation_checks( \%newdata );
-				if (@$validation_failures) {
-					foreach my $failure (@$validation_failures) {
-						$failure =~ s/\.?\s*$/. /x;
-						$self->record_validation_message(
-							{
-								diagnostics    => $diagnostics,
-								pk_combination => $pk_combination,
-								message        => $failure,
-								type           => 'error'
-							}
-						);
+				my $extra_html = $self->_check_batch_isolate_record(
+					{
+						table           => $table,
+						data            => \@data,
+						file_header_pos => $file_header_pos,
+						pk_combination  => $pk_combination,
+						diagnostics     => $diagnostics,
+						record_args     => $new_args
 					}
-				}
-				my $extra_html =
-				  $self->_isolate_record_further_checks( $table, $new_args, $pk_combination, $diagnostics );
+				);
 				$row_buffer .= $extra_html if $show_preview;
 			}
 			$header_complete = 1;
@@ -768,6 +762,27 @@ sub _run_table_specific_record_checks {
 	);
 	$record_checks{$table}->() if $record_checks{$table};
 	return;
+}
+
+sub _check_batch_isolate_record {
+	my ( $self, $args ) = @_;
+	my ( $table, $data, $file_header_pos, $pk_combination, $diagnostics, $record_args ) =
+	  @{$args}{qw(table data file_header_pos pk_combination diagnostics record_args)};
+
+	my %newdata             = map { $_ => $data->[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks( \%newdata );
+	foreach my $failure (@$validation_failures) {
+		$failure =~ s/\.?\s*$/. /x;
+		$self->record_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				message        => $failure,
+				type           => 'error'
+			}
+		);
+	}
+	return $self->_isolate_record_further_checks( $table, $record_args, $pk_combination, $diagnostics );
 }
 
 sub _is_over_quota {
