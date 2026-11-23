@@ -30,6 +30,7 @@ use BIGSdb::Utils;
 use BIGSdb::Offline::BatchUploader;
 use File::Type;
 use Try::Tiny;
+use Time::HiRes qw(time);
 my $logger = get_logger('BIGSdb.Page');
 
 sub print_content {
@@ -483,6 +484,10 @@ sub _show_preview {
 sub _check_data {
 	my ( $self, $args ) = @_;
 	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
+
+	my $benchmark  = $logger->is_debug;
+	my $start_time = time if $benchmark;
+
 	my $q = $self->{'cgi'};
 	if ( !$q->param('data') ) {
 		if ( defined $uploaded ) {
@@ -670,6 +675,17 @@ sub _check_data {
 			diagnostics    => $diagnostics,
 		}
 	);
+
+	if ($benchmark) {
+		my $elapsed = time - $start_time;
+		$logger->debug(
+			sprintf(
+				'Batch validation benchmark: table=%s, records=%d, elapsed=%.3fs, rate=%.1f records/s',
+				$table, $record_total, $elapsed, $record_total / ( $elapsed || 0.000001 )
+			)
+		);
+	}
+
 	return;
 }
 
