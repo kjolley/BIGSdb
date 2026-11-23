@@ -289,6 +289,7 @@ sub _check_data_sequences {
 	push @messages, @{ $self->_check_super_sequence( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_extended_attributes( $locus, $args ) };
 	push @messages, @{ $self->_check_sequence_flags( $locus, $args ) };
+
 	foreach my $message (@messages) {
 		$message =~ s/^\s+|\s+$//gx;
 		next if $message eq q();
@@ -469,17 +470,16 @@ sub _check_sequence_already_exists {
 }
 
 sub _check_sequence_CDS {
-	my ( $self,  $locus,           $args ) = @_;
-	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
-	return q() if !( defined $locus && $field eq 'sequence' );
-	if ( $self->{'options'}->{'complete_CDS'} ) {
-		my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus } );
-		my $stop_codons =
-		  $self->{'datastore'}->get_stop_codons( { codon_table => $self->{'options'}->{'codon_table'} } );
-		my $cds_check = BIGSdb::Utils::is_complete_cds( $args->{'value'},
-			{ start_codons => $start_codons, stop_codons => $stop_codons } );
-		${ $args->{'continue'} } = 0 if !$cds_check->{'cds'};
-	}
+	my ( $self, $locus, $args ) = @_;
+	return if !( defined $locus && $args->{'field'} eq 'sequence' );
+	return if !$self->{'options'}->{'complete_CDS'};
+
+	my $start_codons = $self->{'datastore'}->get_start_codons( { locus => $locus } );
+	my $stop_codons =
+	  $self->{'datastore'}->get_stop_codons( { codon_table => $self->{'options'}->{'codon_table'} } );
+	my $cds_check = BIGSdb::Utils::is_complete_cds( $args->{'value'},
+		{ start_codons => $start_codons, stop_codons => $stop_codons } );
+	${ $args->{'continue'} } = 0 if !$cds_check->{'cds'};
 	return;
 }
 
