@@ -268,7 +268,7 @@ sub _get_field_table_header {
 
 sub _check_data_sequences {
 	my ( $self, $args ) = @_;
-	my ( $field, $file_header_pos, $data, $pk_combination ) = @{$args}{qw(field file_header_pos data pk_combination)};
+	my ( $field, $file_header_pos, $data ) = @{$args}{qw(field file_header_pos data)};
 	my $locus;
 	if ( $field eq 'locus' && $args->{'locus'} ) {
 		${ $args->{'value'} } = $args->{'locus'};
