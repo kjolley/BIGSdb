@@ -518,6 +518,7 @@ sub _check_data {
 	}
 	my @checked_buffer;
 	my $fields = $self->_get_fields_in_order( $table, $locus );
+	my $set_id = $self->get_set_id;
 	my %last_id;
 	return if $self->sender_needed($args);
 	my $sender_message      = $self->get_sender_message($args);
@@ -601,7 +602,8 @@ sub _check_data {
 					unique_field    => $unique_field,
 					diagnostics     => $diagnostics,
 					show_preview    => $show_preview,
-					field_benchmark => $field_benchmark
+					field_benchmark => $field_benchmark,
+					set_id          => $set_id,
 				}
 			);
 			$pk_combination = $checked_pk_combination;
@@ -773,7 +775,10 @@ sub _check_batch_record_fields {
 		my $field_benchmark = $args->{'field_benchmark'};
 		my $start_time      = time if $field_benchmark;
 
-		my $problem = $self->check_field_bad( $table, $field, $value, $diagnostics, $pk_combination, $field_benchmark );
+		my $problem =
+		  $self->check_field_bad( $table, $field, $value, $diagnostics, $pk_combination, $field_benchmark,
+			$args->{'set_id'} );
+
 		if ($field_benchmark) {
 			$field_benchmark->{'elapsed'} += time - $start_time;
 			$field_benchmark->{'calls'}++;
@@ -1046,18 +1051,20 @@ sub format_display_value {
 }
 
 sub check_field_bad {
-	my ( $self, $table, $field, $value, $diagnostics, $pk_combination, $benchmark ) = @_;
+	my ( $self, $table, $field, $value, $diagnostics, $pk_combination, $benchmark, $set_id ) = @_;
 	return
 		 if $table eq 'sequences'
 	  && $field eq 'allele_id'
 	  && $self->_has_validation_message( $diagnostics, $pk_combination, 'error' );
 
-	my $start_time = time if $benchmark;
-	my $set_id     = $self->get_set_id;
-	$benchmark->{'set_id'} += time - $start_time if $benchmark;
+	if ( @_ < 8 ) {
+		my $start_time = time if $benchmark;
+		$set_id = $self->get_set_id;
+		$benchmark->{'set_id'} += time - $start_time if $benchmark;
+	}
 
-	$start_time = time if $benchmark;
-	my $problem = $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
+	my $start_time = time if $benchmark;
+	my $problem    = $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
 	$benchmark->{'validation'} += time - $start_time if $benchmark;
 
 	return $problem;
