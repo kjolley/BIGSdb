@@ -33,6 +33,21 @@ use Try::Tiny;
 use Time::HiRes qw(time);
 my $logger = get_logger('BIGSdb.Page');
 
+my %FIELD_CHECKS = (
+	allele_designations         => '_check_data_allele_designations',
+	users                       => '_check_data_users',
+	scheme_group_group_members  => '_check_data_scheme_group_group_members',
+	scheme_fields               => '_check_data_scheme_fields',
+	isolate_aliases             => '_check_data_isolate_aliases',
+	retired_allele_ids          => '_check_retired_allele_ids',
+	retired_profiles            => '_check_retired_profile_id',
+	retired_isolates            => '_check_retired_isolate_id',
+	classification_group_fields => '_check_scheme_field_name',
+	peptide_mutations           => '_check_mutation_fields',
+	dna_mutations               => '_check_mutation_fields',
+	schemes                     => '_check_schemes'
+);
+
 sub print_content {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
@@ -1291,51 +1306,23 @@ sub _check_isolate_field_extended_attributes {
 
 sub _run_table_specific_field_checks {
 	my ( $self, $table, $new_args ) = @_;
-	my %further_checks = (
-		allele_designations => sub {
-			$self->_check_data_allele_designations($new_args);
-		},
-		users => sub {
-			$self->_check_data_users($new_args);
-		},
-		scheme_group_group_members => sub {
-			$self->_check_data_scheme_group_group_members($new_args);
-		},
-		isolates => sub {
-			$self->_check_data_refs($new_args);
-			$self->_check_data_codon_table($new_args);
-			$self->_check_data_aliases($new_args);
-		},
-		scheme_fields => sub {
-			$self->_check_data_scheme_fields($new_args);
-		},
-		isolate_aliases => sub {
-			$self->_check_data_isolate_aliases($new_args);
-		},
-		retired_allele_ids => sub {
-			$self->_check_retired_allele_ids($new_args);
-		},
-		retired_profiles => sub {
-			$self->_check_retired_profile_id($new_args);
-		},
-		retired_isolates => sub {
-			$self->_check_retired_isolate_id($new_args);
-		},
-		classification_group_fields => sub {
-			$self->_check_scheme_field_name($new_args)
-			  if $new_args->{'field'} eq 'field';
-		},
-		peptide_mutations => sub {
-			$self->_check_mutation_fields( $new_args, 'peptide' );
-		},
-		dna_mutations => sub {
-			$self->_check_mutation_fields( $new_args, 'dna' );
-		},
-		schemes => sub {
-			$self->_check_schemes($new_args);
-		}
-	);
-	$further_checks{$table}->() if $further_checks{$table};
+	if ( $table eq 'isolates' ) {
+		$self->_check_data_refs($new_args);
+		$self->_check_data_codon_table($new_args);
+		$self->_check_data_aliases($new_args);
+		return;
+	}
+	my $method = $FIELD_CHECKS{$table};
+	return if !$method;
+	if ( $table eq 'classification_group_fields' ) {
+		return if $new_args->{'field'} ne 'field';
+	}
+	if ( $table eq 'peptide_mutations' || $table eq 'dna_mutations' ) {
+		my $type = $table eq 'peptide_mutations' ? 'peptide' : 'dna';
+		$self->$method( $new_args, $type );
+		return;
+	}
+	$self->$method($new_args);
 	return;
 }
 
