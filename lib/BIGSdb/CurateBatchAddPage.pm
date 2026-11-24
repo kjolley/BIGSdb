@@ -476,9 +476,15 @@ sub _get_unique_fields {
 }
 
 sub _increment_id {
-	my ( $self, $table, $id_pos_defined, $integer_id, $first_record, $id_ref, $benchmark ) = @_;
+	my ( $self, $table, $id_pos_defined, $integer_id, $first_record, $id_ref, $benchmark, $cache ) = @_;
 	if ( !$id_pos_defined && $integer_id && !$first_record ) {
-		do { $$id_ref++ } while ( $self->_is_id_used( $table, $$id_ref, $benchmark ) );
+		do {
+			$$id_ref++;
+		} while (
+			$cache
+			? $self->_is_id_used_in_batch( $table, $$id_ref, $cache, $benchmark )
+			: $self->_is_id_used( $table, $$id_ref, $benchmark )
+		);
 	}
 	return;
 }
@@ -516,10 +522,14 @@ sub _check_data {
 		increment_calls   => 0,
 		lookup_elapsed    => 0,
 		lookup_calls      => 0,
-		occupied          => 0
+		occupied          => 0,
+		prefetch_elapsed  => 0,
+		prefetch_calls    => 0,
 	  }
 	  : undef;
-	my $q = $self->{'cgi'};
+
+	my $id_cache = $table eq 'isolates' ? {} : undef;
+	my $q        = $self->{'cgi'};
 	if ( !$q->param('data') ) {
 		if ( defined $uploaded ) {
 			$q->param( 'data', $$uploaded );
@@ -565,14 +575,13 @@ sub _check_data {
 		if ($record) {
 			my @data = split /\t/x, $record;
 			BIGSdb::Utils::remove_trailing_spaces_from_list( \@data );
-			my $first = 1;
-
+			my $first    = 1;
 			my $id_start = time if $id_benchmark;
 			$self->_increment_id(
 				$table,
 				defined $file_header_pos->{'id'},
 				$args->{'uses_integer_id'},
-				$first_record, \$id, $id_benchmark
+				$first_record, \$id, $id_benchmark, $id_cache
 			);
 			if ($id_benchmark) {
 				$id_benchmark->{'increment_elapsed'} += time - $id_start;
@@ -780,6 +789,15 @@ sub _check_data {
 				$id_benchmark->{'lookup_calls'}
 				? 1_000_000 * $id_benchmark->{'lookup_elapsed'} / $id_benchmark->{'lookup_calls'}
 				: 0
+			)
+		);
+
+		$logger->debug(
+			sprintf(
+				'Batch ID prefetch: elapsed=%.3fs, queries=%d, occupied=%d',
+				$id_benchmark->{'prefetch_elapsed'},
+				$id_benchmark->{'prefetch_calls'},
+				$id_benchmark->{'occupied'}
 			)
 		);
 	}
@@ -3061,6 +3079,36 @@ sub _is_id_used {
 		$benchmark->{'lookup_calls'}++;
 		$benchmark->{'occupied'}++ if $exists;
 	}
+	return $exists;
+}
+
+sub _prefetch_occupied_isolate_ids {
+	my ( $self, $id, $cache, $benchmark ) = @_;
+	my $range_size = 1000;
+	my $end_id     = $id + $range_size - 1;
+	my $qry =
+		'SELECT id FROM isolates WHERE id BETWEEN ? AND ? '
+	  . 'UNION SELECT isolate_id AS id FROM retired_isolates WHERE isolate_id BETWEEN ? AND ?';
+	my $start_time = time if $benchmark;
+	my $occupied = $self->{'datastore'}->run_query( $qry, [ $id, $end_id, $id, $end_id ], { fetch => 'col_arrayref' } );
+	if ($benchmark) {
+		$benchmark->{'prefetch_elapsed'} += time - $start_time;
+		$benchmark->{'prefetch_calls'}++;
+	}
+	$cache->{'start'}    = $id;
+	$cache->{'end'}      = $end_id;
+	$cache->{'occupied'} = { map { $_ => 1 } @$occupied };
+	return;
+}
+
+sub _is_id_used_in_batch {
+	my ( $self, $table, $id, $cache, $benchmark ) = @_;
+	return $self->_is_id_used( $table, $id, $benchmark ) if $table ne 'isolates';
+	if ( !defined $cache->{'start'} || $id < $cache->{'start'} || $id > $cache->{'end'} ) {
+		$self->_prefetch_occupied_isolate_ids( $id, $cache, $benchmark );
+	}
+	my $exists = $cache->{'occupied'}->{$id} ? 1 : 0;
+	$benchmark->{'occupied'}++ if $benchmark && $exists;
 	return $exists;
 }
 
