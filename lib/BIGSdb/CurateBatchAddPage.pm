@@ -1728,12 +1728,6 @@ sub _report_check {
 			record_total => $record_total
 		}
 	);
-	my %counts = ( error => 0, advisory => 0 );
-	foreach my $id ( keys %$diagnostics ) {
-		foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
-			$counts{ $diagnostic->{'type'} }++;
-		}
-	}
 	return;
 }
 
