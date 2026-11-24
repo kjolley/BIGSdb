@@ -31,7 +31,6 @@ use Email::MIME;
 use Email::Valid;
 use Try::Tiny;
 use File::Type;
-use Time::HiRes            ();
 use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
 use IO::Uncompress::Unzip  qw(unzip $UnzipError);
 use BIGSdb::Utils;
@@ -978,9 +977,9 @@ sub _check_isolate_record {
 }
 
 sub is_field_bad {
-	my ( $self, $table, $fieldname, $value, $flag, $set_id, $options, $benchmark ) = @_;
+	my ( $self, $table, $fieldname, $value, $flag, $set_id, $options ) = @_;
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-		return $self->_is_field_bad_isolates( $fieldname, $value, $flag, $set_id, $options, $benchmark );
+		return $self->_is_field_bad_isolates( $fieldname, $value, $flag, $set_id, $options );
 	} else {
 		return $self->_is_field_bad_other( $table, $fieldname, $value, $flag, $set_id );
 	}
@@ -988,7 +987,7 @@ sub is_field_bad {
 
 sub _is_field_bad_isolates {
 
-	my ( $self, $fieldname, $value, $flag, $set_id, $options, $benchmark ) = @_;
+	my ( $self, $fieldname, $value, $flag, $set_id, $options ) = @_;
 
 	$value //= q();
 	$flag  //= q();
@@ -1055,22 +1054,12 @@ sub _is_field_bad_isolates {
 
 	if ( $flag eq 'insert' ) {
 		foreach my $method (@$insert_checks) {
-			my $start_time = Time::HiRes::time() if $benchmark;
-			my $message    = $self->$method( $fieldname, $value );
-			if ($benchmark) {
-				$benchmark->{'validators'}->{$method}->{'elapsed'} += Time::HiRes::time() - $start_time;
-				$benchmark->{'validators'}->{$method}->{'calls'}++;
-			}
+			my $message = $self->$method( $fieldname, $value );
 			return $message if $message;
 		}
 	}
 	foreach my $method (@$checks) {
-		my $start_time = Time::HiRes::time() if $benchmark;
-		my $message    = $self->$method( $fieldname, $value );
-		if ($benchmark) {
-			$benchmark->{'validators'}->{$method}->{'elapsed'} += Time::HiRes::time() - $start_time;
-			$benchmark->{'validators'}->{$method}->{'calls'}++;
-		}
+		my $message = $self->$method( $fieldname, $value );
 		return $message if $message;
 	}
 	return;

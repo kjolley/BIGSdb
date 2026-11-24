@@ -483,7 +483,7 @@ sub _increment_id {
 		} while (
 			$cache
 			? $self->_is_id_used_in_batch( $table, $$id_ref, $cache, $benchmark )
-			: $self->_is_id_used( $table, $$id_ref, $benchmark )
+			: $self->_is_id_used( $table, $$id_ref )
 		);
 	}
 	return;
@@ -508,23 +508,14 @@ sub _check_data {
 
 	my $benchmark  = $logger->is_debug;
 	my $start_time = time if $benchmark;
-
-	my $field_benchmark =
-	  $benchmark
-	  ? { elapsed => 0, calls => 0, set_id => 0, validation => 0, validators => {} }
-	  : undef;
-
 	my $id_benchmark =
 	  $benchmark
 	  ? {
 		initial_elapsed   => 0,
 		increment_elapsed => 0,
-		increment_calls   => 0,
-		lookup_elapsed    => 0,
-		lookup_calls      => 0,
-		occupied          => 0,
 		prefetch_elapsed  => 0,
 		prefetch_calls    => 0,
+		occupied          => 0
 	  }
 	  : undef;
 
@@ -585,7 +576,6 @@ sub _check_data {
 			);
 			if ($id_benchmark) {
 				$id_benchmark->{'increment_elapsed'} += time - $id_start;
-				$id_benchmark->{'increment_calls'}++;
 			}
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
 				{
@@ -631,7 +621,6 @@ sub _check_data {
 					unique_field    => $unique_field,
 					diagnostics     => $diagnostics,
 					show_preview    => $show_preview,
-					field_benchmark => $field_benchmark,
 					set_id          => $set_id,
 				}
 			);
@@ -738,65 +727,9 @@ sub _check_data {
 		);
 		$logger->debug(
 			sprintf(
-				'Generic field validation: elapsed=%.3fs, calls=%d, average=%.1f us/call, total=%.1f%%',
-				$field_benchmark->{'elapsed'},
-				$field_benchmark->{'calls'},
-				$field_benchmark->{'calls'}
-				? 1_000_000 * $field_benchmark->{'elapsed'} / $field_benchmark->{'calls'}
-				: 0,
-				$elapsed ? 100 * $field_benchmark->{'elapsed'} / $elapsed : 0
-			)
-		);
-		$logger->debug(
-			sprintf(
-				'Field validation breakdown: get_set_id=%.3fs, is_field_bad=%.3fs, overhead=%.3fs',
-				$field_benchmark->{'set_id'},
-				$field_benchmark->{'validation'},
-				$field_benchmark->{'elapsed'} - $field_benchmark->{'set_id'} - $field_benchmark->{'validation'}
-			)
-		);
-
-		foreach my $method (
-			sort {
-				$field_benchmark->{'validators'}->{$b}->{'elapsed'}
-				  <=> $field_benchmark->{'validators'}->{$a}->{'elapsed'}
-			} keys %{ $field_benchmark->{'validators'} }
-		  )
-		{
-			my $stats = $field_benchmark->{'validators'}->{$method};
-			$logger->debug(
-				sprintf(
-					'Isolate validator: method=%s, elapsed=%.3fs, calls=%d, average=%.1f us/call',
-					$method,           $stats->{'elapsed'},
-					$stats->{'calls'}, $stats->{'calls'} ? 1_000_000 * $stats->{'elapsed'} / $stats->{'calls'} : 0
-				)
-			);
-		}
-
-		$logger->debug(
-			sprintf(
-				'Batch ID allocation: initial=%.3fs, increment=%.3fs, calls=%d',
-				$id_benchmark->{'initial_elapsed'}, $id_benchmark->{'increment_elapsed'},
-				$id_benchmark->{'increment_calls'}
-			)
-		);
-		$logger->debug(
-			sprintf(
-				'Batch ID lookups: elapsed=%.3fs, calls=%d, occupied=%d, average=%.1f us/call',
-				$id_benchmark->{'lookup_elapsed'},
-				$id_benchmark->{'lookup_calls'},
-				$id_benchmark->{'occupied'},
-				$id_benchmark->{'lookup_calls'}
-				? 1_000_000 * $id_benchmark->{'lookup_elapsed'} / $id_benchmark->{'lookup_calls'}
-				: 0
-			)
-		);
-
-		$logger->debug(
-			sprintf(
-				'Batch ID prefetch: elapsed=%.3fs, queries=%d, occupied=%d',
-				$id_benchmark->{'prefetch_elapsed'},
-				$id_benchmark->{'prefetch_calls'},
+				'Batch ID allocation: initial=%.3fs, increment=%.3fs, prefetch=%.3fs, queries=%d, occupied=%d',
+				$id_benchmark->{'initial_elapsed'},  $id_benchmark->{'increment_elapsed'},
+				$id_benchmark->{'prefetch_elapsed'}, $id_benchmark->{'prefetch_calls'},
 				$id_benchmark->{'occupied'}
 			)
 		);
@@ -846,9 +779,6 @@ sub _check_batch_record_fields {
 		$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
 
 		#Validate field independently of HTML formatting.
-		my $field_benchmark = $args->{'field_benchmark'};
-		my $start_time      = time if $field_benchmark;
-
 		my $problem = $self->check_field_bad(
 			{
 				table          => $table,
@@ -856,15 +786,10 @@ sub _check_batch_record_fields {
 				value          => $value,
 				diagnostics    => $diagnostics,
 				pk_combination => $pk_combination,
-				benchmark      => $field_benchmark,
 				set_id         => $args->{'set_id'}
 			}
 		);
 
-		if ($field_benchmark) {
-			$field_benchmark->{'elapsed'} += time - $start_time;
-			$field_benchmark->{'calls'}++;
-		}
 		$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
 
 		#Display field only when generating a preview.
@@ -1134,25 +1059,14 @@ sub format_display_value {
 
 sub check_field_bad {
 	my ( $self, $args ) = @_;
-	my ( $table, $field, $value, $diagnostics, $pk_combination, $benchmark ) =
-	  @{$args}{qw(table field value diagnostics pk_combination benchmark)};
+	my ( $table, $field, $value, $diagnostics, $pk_combination ) =
+	  @{$args}{qw(table field value diagnostics pk_combination)};
 	return
 		 if $table eq 'sequences'
 	  && $field eq 'allele_id'
 	  && $self->_has_validation_message( $diagnostics, $pk_combination, 'error' );
-	my $set_id = $args->{'set_id'};
-	if ( !exists $args->{'set_id'} ) {
-		my $start_time = time if $benchmark;
-		$set_id = $self->get_set_id;
-		$benchmark->{'set_id'} += time - $start_time if $benchmark;
-	}
-	my $start_time = time if $benchmark;
-
-	my $problem =
-	  $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id, undef, $benchmark );
-
-	$benchmark->{'validation'} += time - $start_time if $benchmark;
-	return $problem;
+	my $set_id = exists $args->{'set_id'} ? $args->{'set_id'} : $self->get_set_id;
+	return $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
 }
 
 sub _check_projects {
@@ -3061,25 +2975,15 @@ sub _get_field_table_header {
 }
 
 sub _is_id_used {
-	my ( $self, $table, $id, $benchmark ) = @_;
-	my $start_time = time if $benchmark;
-	my $exists;
+	my ( $self, $table, $id ) = @_;
 	if ( $table eq 'isolates' ) {
 		my $qry =
 			'SELECT EXISTS(SELECT * FROM isolates WHERE id=?) OR '
 		  . 'EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)';
-		$exists =
-		  $self->{'datastore'}->run_query( $qry, [ $id, $id ], { cache => "CurateBatchAdd::is_id_used::$table" } );
-	} else {
-		my $qry = "SELECT EXISTS(SELECT * FROM $table WHERE id=?)";
-		$exists = $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
+		return $self->{'datastore'}->run_query( $qry, [ $id, $id ], { cache => "CurateBatchAdd::is_id_used::$table" } );
 	}
-	if ($benchmark) {
-		$benchmark->{'lookup_elapsed'} += time - $start_time;
-		$benchmark->{'lookup_calls'}++;
-		$benchmark->{'occupied'}++ if $exists;
-	}
-	return $exists;
+	my $qry = "SELECT EXISTS(SELECT * FROM $table WHERE id=?)";
+	return $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
 }
 
 sub _prefetch_occupied_isolate_ids {
@@ -3103,7 +3007,8 @@ sub _prefetch_occupied_isolate_ids {
 
 sub _is_id_used_in_batch {
 	my ( $self, $table, $id, $cache, $benchmark ) = @_;
-	return $self->_is_id_used( $table, $id, $benchmark ) if $table ne 'isolates';
+	return $self->_is_id_used( $table, $id ) if $table ne 'isolates';
+
 	if ( !defined $cache->{'start'} || $id < $cache->{'start'} || $id > $cache->{'end'} ) {
 		$self->_prefetch_occupied_isolate_ids( $id, $cache, $benchmark );
 	}
