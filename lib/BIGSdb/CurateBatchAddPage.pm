@@ -476,9 +476,9 @@ sub _get_unique_fields {
 }
 
 sub _increment_id {
-	my ( $self, $table, $id_pos_defined, $integer_id, $first_record, $id_ref ) = @_;
+	my ( $self, $table, $id_pos_defined, $integer_id, $first_record, $id_ref, $benchmark ) = @_;
 	if ( !$id_pos_defined && $integer_id && !$first_record ) {
-		do { $$id_ref++ } while ( $self->_is_id_used( $table, $$id_ref ) );
+		do { $$id_ref++ } while ( $self->_is_id_used( $table, $$id_ref, $benchmark ) );
 	}
 	return;
 }
@@ -508,6 +508,17 @@ sub _check_data {
 	  ? { elapsed => 0, calls => 0, set_id => 0, validation => 0, validators => {} }
 	  : undef;
 
+	my $id_benchmark =
+	  $benchmark
+	  ? {
+		initial_elapsed   => 0,
+		increment_elapsed => 0,
+		increment_calls   => 0,
+		lookup_elapsed    => 0,
+		lookup_calls      => 0,
+		occupied          => 0
+	  }
+	  : undef;
 	my $q = $self->{'cgi'};
 	if ( !$q->param('data') ) {
 		if ( defined $uploaded ) {
@@ -537,8 +548,11 @@ sub _check_data {
 		my $table_header = $self->_get_field_table_header($table);
 		$tablebuffer = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
 	}
-	my $td           = 1;
-	my $id           = $self->_get_id($table);
+	my $td = 1;
+
+	my $id_start = time if $id_benchmark;
+	my $id       = $self->_get_id($table);
+	$id_benchmark->{'initial_elapsed'} += time - $id_start if $id_benchmark;
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
@@ -552,12 +566,18 @@ sub _check_data {
 			my @data = split /\t/x, $record;
 			BIGSdb::Utils::remove_trailing_spaces_from_list( \@data );
 			my $first = 1;
+
+			my $id_start = time if $id_benchmark;
 			$self->_increment_id(
 				$table,
 				defined $file_header_pos->{'id'},
 				$args->{'uses_integer_id'},
-				$first_record, \$id
+				$first_record, \$id, $id_benchmark
 			);
+			if ($id_benchmark) {
+				$id_benchmark->{'increment_elapsed'} += time - $id_start;
+				$id_benchmark->{'increment_calls'}++;
+			}
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
 				{
 					primary_keys    => \@primary_keys,
@@ -743,6 +763,25 @@ sub _check_data {
 				)
 			);
 		}
+
+		$logger->debug(
+			sprintf(
+				'Batch ID allocation: initial=%.3fs, increment=%.3fs, calls=%d',
+				$id_benchmark->{'initial_elapsed'}, $id_benchmark->{'increment_elapsed'},
+				$id_benchmark->{'increment_calls'}
+			)
+		);
+		$logger->debug(
+			sprintf(
+				'Batch ID lookups: elapsed=%.3fs, calls=%d, occupied=%d, average=%.1f us/call',
+				$id_benchmark->{'lookup_elapsed'},
+				$id_benchmark->{'lookup_calls'},
+				$id_benchmark->{'occupied'},
+				$id_benchmark->{'lookup_calls'}
+				? 1_000_000 * $id_benchmark->{'lookup_elapsed'} / $id_benchmark->{'lookup_calls'}
+				: 0
+			)
+		);
 	}
 
 	return;
@@ -3004,15 +3043,25 @@ sub _get_field_table_header {
 }
 
 sub _is_id_used {
-	my ( $self, $table, $id ) = @_;
+	my ( $self, $table, $id, $benchmark ) = @_;
+	my $start_time = time if $benchmark;
+	my $exists;
 	if ( $table eq 'isolates' ) {
 		my $qry =
 			'SELECT EXISTS(SELECT * FROM isolates WHERE id=?) OR '
 		  . 'EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)';
-		return $self->{'datastore'}->run_query( $qry, [ $id, $id ], { cache => "CurateBatchAdd::is_id_used::$table" } );
+		$exists =
+		  $self->{'datastore'}->run_query( $qry, [ $id, $id ], { cache => "CurateBatchAdd::is_id_used::$table" } );
+	} else {
+		my $qry = "SELECT EXISTS(SELECT * FROM $table WHERE id=?)";
+		$exists = $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
 	}
-	my $qry = "SELECT EXISTS(SELECT * FROM $table WHERE id=?)";
-	return $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
+	if ($benchmark) {
+		$benchmark->{'lookup_elapsed'} += time - $start_time;
+		$benchmark->{'lookup_calls'}++;
+		$benchmark->{'occupied'}++ if $exists;
+	}
+	return $exists;
 }
 
 sub _convert_query {
