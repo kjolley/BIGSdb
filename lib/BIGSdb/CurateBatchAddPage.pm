@@ -505,7 +505,7 @@ sub _check_data {
 
 	my $field_benchmark =
 	  $benchmark
-	  ? { elapsed => 0, calls => 0, set_id => 0, validation => 0 }
+	  ? { elapsed => 0, calls => 0, set_id => 0, validation => 0, validators => {} }
 	  : undef;
 
 	my $q = $self->{'cgi'};
@@ -726,6 +726,23 @@ sub _check_data {
 				$field_benchmark->{'elapsed'} - $field_benchmark->{'set_id'} - $field_benchmark->{'validation'}
 			)
 		);
+
+		foreach my $method (
+			sort {
+				$field_benchmark->{'validators'}->{$b}->{'elapsed'}
+				  <=> $field_benchmark->{'validators'}->{$a}->{'elapsed'}
+			} keys %{ $field_benchmark->{'validators'} }
+		  )
+		{
+			my $stats = $field_benchmark->{'validators'}->{$method};
+			$logger->debug(
+				sprintf(
+					'Isolate validator: method=%s, elapsed=%.3fs, calls=%d, average=%.1f us/call',
+					$method,           $stats->{'elapsed'},
+					$stats->{'calls'}, $stats->{'calls'} ? 1_000_000 * $stats->{'elapsed'} / $stats->{'calls'} : 0
+				)
+			);
+		}
 	}
 
 	return;
@@ -1073,7 +1090,10 @@ sub check_field_bad {
 		$benchmark->{'set_id'} += time - $start_time if $benchmark;
 	}
 	my $start_time = time if $benchmark;
-	my $problem    = $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
+
+	my $problem =
+	  $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id, undef, $benchmark );
+
 	$benchmark->{'validation'} += time - $start_time if $benchmark;
 	return $problem;
 }
