@@ -32,6 +32,21 @@ use File::Type;
 use Try::Tiny;
 my $logger = get_logger('BIGSdb.Page');
 
+my %FIELD_CHECKS = (
+	allele_designations         => '_check_data_allele_designations',
+	users                       => '_check_data_users',
+	scheme_group_group_members  => '_check_data_scheme_group_group_members',
+	scheme_fields               => '_check_data_scheme_fields',
+	isolate_aliases             => '_check_data_isolate_aliases',
+	retired_allele_ids          => '_check_retired_allele_ids',
+	retired_profiles            => '_check_retired_profile_id',
+	retired_isolates            => '_check_retired_isolate_id',
+	classification_group_fields => '_check_scheme_field_name',
+	peptide_mutations           => '_check_mutation_fields',
+	dna_mutations               => '_check_mutation_fields',
+	schemes                     => '_check_schemes'
+);
+
 sub print_content {
 	my ($self)        = @_;
 	my $q             = $self->{'cgi'};
@@ -460,17 +475,37 @@ sub _get_unique_fields {
 }
 
 sub _increment_id {
-	my ( $self, $table, $id_pos_defined, $integer_id, $first_record, $id_ref ) = @_;
+	my ( $self, $table, $id_pos_defined, $integer_id, $first_record, $id_ref, $cache ) = @_;
 	if ( !$id_pos_defined && $integer_id && !$first_record ) {
-		do { $$id_ref++ } while ( $self->_is_id_used( $table, $$id_ref ) );
+		do {
+			$$id_ref++;
+		} while (
+			$cache
+			? $self->_is_id_used_in_batch( $table, $$id_ref, $cache )
+			: $self->_is_id_used( $table, $$id_ref )
+		);
 	}
 	return;
+}
+
+sub _show_preview {
+	my ( $self, $table, $record_count ) = @_;
+	return 1
+	  if $self->{'system'}->{'dbtype'} ne 'isolates'
+	  || $table ne 'isolates';
+	my $limit = $self->{'config'}->{'batch_isolate_preview_limit'} // 500;
+	if ( !BIGSdb::Utils::is_int($limit) || $limit < 0 ) {
+		$logger->error("Invalid batch_isolate_preview_limit '$limit' - using default of 500.");
+		$limit = 500;
+	}
+	return $record_count <= $limit ? 1 : 0;
 }
 
 sub _check_data {
 	my ( $self, $args ) = @_;
 	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
-	my $q = $self->{'cgi'};
+	my $id_cache = $table eq 'isolates' ? {} : undef;
+	my $q        = $self->{'cgi'};
 	if ( !$q->param('data') ) {
 		if ( defined $uploaded ) {
 			$q->param( 'data', $$uploaded );
@@ -480,22 +515,33 @@ sub _check_data {
 	}
 	my @checked_buffer;
 	my $fields = $self->_get_fields_in_order( $table, $locus );
+	my $set_id = $self->get_set_id;
 	my %last_id;
 	return if $self->sender_needed($args);
-	my $sender_message = $self->get_sender_message($args);
-	my $problems       = {};
-	my $advisories     = {};
-	my $table_header   = $self->_get_field_table_header($table);
-	my $tablebuffer    = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
-	my @records        = split /\n/x, $q->param('data');
-	my $td             = 1;
+	my $sender_message      = $self->get_sender_message($args);
+	my $diagnostics         = {};
+	my @records             = split /\n/x, $q->param('data');
+	my $original_line_count = scalar @records;
 	my ( $file_header_fields, $file_header_pos ) = $self->get_file_header_data( \@records );
+	my $source_row = $original_line_count - scalar @records;
+
+	# The header has already been removed from @records.
+	my $record_total = grep { /\S/x } @records;
+	my $show_preview = $self->_show_preview( $table, $record_total );
+
+	my $tablebuffer = q();
+	if ($show_preview) {
+		my $table_header = $self->_get_field_table_header($table);
+		$tablebuffer = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
+	}
+	my $td           = 1;
 	my $id           = $self->_get_id($table);
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
 	my $first_record = 1;
   RECORD: foreach my $record (@records) {
+		$source_row++;
 		$record =~ s/\r//gx;
 		next if $record =~ /^\s*$/x;
 		my $checked_record;
@@ -507,7 +553,7 @@ sub _check_data {
 				$table,
 				defined $file_header_pos->{'id'},
 				$args->{'uses_integer_id'},
-				$first_record, \$id
+				$first_record, \$id, $id_cache
 			);
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
 				{
@@ -521,66 +567,52 @@ sub _check_data {
 					record_count    => \$record_count
 				}
 			);
-			my $rowbuffer;
-			my $continue = 1;
-		  FIELD: foreach my $field (@$fields) {
+			my $isolate_name = q();
 
-				#Prepare checked header
-				if ( !$header_complete && ( defined $file_header_pos->{$field} || $field eq 'id' ) ) {
-					$header_row .= "$field\t";
+			if ( $table eq 'isolates' ) {
+				my $label_field = $self->{'system'}->{'labelfield'};
+
+				if ( defined $file_header_pos->{$label_field} ) {
+					$isolate_name = $data[ $file_header_pos->{$label_field} ] // q();
 				}
+			}
 
-				#Check individual values for correctness.
-				my $value = $self->extract_value(
-					{
-						field           => $field,
-						data            => \@data,
-						id              => $id,
-						file_header_pos => $file_header_pos,
-					}
-				);
-				my $special_problem;
-				my $new_args = {
+			local $self->{'batch_diagnostic_context'} = {
+				row          => $source_row,
+				isolate_name => $isolate_name
+			};
+
+			my $continue = 1;
+			my ( $checked_pk_combination, $checked_values, $rowbuffer ) = $self->_check_batch_record_fields(
+				{
+					table           => $table,
 					locus           => $locus,
-					field           => $field,
-					value           => \$value,
+					fields          => $fields,
 					file_header_pos => $file_header_pos,
 					data            => \@data,
+					id              => $id,
 					pk_combination  => $pk_combination,
-					problems        => $problems,
-					special_problem => \$special_problem,
+					header_complete => \$header_complete,
+					header_row      => \$header_row,
 					continue        => \$continue,
 					last_id         => \%last_id,
 					unique_field    => $unique_field,
-					advisories      => $advisories,
-				};
-				$self->check_data_duplicates($new_args);
-				$self->_run_table_specific_field_checks( $table, $new_args );
-				$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
-
-				#Display field - highlight in red if invalid.
-				$rowbuffer .= $self->format_display_value(
-					{
-						table           => $table,
-						field           => $field,
-						value           => $value,
-						problems        => $problems,
-						pk_combination  => $pk_combination,
-						special_problem => $special_problem
-					}
-				);
-				$value //= q();
-				$self->_run_table_specific_reformatting( $table, $new_args );
-				if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
-					$checked_record .= qq($value\t);
+					diagnostics     => $diagnostics,
+					show_preview    => $show_preview,
+					set_id          => $set_id,
 				}
-			}
+			);
+			$pk_combination = $checked_pk_combination;
+			$checked_record = $checked_values;
 			if ( !$continue ) {
 				undef $header_row if $first_record;
 				next;
 			}
-			my $row_buffer = qq(<tr class="td$td">$rowbuffer);
-			my $new_args   = {
+			my $row_buffer =
+			  $show_preview
+			  ? qq(<tr class="td$td">$rowbuffer)
+			  : q();
+			my $new_args = {
 				file_header_fields => $file_header_fields,
 				header_row         => \$header_row,
 				first_record       => $first_record,
@@ -591,29 +623,33 @@ sub _check_data {
 				primary_keys       => \@primary_keys,
 				pk_combination     => $pk_combination,
 				pk_values          => $pk_values_ref,
-				problems           => $problems,
-				advisories         => $advisories,
 				checked_record     => \$checked_record,
-				table              => $table
+				table              => $table,
+				diagnostics        => $diagnostics,
+				show_preview       => $show_preview
 			};
+
 			if ( $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'isolates' ) {
-				my %newdata             = map { $_ => $data[ $file_header_pos->{$_} ] } keys %$file_header_pos;
-				my $validation_failures = $self->{'submissionHandler'}->run_validation_checks( \%newdata );
-				if (@$validation_failures) {
-					foreach my $failure (@$validation_failures) {
-						$failure =~ s/\.?\s*$/. /x;
-						$problems->{$pk_combination} .= $failure;
+				my $extra_html = $self->_check_batch_isolate_record(
+					{
+						table           => $table,
+						data            => \@data,
+						file_header_pos => $file_header_pos,
+						pk_combination  => $pk_combination,
+						diagnostics     => $diagnostics,
+						record_args     => $new_args
 					}
-				}
-				$row_buffer .= $self->_isolate_record_further_checks( $table, $new_args, $advisories, $pk_combination );
+				);
+				$row_buffer .= $extra_html if $show_preview;
 			}
 			$header_complete = 1;
 			push @checked_buffer, $header_row if $first_record;
 			$first_record = 0;
-			$row_buffer .= qq(</tr>\n);
+			$row_buffer .= qq(</tr>\n) if $show_preview;
 
 			#Check for various invalid combinations of fields
-			if ( !$problems->{$pk_combination} ) {
+			my $has_errors = $self->_has_validation_message( $diagnostics, $pk_combination, 'error' );
+			if ( !$has_errors ) {
 				my $skip_record = 0;
 				try {
 					$self->_check_data_primary_key($new_args);
@@ -627,53 +663,8 @@ sub _check_data {
 				last FIELD  if !$continue;
 				next RECORD if $skip_record;
 			}
-			$tablebuffer .= $row_buffer;
-			my %record_checks = (
-				accession => sub {
-					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				sequence_refs => sub {
-					$self->_check_corresponding_sequence_exists( $pk_values_ref, $problems, $pk_combination );
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				sequence_extended_attributes => sub {
-					$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ],
-						$problems, $pk_combination );
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				loci => sub {
-					$self->_check_data_loci($new_args);
-				},
-				locus_descriptions => sub {
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				locus_links => sub {
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				retired_allele_ids => sub {
-					$self->check_permissions( $locus, $new_args, $problems, $pk_combination );
-				},
-				projects => sub {
-					$self->_check_projects( $new_args, $problems, $pk_combination );
-				},
-				classification_group_field_values => sub {
-					$self->_check_classification_field_values( $new_args, $problems, $pk_combination );
-				},
-				validation_conditions => sub {
-					$self->_check_validation_conditions( $new_args, $problems, $pk_combination );
-				},
-				isolate_field_extended_attributes => sub {
-					$self->_check_isolate_field_extended_attributes( $new_args, $problems, $pk_combination );
-				},
-				lincode_prefixes => sub {
-					$self->_check_lincode_prefix_values( $new_args, $problems, $pk_combination );
-				},
-				geography_point_lookup => sub {
-					$self->_check_geography_point_values( $new_args, $problems, $pk_combination );
-				}
-			);
-			$record_checks{$table}->() if $record_checks{$table};
+			$tablebuffer .= $row_buffer if $show_preview;
+			$self->_run_table_specific_record_checks( $table, $locus, $pk_values_ref, $new_args );
 		}
 		if ( defined $checked_record ) {
 			$td = $td == 1 ? 2 : 1;    #row stripes
@@ -681,7 +672,7 @@ sub _check_data {
 		}
 		push @checked_buffer, $checked_record;
 	}
-	$tablebuffer .= q(</table></div>);
+	$tablebuffer .= q(</table></div>) if $show_preview;
 	if ( !$record_count ) {
 		$self->print_bad_status(
 			{
@@ -696,13 +687,164 @@ sub _check_data {
 		{
 			table          => $table,
 			buffer         => \$tablebuffer,
-			problems       => $problems,
-			advisories     => $advisories,
 			checked_buffer => \@checked_buffer,
-			sender_message => \$sender_message
+			sender_message => \$sender_message,
+			show_preview   => $show_preview,
+			record_total   => $record_total,
+			diagnostics    => $diagnostics,
 		}
 	);
 	return;
+}
+
+sub _check_batch_record_fields {
+	my ( $self, $args ) = @_;
+	my ( $table, $locus, $fields, $file_header_pos, $data, $id, $diagnostics, $show_preview ) =
+	  @{$args}{qw(table locus fields file_header_pos data id diagnostics show_preview)};
+	my $pk_combination = $args->{'pk_combination'};
+	my ( $checked_record, $rowbuffer );
+	foreach my $field (@$fields) {
+
+		#Prepare checked header
+		if ( !${ $args->{'header_complete'} } && ( defined $file_header_pos->{$field} || $field eq 'id' ) ) {
+			${ $args->{'header_row'} } .= "$field\t";
+		}
+
+		#Check individual values for correctness.
+		my $value = $self->extract_value(
+			{
+				field           => $field,
+				data            => $data,
+				id              => $id,
+				file_header_pos => $file_header_pos,
+			}
+		);
+		my $special_problem;
+		my $new_args = {
+			locus           => $locus,
+			field           => $field,
+			value           => \$value,
+			file_header_pos => $file_header_pos,
+			data            => $data,
+			pk_combination  => $pk_combination,
+			special_problem => \$special_problem,
+			continue        => $args->{'continue'},
+			last_id         => $args->{'last_id'},
+			unique_field    => $args->{'unique_field'},
+			diagnostics     => $diagnostics
+		};
+		$self->check_data_duplicates($new_args);
+		$self->_run_table_specific_field_checks( $table, $new_args );
+		$pk_combination = $new_args->{'pk_combination'} // $pk_combination;
+
+		#Validate field independently of HTML formatting.
+		my $problem = $self->check_field_bad(
+			{
+				table          => $table,
+				field          => $field,
+				value          => $value,
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				set_id         => $args->{'set_id'}
+			}
+		);
+
+		$self->record_field_problem( $field, $problem, $pk_combination, $diagnostics );
+
+		#Display field only when generating a preview.
+		if ($show_preview) {
+			$rowbuffer .= $self->format_display_value(
+				{
+					table           => $table,
+					field           => $field,
+					value           => $value,
+					problem         => $problem,
+					special_problem => $special_problem
+				}
+			);
+		}
+		$value //= q();
+		$self->_run_table_specific_reformatting( $table, $new_args );
+		if ( defined $file_header_pos->{$field} || ( $field eq 'id' ) ) {
+			$checked_record .= qq($value\t);
+		}
+	}
+	return ( $pk_combination, $checked_record, $rowbuffer );
+}
+
+sub _run_table_specific_record_checks {
+	my ( $self, $table, $locus, $pk_values_ref, $args ) = @_;
+	return if $table eq 'isolates';
+	my %record_checks = (
+		accession => sub {
+			$self->_check_corresponding_sequence_exists( $pk_values_ref, $args );
+			$self->check_permissions( $locus, $args );
+		},
+		sequence_refs => sub {
+			$self->_check_corresponding_sequence_exists( $pk_values_ref, $args );
+			$self->check_permissions( $locus, $args );
+		},
+		profile_refs => sub {
+			$self->_check_corresponding_profile_exists($args);
+		},
+		sequence_extended_attributes => sub {
+			$self->_check_corresponding_sequence_exists( [ $pk_values_ref->[0], $pk_values_ref->[2] ], $args );
+			$self->check_permissions( $locus, $args );
+		},
+		loci => sub {
+			$self->_check_data_loci($args);
+		},
+		locus_descriptions => sub {
+			$self->check_permissions( $locus, $args );
+		},
+		locus_links => sub {
+			$self->check_permissions( $locus, $args );
+		},
+		retired_allele_ids => sub {
+			$self->check_permissions( $locus, $args );
+		},
+		projects => sub {
+			$self->_check_projects($args);
+		},
+		classification_group_field_values => sub {
+			$self->_check_classification_field_values($args);
+		},
+		validation_conditions => sub {
+			$self->_check_validation_conditions($args);
+		},
+		isolate_field_extended_attributes => sub {
+			$self->_check_isolate_field_extended_attributes($args);
+		},
+		lincode_prefixes => sub {
+			$self->_check_lincode_prefix_values($args);
+		},
+		geography_point_lookup => sub {
+			$self->_check_geography_point_values($args);
+		}
+	);
+	$record_checks{$table}->() if $record_checks{$table};
+	return;
+}
+
+sub _check_batch_isolate_record {
+	my ( $self, $args ) = @_;
+	my ( $table, $data, $file_header_pos, $pk_combination, $diagnostics, $record_args ) =
+	  @{$args}{qw(table data file_header_pos pk_combination diagnostics record_args)};
+
+	my %newdata             = map { $_ => $data->[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+	my $validation_failures = $self->{'submissionHandler'}->run_validation_checks( \%newdata );
+	foreach my $failure (@$validation_failures) {
+		$failure =~ s/\.?\s*$/. /x;
+		$self->record_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				message        => $failure,
+				type           => 'error'
+			}
+		);
+	}
+	return $self->_isolate_record_further_checks( $table, $record_args, $pk_combination, $diagnostics );
 }
 
 sub _is_over_quota {
@@ -748,7 +890,7 @@ sub _is_over_quota {
 }
 
 sub _isolate_record_further_checks {
-	my ( $self, $table, $args, $advisories, $pk_combination ) = @_;
+	my ( $self, $table, $args, $pk_combination, $diagnostics ) = @_;
 	return q() if $table ne 'isolates';
 	if ( !$self->{'cache'}->{'label_field_values'} ) {
 		$self->{'cache'}->{'label_field_values'} = $self->_get_existing_label_field_values;
@@ -763,24 +905,94 @@ sub _isolate_record_further_checks {
 		&& $self->{'cache'}->{'label_field_values'}
 		->{ $data->[ $args->{'file_header_pos'}->{ $self->{'system'}->{'labelfield'} } ] } )
 	{
-		$advisories->{$pk_combination} .= "$self->{'system'}->{'labelfield'} "
+		my $message = "$self->{'system'}->{'labelfield'} "
 		  . "'$data->[$args->{'file_header_pos'}->{$self->{'system'}->{'labelfield'}}]' already exists in the database.";
+		$self->record_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => $self->{'system'}->{'labelfield'},
+				message        => $message,
+				type           => 'advisory'
+			}
+		);
 	}
 
 	#Check if aliases list has commas in it
 	if ( defined $args->{'file_header_pos'}->{'aliases'}
 		&& ( $data->[ $args->{'file_header_pos'}->{'aliases'} ] // q() ) =~ /,/x )
 	{
-		$advisories->{$pk_combination} .= 'Alias list should be separated by semi-colons (;). '
+		my $message = 'Alias list should be separated by semi-colons (;). '
 		  . 'Commas included in this field will be assumed to be part of an alias name.';
+		$self->record_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => 'aliases',
+				message        => $message,
+				type           => 'advisory'
+			}
+		);
 	}
 	return $buffer;
 }
 
+sub record_validation_message {
+	my ( $self, $args ) = @_;
+	my ( $diagnostics, $pk_combination, $field, $message, $type ) =
+	  @{$args}{qw(diagnostics pk_combination field message type)};
+	return if !defined $message || $message eq q();
+	$type //= 'error';
+	my $diagnostic = {
+		type    => $type,
+		message => $message
+	};
+	$diagnostic->{'field'} = $field if defined $field;
+	if ( my $context = $self->{'batch_diagnostic_context'} ) {
+		$diagnostic->{'row'}          = $context->{'row'};
+		$diagnostic->{'isolate_name'} = $context->{'isolate_name'};
+	}
+	push @{ $diagnostics->{$pk_combination} }, $diagnostic;
+	return;
+}
+
+sub _has_validation_message {
+	my ( $self, $diagnostics, $pk_combination, $type ) = @_;
+	foreach my $diagnostic ( @{ $diagnostics->{$pk_combination} // [] } ) {
+		return 1 if $diagnostic->{'type'} eq $type;
+	}
+	return 0;
+}
+
+sub _format_validation_message {
+	my ( $self, $diagnostic ) = @_;
+	my $message = BIGSdb::Utils::escape_html( $diagnostic->{'message'} );
+	return ucfirst($message);
+}
+
+sub record_field_problem {
+	my ( $self, $field, $problem, $pk_combination, $diagnostics ) = @_;
+	return if !$problem;
+	my $already_reported =
+	  grep { ( $_->{'type'} // q() ) eq 'error' && ( $_->{'field'} // q() ) eq $field && $_->{'message'} eq $problem }
+	  @{ $diagnostics->{$pk_combination} // [] };
+	if ( !$already_reported ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $diagnostics,
+				pk_combination => $pk_combination,
+				field          => $field,
+				message        => $problem
+			}
+		);
+	}
+	return;
+}
+
 sub format_display_value {
 	my ( $self, $args ) = @_;
-	my ( $table, $field, $value, $problems, $pk_combination, $special_problem ) =
-	  @{$args}{qw(table field value problems pk_combination special_problem)};
+	my ( $table, $field, $value, $problem, $special_problem ) =
+	  @{$args}{qw(table field value problem special_problem)};
 	$value //= '';
 	my $display_value;
 	if ( $field =~ /sequence/ && $field ne 'coding_sequence' && $field ne 'sequence_method' ) {
@@ -791,7 +1003,6 @@ sub format_display_value {
 		$display_value = BIGSdb::Utils::escape_html($display_value);
 	}
 	my $buffer;
-	my $problem = $self->_check_field_bad( $table, $field, $value, $problems, $pk_combination );
 	if ( !( $problem || $special_problem ) ) {
 		if ( $table eq 'sequences' && $field eq 'flags' ) {
 			my @flags = split /;/x, ( $display_value // q() );
@@ -801,159 +1012,217 @@ sub format_display_value {
 		$buffer = qq(<td>$display_value</td>);
 	} else {
 		$buffer = qq(<td><font color="red">$display_value</font></td>);
-		if ($problem) {
-			$problem = BIGSdb::Utils::escape_html($problem);
-			my $problem_text = qq($field $problem<br />);
-			if ( !defined $problems->{$pk_combination} || $problems->{$pk_combination} !~ /$problem_text/x ) {
-				$problems->{$pk_combination} .= $problem_text;
-			}
-		}
 	}
 	return $buffer;
 }
 
-sub _check_field_bad {
-	my ( $self, $table, $field, $value, $problems, $pk_combination ) = @_;
-	return if ( $table eq 'sequences' && $field eq 'allele_id' && defined $problems->{$pk_combination} );
-	my $set_id = $self->get_set_id;
+sub check_field_bad {
+	my ( $self, $args ) = @_;
+	my ( $table, $field, $value, $diagnostics, $pk_combination ) =
+	  @{$args}{qw(table field value diagnostics pk_combination)};
+	return
+		 if $table eq 'sequences'
+	  && $field eq 'allele_id'
+	  && $self->_has_validation_message( $diagnostics, $pk_combination, 'error' );
+	my $set_id = exists $args->{'set_id'} ? $args->{'set_id'} : $self->get_set_id;
 	return $self->{'submissionHandler'}->is_field_bad( $table, $field, $value, 'insert', $set_id );
 }
 
 sub _check_projects {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my $data    = $args->{'data'};
-	my $list    = $data->[ $args->{'file_header_pos'}->{'list'} ];
-	my $private = $data->[ $args->{'file_header_pos'}->{'private'} ];
-	my %true    = map { $_ => 1 } qw(true 1);
-	if ( $true{ lc $private } && $true{ lc $list } ) {
-		$problems->{$pk_combination} .=
-		  'You cannot make a project both private and list it on the projects or isolate information pages. ';
-	}
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my $list            = $data->[ $file_header_pos->{'list'} ];
+	my $private         = $data->[ $file_header_pos->{'private'} ];
+	return if !defined $list || !defined $private;
+	my %true = map { $_ => 1 } qw(true 1);
+	return if !$true{ lc $private } || !$true{ lc $list };
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'private',
+			message        =>
+			  'You cannot make a project both private and list it on the projects or isolate information pages.'
+		}
+	);
 	return;
 }
 
 sub _check_classification_field_values {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	if (
-		!$self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?))',
-			[ $data->[ $file_header_pos->{'cg_scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ]
-		)
-	  )
-	{
-		$problems->{$pk_combination} .= q(Selected field has not been defined for the selected classification scheme.);
-	}
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my $scheme_id       = $data->[ $file_header_pos->{'cg_scheme_id'} ];
+	my $field           = $data->[ $file_header_pos->{'field'} ];
+	my $value           = $data->[ $file_header_pos->{'value'} ];
+	return if !BIGSdb::Utils::is_int($scheme_id);
+
 	my $format = $self->{'datastore'}->run_query(
 		'SELECT type,value_regex FROM classification_group_fields WHERE (cg_scheme_id,field)=(?,?)',
-		[ $data->[ $file_header_pos->{'cg_scheme_id'} ], $data->[ $file_header_pos->{'field'} ] ],
+		[ $scheme_id, $field ],
 		{ fetch => 'row_hashref' }
 	);
-	return if !$format;
-	if ( $format->{'type'} eq 'integer'
-		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
-	{
-		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
-	} elsif ( $format->{'value_regex'} && $data->[ $file_header_pos->{'value'} ] !~ /$format->{'value_regex'}/x ) {
-		$problems->{$pk_combination} .=
-			"$data->[$file_header_pos->{'field'}] value is invalid - "
-		  . "it must match the regular expression /$format->{'value_regex'}/.";
+	my $message;
+	my $problem_field;
+	if ( !$format ) {
+		$problem_field = 'field';
+		$message       = 'Selected field has not been defined for the selected classification scheme.';
+	} elsif ( $format->{'type'} eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+		$problem_field = 'value';
+		$message       = "$field must be an integer.";
+	} elsif ( $format->{'value_regex'} && defined $value && $value !~ /$format->{'value_regex'}/x ) {
+		$problem_field = 'value';
+		$message       = "$field value is invalid - it must match the regular expression /$format->{'value_regex'}/.";
 	}
+	return if !defined $message;
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $problem_field,
+			message        => $message
+		}
+	);
 	return;
 }
 
 sub _check_lincode_prefix_values {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	my $scheme_id = $data->[ $file_header_pos->{'scheme_id'} ];
-	my $type      = $self->{'datastore'}->run_query(
-		'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)',
-		[ $scheme_id, $data->[ $file_header_pos->{'field'} ] ]
-	);
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my $scheme_id       = $data->[ $file_header_pos->{'scheme_id'} ];
+	my $field           = $data->[ $file_header_pos->{'field'} ];
+	my $value           = $data->[ $file_header_pos->{'value'} ];
+	return if !BIGSdb::Utils::is_int($scheme_id);
+	my $type = $self->{'datastore'}
+	  ->run_query( 'SELECT type FROM lincode_fields WHERE (scheme_id,field)=(?,?)', [ $scheme_id, $field ] );
+	my ( $problem_field, $message );
+
 	if ( !defined $type ) {
-		$problems->{$pk_combination} .=
-		  "Field $data->[$file_header_pos->{'field'}] is not a valid field for this scheme.";
-	} elsif ( $type eq 'integer'
-		&& !BIGSdb::Utils::is_int( $data->[ $file_header_pos->{'value'} ] ) )
+		$problem_field = 'field';
+		$message       = "Field $field is not a valid field for this scheme.";
+	} elsif ( $type eq 'integer' && !BIGSdb::Utils::is_int($value) ) {
+		$problem_field = 'value';
+		$message       = "$field must be an integer.";
+	} elsif ( !$self->is_admin
+		&& !$self->{'datastore'}->is_scheme_curator( $scheme_id, $self->get_curator_id ) )
 	{
-		$problems->{$pk_combination} .= "$data->[$file_header_pos->{'field'}] must be an integer.";
-	} elsif ( !$self->is_admin ) {
-		if (
-			!$self->{'datastore'}->run_query(
-				'SELECT EXISTS(SELECT * FROM scheme_curators WHERE (scheme_id,curator_id)=(?,?))',
-				[ $scheme_id, $self->get_curator_id ]
-			)
-		  )
-		{
-			$problems->{$pk_combination} .= 'You are not a curator for this scheme.';
-		}
+		$problem_field = 'scheme_id';
+		$message       = 'You are not a curator for this scheme.';
 	}
+	return if !defined $message;
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $problem_field,
+			message        => $message
+		}
+	);
 	return;
 }
 
 sub _check_geography_point_values {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	my $location = $data->[ $file_header_pos->{'location'} ];
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my $location        = $data->[ $file_header_pos->{'location'} ];
+	my $field           = $data->[ $file_header_pos->{'field'} ];
+	return if !defined $location;
+	my $message;
 	if ( $location =~ /^\s*(\-?\d+\.?\d*)\s*,\s*(\-?\d+\.?\d*)\s*$/x ) {
 		my ( $lat, $long ) = ( $1, $2 );
 		if ( $lat < -90 || $lat > 90 || $long < -180 || $long > 180 ) {
-			$problems->{$pk_combination} .= qq('$data->[$file_header_pos->{'field'}]' latitude must be in the )
-			  . q(range: -90 - 90; longitude must be in the range: -180 - 180 );
+			$message =
+			  qq('$field' latitude must be in the range: -90 - 90; ) . q(longitude must be in the range: -180 - 180);
 		}
 	} else {
-		$problems->{$pk_combination} .=
-		  "$data->[$file_header_pos->{'field'}] should be in the format '[Latitude], [Longitude]'.";
+		$message = "$field should be in the format '[Latitude], [Longitude]'.";
 	}
+	return if !defined $message;
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'location',
+			message        => $message
+		}
+	);
 	return;
 }
 
 sub _check_validation_conditions {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	my %newdata = map { $_ => $data->[ $file_header_pos->{$_} ] } keys %$file_header_pos;
-	return if !defined $newdata{'field'};
-	if ( $newdata{'value'} eq 'null' ) {
-		if ( $newdata{'operator'} ne '=' && $newdata{'operator'} ne 'NOT' ) {
-			$problems->{$pk_combination} .= qq(The operator '$newdata{'operator'}' cannot be used for null values.);
-		}
-		return;
-	}
-	my $field_type = $self->get_field_type( $newdata{'field'} );
-	if ( $newdata{'value'} =~ /^\[(.+)\]$/x ) {
-		my $comp_field      = $1;
-		my $comp_field_type = $self->get_field_type($comp_field);
-		if ( !$comp_field_type ) {
-			$problems->{$pk_combination} .= qq(Comparison field '$comp_field' is not recognized.);
-			return;
+	my ( $self, $args ) = @_;
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	my %condition       = map { $_ => $data->[ $file_header_pos->{$_} ] } keys %$file_header_pos;
+	return if !defined $condition{'field'};
+	return if !defined $condition{'value'};
+	my $message;
+	if ( $condition{'value'} eq 'null' ) {
+		$message = $self->_check_null_validation_condition( \%condition );
+	} else {
+		my $field_type = $self->get_field_type( $condition{'field'} );
+		return if !defined $field_type;
+
+		if ( $condition{'value'} =~ /^\[(.+)\]$/x ) {
+			$message = $self->_check_field_comparison_condition( \%condition, $field_type, $1 );
 		} else {
-			if ( lc( substr( $field_type, 0, 3 ) ) ne lc( substr( $comp_field_type, 0, 3 ) ) ) {
-				$problems->{$pk_combination} .=
-					qq(Comparison field '$comp_field' has a different data type )
-				  . qq(from '$newdata{'field'}' so cannot be compared.);
-				return;
-			}
+			$message = $self->_check_literal_validation_condition( \%condition, $field_type );
 		}
-		return;
 	}
-	if ( lc($field_type) =~ /^int/x && !BIGSdb::Utils::is_int( $newdata{'value'} ) ) {
-		$problems->{$pk_combination} .= qq('$newdata{'field'}' is an integer field.);
-	}
-	if ( lc($field_type) eq 'date' && !BIGSdb::Utils::is_date( $newdata{'value'} ) ) {
-		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a date field.);
-	}
-	if ( lc($field_type) eq 'float' && !BIGSdb::Utils::is_float( $newdata{'value'} ) ) {
-		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a float field.);
-	}
-	if ( lc($field_type) =~ /^bool/x && !BIGSdb::Utils::is_bool( $newdata{'value'} ) ) {
-		$problems->{$pk_combination} .= qq('$newdata{'field'}' is a boolean field.);
+	return if !defined $message;
+	my $problem_field = $condition{'value'} eq 'null' ? 'operator' : 'value';
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $problem_field,
+			message        => $message
+		}
+	);
+	return;
+}
+
+sub _check_null_validation_condition {
+	my ( $self, $condition ) = @_;
+	my $operator = $condition->{'operator'} // q();
+	return if $operator eq '=' || $operator eq 'NOT';
+	return "The operator '$operator' cannot be used for null values.";
+}
+
+sub _check_field_comparison_condition {
+	my ( $self, $condition, $field_type, $comp_field ) = @_;
+	my $comp_field_type = $self->get_field_type($comp_field);
+	return "Comparison field '$comp_field' is not recognized."
+	  if !$comp_field_type;
+	if ( lc( substr( $field_type, 0, 3 ) ) ne lc( substr( $comp_field_type, 0, 3 ) ) ) {
+		return "Comparison field '$comp_field' has a different data type "
+		  . "from '$condition->{'field'}' so cannot be compared.";
 	}
 	return;
 }
 
+sub _check_literal_validation_condition {
+	my ( $self, $condition, $field_type ) = @_;
+	my $field = $condition->{'field'};
+	my $value = $condition->{'value'};
+	my $type  = lc($field_type);
+	return "'$field' is an integer field."
+	  if $type =~ /^int/x && !BIGSdb::Utils::is_int($value);
+	return "'$field' is a date field."
+	  if $type eq 'date' && !BIGSdb::Utils::is_date($value);
+	return "'$field' is a float field."
+	  if $type eq 'float' && !BIGSdb::Utils::is_float($value);
+	return "'$field' is a boolean field."
+	  if $type =~ /^bool/x && !BIGSdb::Utils::is_bool($value);
+	return;
+}
+
 sub check_permissions {
-	my ( $self, $locus, $args, $problems, $pk_combination ) = @_;
-	return if !$self->{'system'}->{'dbtype'} eq 'sequences';
+	my ( $self, $locus, $args ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	return if $self->is_admin;
 	my $data = $args->{'data'};
 	if (  !defined $locus
@@ -962,81 +1231,103 @@ sub check_permissions {
 	{
 		$locus = $data->[ $args->{'file_header_pos'}->{'locus'} ];
 	}
+
 	if ( defined $locus
 		&& !$self->{'datastore'}->is_allowed_to_modify_locus_sequences( $locus, $self->get_curator_id ) )
 	{
-		$problems->{$pk_combination} .= "Your user account is not allowed to add or modify records for locus $locus. ";
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'locus',
+				message        => "Your user account is not allowed to add or modify records for locus $locus."
+			}
+		);
 	}
 	return;
 }
 
 sub _check_corresponding_sequence_exists {
-	my ( $self, $pk_values_ref, $problems, $pk_combination ) = @_;
+	my ( $self, $pk_values_ref, $args ) = @_;
 	return if $self->{'system'}->{'dbtype'} ne 'sequences';
 	return if !defined $pk_values_ref->[0];
 	return if !defined $pk_values_ref->[1];
 	if ( !$self->{'datastore'}->sequence_exists(@$pk_values_ref) ) {
-		$problems->{$pk_combination} .= "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist. ";
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'allele_id',
+				message        => "Sequence $pk_values_ref->[0]-$pk_values_ref->[1] does not exist."
+			}
+		);
+	}
+	return;
+}
+
+sub _check_corresponding_profile_exists {
+	my ( $self, $args ) = @_;
+	return if $self->{'system'}->{'dbtype'} ne 'sequences';
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+	return if !defined $file_header_pos->{'scheme_id'};
+	return if !defined $file_header_pos->{'profile_id'};
+	my $scheme_id  = $data->[ $file_header_pos->{'scheme_id'} ];
+	my $profile_id = $data->[ $file_header_pos->{'profile_id'} ];
+
+	return if !defined $scheme_id || !defined $profile_id;
+	return if $scheme_id eq q()   || $profile_id eq q();
+
+	if ( !$self->{'datastore'}->profile_exists( $scheme_id, $profile_id ) ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'profile_id',
+				message        => "Profile $profile_id does not exist."
+			}
+		);
 	}
 	return;
 }
 
 sub _check_isolate_field_extended_attributes {
-	my ( $self, $args, $problems, $pk_combination ) = @_;
-	my ( $data, $file_header_pos ) = ( $args->{'data'}, $args->{'file_header_pos'} );
-	if ( $self->{'xmlHandler'}->is_field( $data->[ $file_header_pos->{'attribute'} ] ) ) {
-		$problems->{$pk_combination} .= 'A standard field already exists with this name.';
-	}
+	my ( $self, $args ) = @_;
+	my $file_header_pos = $args->{'file_header_pos'};
+	return if !defined $file_header_pos->{'attribute'};
+	my $attribute = $args->{'data'}->[ $file_header_pos->{'attribute'} ];
+	return if !defined $attribute;
+	return if !$self->{'xmlHandler'}->is_field($attribute);
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'attribute',
+			message        => 'A standard field already exists with this name.'
+		}
+	);
 	return;
 }
 
 sub _run_table_specific_field_checks {
 	my ( $self, $table, $new_args ) = @_;
-	my %further_checks = (
-		allele_designations => sub {
-			$self->_check_data_allele_designations($new_args);
-		},
-		users => sub {
-			$self->_check_data_users($new_args);
-		},
-		scheme_group_group_members => sub {
-			$self->_check_data_scheme_group_group_members($new_args);
-		},
-		isolates => sub {
-			$self->_check_data_refs($new_args);
-			$self->_check_data_codon_table($new_args);
-			$self->_check_data_aliases($new_args);
-			$self->_check_isolate_id_not_retired($new_args);
-		},
-		scheme_fields => sub {
-			$self->_check_data_scheme_fields($new_args);
-		},
-		isolate_aliases => sub {
-			$self->_check_data_isolate_aliases($new_args);
-		},
-		retired_allele_ids => sub {
-			$self->_check_retired_allele_ids($new_args);
-		},
-		retired_profiles => sub {
-			$self->_check_retired_profile_id($new_args);
-		},
-		retired_isolates => sub {
-			$self->_check_retired_isolate_id($new_args);
-		},
-		classification_group_fields => sub {
-			$self->_check_data_scheme_fields($new_args);
-		},
-		peptide_mutations => sub {
-			$self->_check_mutation_fields( $new_args, 'peptide' );
-		},
-		dna_mutations => sub {
-			$self->_check_mutation_fields( $new_args, 'dna' );
-		},
-		schemes => sub {
-			$self->_check_schemes($new_args);
-		}
-	);
-	$further_checks{$table}->() if $further_checks{$table};
+	if ( $table eq 'isolates' ) {
+		$self->_check_data_refs($new_args);
+		$self->_check_data_codon_table($new_args);
+		$self->_check_data_aliases($new_args);
+		return;
+	}
+	my $method = $FIELD_CHECKS{$table};
+	return if !$method;
+	if ( $table eq 'classification_group_fields' ) {
+		return if $new_args->{'field'} ne 'field';
+	}
+	if ( $table eq 'peptide_mutations' || $table eq 'dna_mutations' ) {
+		my $type = $table eq 'peptide_mutations' ? 'peptide' : 'dna';
+		$self->$method( $new_args, $type );
+		return;
+	}
+	$self->$method($new_args);
 	return;
 }
 
@@ -1126,66 +1417,296 @@ sub _get_existing_label_field_values {
 	return \%hash;
 }
 
+sub _write_validation_report {
+	my ( $self, $diagnostics ) = @_;
+	my $label_field = ucfirst( $self->{'system'}->{'labelfield'} // 'isolate' );
+	my $filename    = BIGSdb::Utils::get_random() . '_validation.tsv';
+	my $path        = "$self->{'config'}->{'tmp_dir'}/$filename";
+	open( my $fh, '>:encoding(UTF-8)', $path )
+	  or do {
+		$logger->error("Cannot create validation report $path: $!");
+		return;
+	  };
+
+	my $ok = eval {
+		say $fh qq(Row\t$label_field\tPrimary key\tType\tField\tMessage)
+		  or $logger->logdie("Cannot write validation report header: $!");
+		my @report_rows;
+		foreach my $id ( keys %$diagnostics ) {
+			foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
+				push @report_rows,
+				  {
+					pk         => $id,
+					diagnostic => $diagnostic
+				  };
+			}
+		}
+		@report_rows =
+		  sort { ( $a->{'diagnostic'}->{'row'} // 0 ) <=> ( $b->{'diagnostic'}->{'row'} // 0 ) } @report_rows;
+		foreach my $report_row (@report_rows) {
+			my $id = $report_row->{'pk'};
+			$id =~ s/:\s+(\d+)/: $1/gx;
+			my $diagnostic = $report_row->{'diagnostic'};
+
+			my @values = (
+				$diagnostic->{'row'}          // q(),
+				$diagnostic->{'isolate_name'} // q(),
+				$id,
+				ucfirst( $diagnostic->{'type'} // 'error' ),
+				$diagnostic->{'field'} // q(),
+				ucfirst( $diagnostic->{'message'} // q() )
+			);
+			foreach my $value (@values) {
+				$value =~ s/[\t\r\n]+/ /gx;
+
+				# Prevent spreadsheet formula evaluation.
+				$value = q(') . $value if $value =~ /^[=+\-@\t\r]/x;
+			}
+
+			local $" = qq(\t);
+			say $fh qq(@values)
+			  or $logger->logdie("Cannot write validation report row: $!");
+		}
+		1;
+	};
+
+	my $error  = $@;
+	my $closed = close $fh;
+	if ( !$ok || !$closed ) {
+		$logger->error( "Cannot write validation report $path: " . ( $error || $! ) );
+		unlink $path;
+		return;
+	}
+	my $excel_path = BIGSdb::Utils::text2excel(
+		$path,
+		{
+			field_options => {
+				$label_field => { align => 'left' },
+				Message      => { align => 'left' }
+			}
+		}
+	);
+	my $excel_file;
+	if ( defined $excel_path && -e $excel_path ) {
+		($excel_file) = $excel_path =~ /([^\/]+)$/x;
+	}
+	return {
+		text  => $filename,
+		excel => $excel_file
+	};
+}
+
+sub _print_structured_diagnostics {
+	my ( $self, $diagnostics, $type ) = @_;
+	say q(<table class="resultstable">);
+	say q(<tr><th>Primary key</th><th>Type</th><th>Field</th><th>Message</th></tr>);
+	my $td = 1;
+	foreach my $id ( sort keys %$diagnostics ) {
+		my $display_id = BIGSdb::Utils::escape_html($id);
+
+		foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
+			next if $diagnostic->{'type'} ne $type;
+
+			my $field   = BIGSdb::Utils::escape_html( $diagnostic->{'field'} // q() );
+			my $message = $self->_format_validation_message($diagnostic);
+			my $label   = ucfirst($type);
+
+			say qq(<tr class="td$td"><td>$display_id</td><td>$label</td>)
+			  . qq(<td>$field</td><td style="text-align:left">$message</td></tr>);
+
+			$td = $td == 1 ? 2 : 1;
+		}
+	}
+	say q(</table>);
+	return;
+}
+
+sub _print_duplicate_isolate_advisory {
+	my ( $self, $diagnostics ) = @_;
+
+	my $label_field = $self->{'system'}->{'labelfield'};
+
+	foreach my $id ( keys %$diagnostics ) {
+		foreach my $diagnostic ( @{ $diagnostics->{$id} } ) {
+			next if $diagnostic->{'type'} ne 'advisory';
+			next if ( $diagnostic->{'field'} // q() ) ne $label_field;
+			next if $diagnostic->{'message'} !~ /already\sexists\sin\sthe\sdatabase/x;
+
+			say q(<p>)
+			  . ucfirst($label_field)
+			  . q( names are not guaranteed to be unique so this alone may not be enough to prevent upload, )
+			  . q(but please check if there are public records from the same country and/or submitting laboratory )
+			  . q(with the same names as these are likely to be duplicates.</p>);
+			return;
+		}
+	}
+	return;
+}
+
+sub _print_batch_import_form {
+	my ( $self, $checked_buffer, $table ) = @_;
+	my $q        = $self->{'cgi'};
+	my $filename = $self->make_temp_file(@$checked_buffer);
+	say $q->start_form;
+	say $q->hidden($_) foreach qw(
+	  page table db sender locus ignore_existing
+	  submission_id project_id private user_header
+	);
+
+	$self->_print_submission_embargo_fieldset($table);
+	say $q->hidden( checked_buffer => $filename );
+	$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
+	say $q->end_form;
+	return;
+}
+
+sub _print_batch_import_preview {
+	my ( $self, $args ) = @_;
+	my ( $buffer, $show_preview, $record_total ) =
+	  @{$args}{qw(buffer show_preview record_total)};
+	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
+	if ($show_preview) {
+		say q(<p>The following table shows your data.  Any field with red text has a )
+		  . q(problem and needs to be checked.</p>);
+		say $$buffer;
+	} else {
+		my $plural = $record_total == 1 ? q() : q(s);
+		say qq(<p>$record_total record$plural submitted for validation.</p>);
+		my $limit = $self->{'config'}->{'batch_isolate_preview_limit'};
+		if ( BIGSdb::Utils::is_int($limit) && $limit != 0 ) {
+			say q(<p>The data preview has been omitted because the number of records )
+			  . q(exceeds the configured preview limit.</p>);
+		}
+	}
+	say q(</div>);
+	return;
+}
+
+sub _print_batch_validation_errors {
+	my ( $self, $args ) = @_;
+	say q(<div class="box" id="statusbad"><h2>Import status</h2>);
+	if ( $args->{'large_isolate_import'} ) {
+		say q(<p>Problems were identified in the submitted data. The import cannot proceed.</p>);
+		$self->_print_validation_report_link( $args->{'report_files'} );
+	} else {
+		$self->_print_structured_diagnostics( $args->{'diagnostics'}, 'error' );
+	}
+	say q(</div>);
+	return;
+}
+
+sub _print_batch_validation_advisories {
+	my ( $self, $args ) = @_;
+	if ( $args->{'large_isolate_import'} ) {
+		say q(<p>Data can be uploaded, but validation advisories were identified. )
+		  . q(Please review the downloadable report before proceeding.</p>);
+		$self->_print_validation_report_link( $args->{'report_files'} );
+		return;
+	}
+	say q(<p>Data can be uploaded but please note the following advisories:</p>);
+	$self->_print_structured_diagnostics( $args->{'diagnostics'}, 'advisory' );
+	$self->_print_duplicate_isolate_advisory( $args->{'diagnostics'} )
+	  if $args->{'table'} eq 'isolates';
+	return;
+}
+
+sub _get_batch_validation_status {
+	my ( $self, $args ) = @_;
+	my $diagnostics = $args->{'diagnostics'};
+	my $has_errors =
+	  grep { $self->_has_validation_message( $diagnostics, $_, 'error' ) } keys %$diagnostics;
+	my $has_advisories =
+	  grep { $self->_has_validation_message( $diagnostics, $_, 'advisory' ) } keys %$diagnostics;
+	return {
+		has_errors     => $has_errors     ? 1 : 0,
+		has_advisories => $has_advisories ? 1 : 0
+	};
+}
+
 sub _report_check {
 	my ( $self, $data ) = @_;
-	my ( $table, $buffer, $problems, $advisories, $checked_buffer, $sender_message ) =
-	  @{$data}{qw (table buffer problems advisories checked_buffer sender_message)};
+	my ( $table, $buffer, $checked_buffer, $sender_message, $show_preview, $record_total ) =
+	  @{$data}{qw(table buffer checked_buffer sender_message show_preview record_total)};
+	my $diagnostics    = $data->{'diagnostics'} // {};
+	my $status         = $self->_get_batch_validation_status( { diagnostics => $diagnostics } );
+	my $has_errors     = $status->{'has_errors'};
+	my $has_advisories = $status->{'has_advisories'};
+
 	if ( !@$checked_buffer ) {
 		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
 		say q(<p>No valid records to upload after filtering.</p></div>);
 		return;
 	}
-	my $q = $self->{'cgi'};
-	if (%$problems) {
-		say q(<div class="box" id="statusbad"><h2>Import status</h2>);
-		say q(<table class="resultstable">);
-		say q(<tr><th>Primary key</th><th>Problem(s)</th></tr>);
-		my $td = 1;
-		foreach my $id ( sort keys %$problems ) {
-			my $display_id = BIGSdb::Utils::escape_html($id);
-			$problems->{$id} =~ s/'null'/<em>null<\/em>/gx;
-			say qq(<tr class="td$td"><td>$display_id</td><td style="text-align:left">$problems->{$id}</td></tr>);
-			$td = $td == 1 ? 2 : 1;    #row stripes
-		}
-		say q(</table></div>);
+	my $large_isolate_import = $table eq 'isolates' && !$show_preview;
+	my $report_files;
+
+	if ( $large_isolate_import && ( $has_errors || $has_advisories ) ) {
+		$report_files = $self->_write_validation_report($diagnostics);
+	}
+	if ($has_errors) {
+		$self->_print_batch_validation_errors(
+			{
+				large_isolate_import => $large_isolate_import,
+				diagnostics          => $diagnostics,
+				report_files         => $report_files
+			}
+		);
 	} else {
 		say qq(<div class="box" id="resultspanel"><h2>Import status</h2>$$sender_message);
-		if (%$advisories) {
-			say q(<p>Data can be uploaded but please note the following advisories:</p>);
-			say q(<table class="resultstable">);
-			say q(<tr><th>Primary key</th><th>Note(s)</th></tr>);
-			my $td = 1;
-			my $dup_isolate;
-			foreach my $id ( sort keys %$advisories ) {
-				say qq(<tr class="td$td"><td>$id</td><td style="text-align:left">$advisories->{$id}</td></tr>);
-				$td          = $td == 1 ? 2 : 1;    #row stripes
-				$dup_isolate = 1 if $advisories->{$id} =~ /$self->{'system'}->{'labelfield'}.*already\sexists/x;
-			}
-			say q(</table>);
-			if ($dup_isolate) {
-				say q(<p>)
-				  . ucfirst( $self->{'system'}->{'labelfield'} )
-				  . q( names are not guaranteed to be unique so this alone may not be enough to prevent upload, )
-				  . q(but please check if there are public records from the same country and/or submitting laboratory )
-				  . q(with the same names as these are likely to be duplicates.</p>);
-			}
+		if ($has_advisories) {
+			$self->_print_batch_validation_advisories(
+				{
+					table                => $table,
+					large_isolate_import => $large_isolate_import,
+					diagnostics          => $diagnostics,
+					report_files         => $report_files
+				}
+			);
 		} else {
 			say q(<p>No obvious problems identified so far.</p>);
 		}
-		my $filename = $self->make_temp_file(@$checked_buffer);
-		say $q->start_form;
-		say $q->hidden($_) foreach qw (page table db sender locus ignore_existing
-		  submission_id project_id private user_header);
-		$self->_print_submission_embargo_fieldset($table);
-		say $q->hidden( checked_buffer => $filename );
-		$self->print_action_fieldset( { submit_label => 'Import data', no_reset => 1 } );
-		say $q->end_form;
+
+		if ( $large_isolate_import && $has_advisories && !$report_files ) {
+			say q(</div>);
+			return;
+		}
+		my $records_to_upload = grep { defined $_ && $_ ne q() } @$checked_buffer[ 1 .. $#$checked_buffer ];
+
+		if ($records_to_upload) {
+			$self->_print_batch_import_form( $checked_buffer, $table );
+		} else {
+			say q(<p>No records remain to be imported.</p>);
+		}
+
 		say q(</div>);
 	}
-	say q(<div class="box" id="resultstable"><h2>Data to be imported</h2>);
-	say q(<p>The following table shows your data.  Any field with red text has a )
-	  . q(problem and needs to be checked.</p>);
-	say $$buffer;
+	$self->_print_batch_import_preview(
+		{
+			buffer       => $buffer,
+			show_preview => $show_preview,
+			record_total => $record_total
+		}
+	);
+	return;
+}
+
+sub _print_validation_report_link {
+	my ( $self, $files ) = @_;
+
+	if ( !$files || !$files->{'text'} ) {
+		say q(<p>The validation report could not be generated. )
+		  . q(Please try again or contact the administrator.</p>);
+		return;
+	}
+	say q(<div style="margin-bottom:1em">);
+	say q(<h3>Download validation report:</h3>);
+	say qq(<a href="/tmp/$files->{'text'}" title="Download validation report in tab-delimited text format">)
+	  . TEXT_FILE . q(</a>);
+
+	if ( $files->{'excel'} ) {
+		say qq(<a href="/tmp/$files->{'excel'}" title="Download validation report in Excel format">)
+		  . EXCEL_FILE . q(</a>);
+	}
 	say q(</div>);
 	return;
 }
@@ -1268,7 +1789,9 @@ sub _check_data_isolate_record_locus_fields {
 	my @data            = @{ $arg_ref->{'data'} };
 	my $pk_combination  = $arg_ref->{'pk_combination'};
 	my $set_id          = $self->get_set_id;
+	my $show_preview    = $arg_ref->{'show_preview'} // 1;
 	my $locusbuffer;
+
 	foreach my $field ( @{ $arg_ref->{'file_header_fields'} } ) {
 		if ( !$self->{'field_name_cache'}->{$field} ) {
 			$self->{'field_name_cache'}->{$field} = $self->{'submissionHandler'}->map_locus_name( $field, $set_id )
@@ -1287,15 +1810,33 @@ sub _check_data_isolate_record_locus_fields {
 				if ( $arg_ref->{'locus_format'}->{ $self->{'field_name_cache'}->{$field} } eq 'integer'
 					&& !BIGSdb::Utils::is_int($value) )
 				{
-					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />";
-					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' must be an integer<br />";
+					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />" if $show_preview;
+					if ( $arg_ref->{'diagnostics'} ) {
+						$self->record_validation_message(
+							{
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => $field,
+								message        => 'must be an integer.'
+							}
+						);
+					}
 				} elsif ( $arg_ref->{'locus_regex'}->{ $self->{'field_name_cache'}->{$field} }
 					&& $value !~ /$arg_ref->{'locus_regex'}->{$self->{'field_name_cache'}->{$field}}/x )
 				{
-					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />";
-					$arg_ref->{'problems'}->{$pk_combination} .= "'$field' does not conform to specified format.<br />";
+					$locusbuffer .= "<span><font color='red'>$field:&nbsp;$value</font></span><br />" if $show_preview;
+					if ( $arg_ref->{'diagnostics'} ) {
+						$self->record_validation_message(
+							{
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => $field,
+								message        => 'does not conform to specified format.'
+							}
+						);
+					}
 				} else {
-					$locusbuffer .= "$field:&nbsp;$value<br />";
+					$locusbuffer .= "$field:&nbsp;$value<br />" if $show_preview;
 				}
 				${ $arg_ref->{'checked_record'} } .= "$value\t";
 			} else {
@@ -1303,71 +1844,84 @@ sub _check_data_isolate_record_locus_fields {
 			}
 		}
 	}
+	return q() if !$show_preview;
 	return defined $locusbuffer ? "<td>$locusbuffer</td>" : '<td></td>';
 }
 
 sub _check_data_users {
-
-	#special case to prevent a new user with curator or admin status unless user is admin themselves
-	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
-	my $pk_combination = $arg_ref->{'pk_combination'};
-	my $check          = {
-		status => sub {
-			if ( defined $value && $value ne 'user' && !$self->is_admin ) {
-				$arg_ref->{'problems'}->{$pk_combination} .=
-				  q(Only a user with admin status can add a user with a status other than 'user'.<br />);
-				${ $arg_ref->{'special_problem'} } = 1;
-			}
-		},
-		user_db => sub {
-			if ( defined $value && $value ne q() ) {
-				$arg_ref->{'problems'}->{$pk_combination} .= q(You cannot batch add users from external )
-				  . q(user databases using this function. You need to import them.);
-				${ $arg_ref->{'special_problem'} } = 1;
-			}
-		}
-	};
-	if ( $check->{$field} ) {
-		$check->{$field}->();
+	my ( $self, $args ) = @_;
+	my $field = $args->{'field'};
+	my $value = ${ $args->{'value'} };
+	my $message;
+	if ( $field eq 'status' && defined $value && $value ne 'user' && !$self->is_admin ) {
+		$message = q(Only a user with admin status can add a user with a status other than 'user'.);
+	} elsif ( $field eq 'user_db' && defined $value && $value ne q() ) {
+		$message = q(You cannot batch add users from external user databases using this function. )
+		  . q(You need to import them.);
 	}
+	return if !defined $message;
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $field,
+			message        => $message
+		}
+	);
+	${ $args->{'special_problem'} } = 1;
 	return;
 }
 
 sub _check_data_scheme_fields {
-	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
-	my $pk_combination = $arg_ref->{'pk_combination'};
+	my ( $self, $args ) = @_;
+	if ( $args->{'field'} eq 'primary_key' ) {
+		$self->_check_scheme_field_primary_key($args);
+	} elsif ( $args->{'field'} eq 'field' ) {
+		$self->_check_scheme_field_name($args);
+	}
+	return;
+}
 
-	#special case to check that only one primary key field is set for a scheme field
-	my $field_order = $arg_ref->{'file_header_pos'};
+sub _check_scheme_field_primary_key {
+	my ( $self, $args ) = @_;
+	my $value = ${ $args->{'value'} };
+	my %false = map { $_ => 1 } qw(false 0);
+	return if !defined $value || $false{ lc $value };
+	my $field_order = $args->{'file_header_pos'};
 	my $scheme_id =
 	  defined $field_order->{'scheme_id'}
-	  ? $arg_ref->{'data'}->[ $field_order->{'scheme_id'} ]
+	  ? $args->{'data'}->[ $field_order->{'scheme_id'} ]
 	  : undef;
-	my %false = map { $_ => 1 } qw(false 0);
-	if ( $field eq 'primary_key' && !$false{ lc $value } ) {
-		my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
-		if ( $scheme_info->{'primary_key'} || $self->{'pk_already_in_this_upload'}->{$scheme_id} ) {
-			my $problem_text = q(This scheme already has a primary key field set.<br />);
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
-		$self->{'pk_already_in_this_upload'}->{$scheme_id} = 1;
-	}
+	return if !BIGSdb::Utils::is_int($scheme_id);
+	my $scheme_info = $self->{'datastore'}->get_scheme_info( $scheme_id, { get_pk => 1 } );
 
-	#special case to check that scheme field is not called 'id' (this causes problems when joining tables)
-	if ( $field eq 'field' && $value eq 'id' ) {
-		my $problem_text = q(Scheme fields can not be called 'id'.<br />);
-		if ( !defined $arg_ref->{'problems'}->{$pk_combination}
-			|| $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x )
-		{
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-		}
-		${ $arg_ref->{'special_problem'} } = 1;
+	if ( $scheme_info->{'primary_key'} || $self->{'pk_already_in_this_upload'}->{$scheme_id} ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'primary_key',
+				message        => 'This scheme already has a primary key field set.'
+			}
+		);
+		${ $args->{'special_problem'} } = 1;
 	}
+	$self->{'pk_already_in_this_upload'}->{$scheme_id} = 1;
+	return;
+}
+
+sub _check_scheme_field_name {
+	my ( $self, $args ) = @_;
+	return if ${ $args->{'value'} } ne 'id';
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'field',
+			message        => q(Fields cannot be called 'id'.)
+		}
+	);
+	${ $args->{'special_problem'} } = 1;
 	return;
 }
 
@@ -1385,19 +1939,42 @@ sub _check_data_refs {
 			my %used;
 			foreach my $ref (@refs) {
 				if ( $used{$ref} ) {
-					my $problem_text = 'Duplicate PubMed id used.<br />';
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					$self->record_validation_message(
+						{
+							diagnostics    => $arg_ref->{'diagnostics'},
+							pk_combination => $pk_combination,
+							field          => 'references',
+							message        => 'Duplicate PubMed id used.'
+						}
+					);
 					${ $arg_ref->{'special_problem'} } = 1;
 					last;
 				}
 				if ( !BIGSdb::Utils::is_int($ref) ) {
-					my $problem_text = "References are PubMed ids - $ref is not an integer.<br />";
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					$self->record_validation_message(
+						{
+							diagnostics    => $arg_ref->{'diagnostics'},
+							pk_combination => $pk_combination,
+							field          => 'references',
+							message        => "References are PubMed ids - $ref is not an integer."
+						}
+					);
 					${ $arg_ref->{'special_problem'} } = 1;
 				} elsif ( $ref <= 10_000 ) {
-					if ( ( $arg_ref->{'advisories'}->{$pk_combination} // q() ) !~ /References\ may\ be\ invalid/x ) {
-						$arg_ref->{'advisories'}->{$pk_combination} .=
-						  'References may be invalid - you are unlikely to have a PubMed id less than 10,000.<br />';
+					my $already_reported =
+					  grep { $_->{'type'} eq 'advisory' && ( $_->{'field'} // q() ) eq 'references' }
+					  @{ $arg_ref->{'diagnostics'}->{$pk_combination} // [] };
+					if ( !$already_reported ) {
+						$self->record_validation_message(
+							{
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => 'references',
+								type           => 'advisory',
+								message        =>
+								  'References may be invalid - you are unlikely to have a PubMed id less than 10,000.'
+							}
+						);
 					}
 				}
 				$used{$ref} = 1;
@@ -1408,74 +1985,113 @@ sub _check_data_refs {
 }
 
 sub _check_schemes {
-	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
-	my $pk_combination = $arg_ref->{'pk_combination'};
-	if ( $field eq 'NCBI_taxon' ) {
-		my @values = split /\s*;\s*/x, $value;
-		foreach my $id (@values) {
-			if ( !BIGSdb::Utils::is_int($id) ) {
-				$arg_ref->{'problems'}->{$pk_combination} .=
-				  'Taxon ids should be a semi-colon(;)-separated list of integers.';
-				return;
+	my ( $self, $args ) = @_;
+	return if $args->{'field'} ne 'NCBI_taxon';
+	my $value = ${ $args->{'value'} };
+	return if !defined $value || $value eq q();
+	my @values = split /\s*;\s*/x, $value;
+	foreach my $id (@values) {
+		next if BIGSdb::Utils::is_int($id);
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'NCBI_taxon',
+				message        => 'Taxon ids should be a semi-colon(;)-separated list of integers.'
 			}
-		}
+		);
+
+		${ $args->{'special_problem'} } = 1;
+		last;
 	}
 	return;
 }
 
 sub _check_mutation_fields {
-	my ( $self, $arg_ref, $type ) = @_;
-	my ( $variant_field, $wt_field, $value_type );
-	if ( $type eq 'peptide' ) {
-		$variant_field = 'variant_aa';
-		$wt_field      = 'wild_type_aa';
-		$value_type    = 'amino acid';
-	} else {
-		$variant_field = 'variant_nuc';
-		$wt_field      = 'wild_type_nuc';
-		$value_type    = 'nucleotide';
-	}
-	my $field          = $arg_ref->{'field'};
-	my $value          = ${ $arg_ref->{'value'} };
-	my $pk_combination = $arg_ref->{'pk_combination'};
+	my ( $self, $args, $type ) = @_;
+	my $field = $args->{'field'};
 	if ( $field eq 'locus' && $type eq 'dna' ) {
-		my $locus_info = $self->{'datastore'}->get_locus_info($value);
-		if ( $locus_info->{'data_type'} eq 'peptide' ) {
-			$arg_ref->{'problems'}->{$pk_combination} .= 'You cannot define SNPs for peptide loci.<br />';
-		}
+		$self->_check_mutation_locus($args);
 	}
+	my $variant_field = $type eq 'peptide' ? 'variant_aa' : 'variant_nuc';
 	if ( $field eq $variant_field ) {
-		$value =~ s/\s//gx;
-		my @variants = split /;/x, $value;
-		my %used_variant;
-		my $wt_string = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{$wt_field} ];
-		my @wt        = split /\s*;\s*/x, $wt_string;
-		my %wt        = map { $_ => 1 } @wt;
-		my %used_wt;
-		foreach my $variant (@variants) {
-			if ( $wt{$variant} ) {
-				$arg_ref->{'problems'}->{$pk_combination} .=
-				  "Variant $value_type '$variant' is the same as wild-type.<br />";
-			}
-			if ( $used_variant{$variant} ) {
-				$arg_ref->{'problems'}->{$pk_combination} .= "Variant '$variant' is listed more than once.<br />";
-			}
-			$used_variant{$variant} = 1;
-		}
-		foreach my $wt (@wt) {
-			if ( $used_wt{$wt} ) {
-				$arg_ref->{'problems'}->{$pk_combination} .= "WT '$wt' is listed more than once.";
-			}
-			$used_wt{$wt} = 1;
-		}
+		$self->_check_mutation_variants( $args, $type );
 	}
 	if ( $field eq 'locus_position' || $field eq 'reported_position' ) {
-		if ( $value < 1 ) {
-			$arg_ref->{'problems'}->{$pk_combination} .= uc($field) . ' must be a positive integer.<br />';
-		}
+		$self->_check_mutation_position($args);
 	}
+	return;
+}
+
+sub _record_mutation_problem {
+	my ( $self, $args, $message ) = @_;
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => $args->{'field'},
+			message        => $message
+		}
+	);
+	return;
+}
+
+sub _check_mutation_locus {
+	my ( $self, $args ) = @_;
+	my $locus = ${ $args->{'value'} };
+	return if !defined $locus || $locus eq q();
+	my $locus_info = $self->{'datastore'}->get_locus_info($locus);
+	return if !$locus_info;
+	if ( ( $locus_info->{'data_type'} // q() ) eq 'peptide' ) {
+		$self->_record_mutation_problem( $args, 'You cannot define SNPs for peptide loci.' );
+	}
+	return;
+}
+
+sub _check_mutation_variants {
+	my ( $self, $args, $type ) = @_;
+	my $variant_field = $type eq 'peptide' ? 'variant_aa'   : 'variant_nuc';
+	my $wt_field      = $type eq 'peptide' ? 'wild_type_aa' : 'wild_type_nuc';
+	my $value_type    = $type eq 'peptide' ? 'amino acid'   : 'nucleotide';
+	my $value         = ${ $args->{'value'} };
+	return if !defined $value;
+	$value =~ s/\s//gx;
+	my @variants        = split /;/x, $value;
+	my $file_header_pos = $args->{'file_header_pos'};
+	return if !defined $file_header_pos->{$wt_field};
+	my $wt_string = $args->{'data'}->[ $file_header_pos->{$wt_field} ];
+	return if !defined $wt_string;
+	my @wt = split /\s*;\s*/x, $wt_string;
+	my %wt = map { $_ => 1 } @wt;
+	my %used_variant;
+
+	foreach my $variant (@variants) {
+		if ( $wt{$variant} ) {
+			$self->_record_mutation_problem( $args, "Variant $value_type '$variant' is the same as wild-type." );
+		}
+		if ( $used_variant{$variant} ) {
+			$self->_record_mutation_problem( $args, "Variant '$variant' is listed more than once." );
+		}
+		$used_variant{$variant} = 1;
+	}
+
+	my %used_wt;
+	foreach my $wt (@wt) {
+		if ( $used_wt{$wt} ) {
+			$self->_record_mutation_problem( $args, "WT '$wt' is listed more than once." );
+		}
+		$used_wt{$wt} = 1;
+	}
+	return;
+}
+
+sub _check_mutation_position {
+	my ( $self, $args ) = @_;
+	my $value = ${ $args->{'value'} };
+	return if !defined $value;
+	return if !BIGSdb::Utils::is_int($value);
+	return if $value >= 1;
+	$self->_record_mutation_problem( $args, uc( $args->{'field'} ) . ' must be a positive integer.' );
 	return;
 }
 
@@ -1499,23 +2115,40 @@ sub _check_data_aliases {
 				next if $alias eq '';
 				if ( defined $isolate_name ) {
 					if ( $used{$alias} ) {
-						my $problem_text = 'Duplicate alias used.<br />';
-						$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+						$self->record_validation_message(
+							{
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => 'aliases',
+								message        => 'Duplicate alias used.'
+							}
+						);
 						${ $arg_ref->{'special_problem'} } = 1;
 						last;
 					}
 					if ( $alias eq $isolate_name ) {
-						my $problem_text = 'Aliases are ALTERNATIVE names for the isolate name.<br />';
-						$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+						$self->record_validation_message(
+							{
+								diagnostics    => $arg_ref->{'diagnostics'},
+								pk_combination => $pk_combination,
+								field          => 'aliases',
+								message        => 'Aliases are ALTERNATIVE names for the isolate name.'
+							}
+						);
 						${ $arg_ref->{'special_problem'} } = 1;
 						last;
 					}
 					$used{$alias} = 1;
 				}
 				if ( $null_terms{ lc($alias) } ) {
-					my $problem_text =
-					  "Aliases are optional - leave blank rather than using a value like '$alias'.<br />";
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+					$self->record_validation_message(
+						{
+							diagnostics    => $arg_ref->{'diagnostics'},
+							pk_combination => $pk_combination,
+							field          => 'aliases',
+							message => "Aliases are optional - leave blank rather than using a value like '$alias'."
+						}
+					);
 					${ $arg_ref->{'special_problem'} } = 1;
 					last;
 				}
@@ -1539,8 +2172,14 @@ sub _check_data_codon_table {
 
 	if ( !$allowed{$value} ) {
 		local $" = q(, );
-		my $problem_text = "Allowed codon tables are: @allowed.<br />";
-		$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
+		$self->record_validation_message(
+			{
+				diagnostics    => $arg_ref->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => 'codon_table',
+				message        => "Allowed codon tables are: @allowed."
+			}
+		);
 		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
@@ -1548,280 +2187,357 @@ sub _check_data_codon_table {
 
 sub _check_data_isolate_aliases {
 
-	#special case to check that isolate aliases don't duplicate isolate name or consist of null values
-	#when batch uploading isolate aliases
+	# Check that aliases do not duplicate the isolate name or contain null terms.
 	my ( $self, $arg_ref ) = @_;
-	my $field          = $arg_ref->{'field'};
+	my $field = $arg_ref->{'field'};
+	return if $field ne 'alias';
 	my $value          = ${ $arg_ref->{'value'} };
 	my $pk_combination = $arg_ref->{'pk_combination'};
 	my $isolate_id     = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{'isolate_id'} ];
-	if ( $field eq 'alias' && BIGSdb::Utils::is_int($isolate_id) ) {
-		my $isolate_name =
-		  $self->{'datastore'}->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
-			$isolate_id, { cache => 'CurateBatchAddPage::check_data_isolates_aliases' } );
-		return if !defined $isolate_name;
-		if ( $value eq $isolate_name ) {
-			my $problem_text = 'Alias duplicates isolate name.<br />';
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
-		my %null_terms = map { lc($_) => 1 } NULL_TERMS;
-		if ( $null_terms{ lc($value) } ) {
-			my $problem_text = 'Alias contains an invalid term.<br />';
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
-	}
-	return;
-}
+	return if !BIGSdb::Utils::is_int($isolate_id);
 
-sub _check_data_primary_key {
-	my ( $self, $arg_ref ) = @_;
-	my $pk_combination = $arg_ref->{'pk_combination'};
-	my @primary_keys   = @{ $arg_ref->{'primary_keys'} };
-	if ( !$self->{'sql'}->{'primary_key_check'} ) {
-		local $" = '=? AND ';
-		my $qry = "SELECT EXISTS(SELECT * FROM $arg_ref->{'table'} WHERE @primary_keys=?)";
-		$self->{'sql'}->{'primary_key_check'} = $self->{'db'}->prepare($qry);
-	}
-	if ( $self->{'primary_key_combination'}->{$pk_combination} && $pk_combination !~ /\:\s*$/x ) {
-		my $problem_text = 'Primary key submitted more than once in this batch.<br />';
-		$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-		  if !defined $arg_ref->{'problems'}->{$pk_combination}
-		  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
-	}
-	$self->{'primary_key_combination'}->{$pk_combination}++;
+	my $isolate_name =
+	  $self->{'datastore'}->run_query( "SELECT $self->{'system'}->{'labelfield'} FROM isolates WHERE id=?",
+		$isolate_id, { cache => 'CurateBatchAddPage::check_data_isolates_aliases' } );
 
-	#Check if primary key already in database
-	if ( @{ $arg_ref->{'pk_values'} } ) {
-		eval { $self->{'sql'}->{'primary_key_check'}->execute( @{ $arg_ref->{'pk_values'} } ) };
-		if ($@) {
-			my $message = $@;
-			local $" = ', ';
-			$logger->debug(
-					"Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: "
-				  . "@{$arg_ref->{'pk_values'}} $message" );
-			my $plural = scalar @primary_keys > 1 ? 's' : '';
-			if ( $message =~ /invalid input/ ) {
-				$self->print_bad_status(
-					{
-						message => qq(Your pasted data has invalid primary key field$plural )
-						  . qq((@primary_keys) data.)
-					}
-				);
-				BIGSdb::Exception::Data->throw('Invalid primary key');
-			}
-			$self->print_bad_status(
-				{
-					message => q(Your pasted data does not appear to contain the primary )
-					  . qq(key field$plural (@primary_keys) required for this table.)
-				}
-			);
-			BIGSdb::Exception::Data->throw("no primary key field$plural (@primary_keys)");
-		}
-		my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
-		if ($exists) {
-			my %warn_tables = map { $_ => 1 } qw(codon_tables project_members refs isolate_aliases locus_aliases
-			  scheme_members profile_refs sequence_refs);
-			if ( $warn_tables{ $arg_ref->{'table'} } ) {
-				my $warning_text = 'Primary key already exists in the database - upload will be skipped.<br />';
-				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
-					|| $arg_ref->{'advisories'}->{$pk_combination} !~ /$warning_text/x )
-				{
-					$arg_ref->{'advisories'}->{$pk_combination} .= $warning_text;
-					BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
-				}
-			} else {
-				my $problem_text = 'Primary key already exists in the database.<br />';
-				if ( !defined $arg_ref->{'problems'}->{$pk_combination}
-					|| $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x )
-				{
-					$arg_ref->{'problems'}->{$pk_combination} .= $problem_text;
-				}
-			}
-		}
-	}
-	return;
-}
-
-sub _check_data_loci {
-
-	#special case to ensure that a locus length is set if it is not marked as variable length
-	my ( $self, $arg_ref ) = @_;
-	my @data            = @{ $arg_ref->{'data'} };
-	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
-	my $pk_combination  = $arg_ref->{'pk_combination'};
-	if (
-		(
-			   defined $file_header_pos{'length_varies'}
-			&& defined $data[ $file_header_pos{'length_varies'} ]
-			&& none { $data[ $file_header_pos{'length_varies'} ] eq $_ } qw (true TRUE 1)
-		)
-		&& !$data[ $file_header_pos{'length'} ]
-	  )
-	{
-		$arg_ref->{'problems'}->{$pk_combination} .= 'Locus set as non variable length but no length is set.<br />';
-	}
-	if ( $data[ $file_header_pos{'id'} ] =~ /[^\w_\-']/x ) {
-		$arg_ref->{'problems'}->{$pk_combination} .=
-			q(Locus names can only contain alphanumeric, underscore (_), hyphen (-) )
-		  . q(and prime (') characters (no spaces or other symbols).<br />);
-	}
-	return;
-}
-
-sub check_data_duplicates {
-
-	#check if unique value exists twice in submission
-	my ( $self, $arg_ref ) = @_;
-	my $field = $arg_ref->{'field'};
-	my $value = ${ $arg_ref->{'value'} };
-	return if !defined $value;
-	my $pk_combination = $arg_ref->{'pk_combination'};
-	if ( $arg_ref->{'unique_field'}->{$field} ) {
-		if ( $self->{'unique_values'}->{$field}->{$value} ) {
-			my $problem_text =
-			  "unique field '$field' already has a value of '$value' set within this submission.<br />";
-			$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-			  if !defined $arg_ref->{'problems'}->{$pk_combination}
-			  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
-		$self->{'unique_values'}->{$field}->{$value}++;
-	}
-	return;
-}
-
-sub _check_data_allele_designations {
-
-	#special case to check for allele id format and regex which is defined in loci table
-	my ( $self, $arg_ref ) = @_;
-	my $field           = $arg_ref->{'field'};
-	my $pk_combination  = $arg_ref->{'pk_combination'};
-	my @data            = @{ $arg_ref->{'data'} };
-	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
-	if ( $field eq 'allele_id' ) {
-		if ( defined $file_header_pos{'locus'} ) {
-			my $format = $self->{'datastore'}->run_query(
-				'SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?',
-				$data[ $file_header_pos{'locus'} ],
-				{ fetch => 'row_hashref' }
-			);
-			if (   defined $format->{'allele_id_format'}
-				&& $format->{'allele_id_format'} eq 'integer'
-				&& !BIGSdb::Utils::is_int( ${ $arg_ref->{'value'} } ) )
+	return if !defined $isolate_name;
+	if ( defined $value && $value eq $isolate_name ) {
+		$self->record_validation_message(
 			{
-				my $problem_text = "$field must be an integer.<br />";
-				$arg_ref->{'problems'}->{$pk_combination} .= $problem_text
-				  if !defined $arg_ref->{'problems'}->{$pk_combination}
-				  || $arg_ref->{'problems'}->{$pk_combination} !~ /$problem_text/x;
-				${ $arg_ref->{'special_problem'} } = 1;
-			} elsif ( $format->{'allele_id_regex'}
-				&& ${ $arg_ref->{'value'} } !~ /$format->{'allele_id_regex'}/x )
-			{
-				$arg_ref->{'problems'}->{$pk_combination} .=
-					qq($field value is invalid - it must match the regular )
-				  . qq(expression /$format->{'allele_id_regex'}/.<br />);
-				${ $arg_ref->{'special_problem'} } = 1;
+				diagnostics    => $arg_ref->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => 'alias',
+				message        => 'Alias duplicates isolate name.'
 			}
-		}
+		);
+		${ $arg_ref->{'special_problem'} } = 1;
 	}
-	return;
-}
-
-sub _check_data_scheme_group_group_members {
-	my ( $self, $arg_ref ) = @_;
-	my $field           = $arg_ref->{'field'};
-	my $pk_combination  = $arg_ref->{'pk_combination'};
-	my @data            = @{ $arg_ref->{'data'} };
-	my %file_header_pos = %{ $arg_ref->{'file_header_pos'} };
-	if (   $field eq 'group_id'
-		&& $data[ $file_header_pos{'parent_group_id'} ] == $data[ $file_header_pos{'group_id'} ] )
-	{
-		$arg_ref->{'problems'}->{$pk_combination} .= q(A scheme group can't be a member of itself.);
+	my %null_terms = map { lc($_) => 1 } NULL_TERMS;
+	if ( defined $value && $null_terms{ lc($value) } ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $arg_ref->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => 'alias',
+				message        => 'Alias contains an invalid term.'
+			}
+		);
 		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
 }
 
-sub _check_retired_allele_ids {
-	my ( $self, $arg_ref ) = @_;
-	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
-	if ( $field eq 'allele_id' ) {
-		my $exists = $self->{'datastore'}->run_query(
-			'SELECT EXISTS (SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))',
-			[
-				$arg_ref->{'data'}->[ $file_header_pos->{'locus'} ],
-				$arg_ref->{'data'}->[ $file_header_pos->{'allele_id'} ]
-			]
+sub _record_primary_key_problem {
+	my ( $self, $args, $message ) = @_;
+	my $pk_combination = $args->{'pk_combination'};
+	my $field          = $args->{'table'} eq 'isolates' ? 'id' : undef;
+	my $already_reported =
+	  grep { $_->{'type'} eq 'error' && ( $_->{'field'} // q() ) eq ( $field // q() ) && $_->{'message'} eq $message }
+	  @{ $args->{'diagnostics'}->{$pk_combination} // [] };
+	if ( !$already_reported ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $pk_combination,
+				field          => $field,
+				message        => $message
+			}
 		);
-		if ($exists) {
-			$arg_ref->{'problems'}->{$pk_combination} .=
-			  'This allele has already been defined - delete it before you retire the identifier.';
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
 	}
 	return;
 }
 
-sub _check_retired_profile_id {
-	my ( $self, $arg_ref ) = @_;
-	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
-	if ( $field eq 'profile_id' ) {
-		if (
-			$self->{'datastore'}->profile_exists(
-				$arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ],
-				$arg_ref->{'data'}->[ $file_header_pos->{'profile_id'} ]
-			)
-		  )
+sub _execute_primary_key_check {
+	my ( $self, $args ) = @_;
+	my @primary_keys = @{ $args->{'primary_keys'} };
+
+	# Use DBI directly because Datastore::run_query catches execution errors.
+	# We need to distinguish invalid primary-key values from missing records.
+	if ( !$self->{'sql'}->{'primary_key_check'} ) {
+		local $" = '=? AND ';
+		my $qry = "SELECT EXISTS(SELECT * FROM $args->{'table'} WHERE @primary_keys=?)";
+		$self->{'sql'}->{'primary_key_check'} = $self->{'db'}->prepare($qry);
+	}
+	eval { $self->{'sql'}->{'primary_key_check'}->execute( @{ $args->{'pk_values'} } ); };
+	if ($@) {
+		$self->_handle_primary_key_check_error( $args, $@ );
+	}
+	my ($exists) = $self->{'sql'}->{'primary_key_check'}->fetchrow_array;
+	return $exists;
+}
+
+sub _handle_primary_key_check_error {
+	my ( $self, $args, $message ) = @_;
+	my @primary_keys = @{ $args->{'primary_keys'} };
+	local $" = ', ';
+	$logger->debug( "Can't execute primary key check (incorrect data pasted): primary keys: @primary_keys values: "
+		  . "@{$args->{'pk_values'}} $message" );
+	my $plural = @primary_keys > 1 ? 's' : '';
+	if ( $message =~ /invalid input/ ) {
+		$self->print_bad_status(
+			{
+				message => qq(Your pasted data has invalid primary key field$plural ) . qq((@primary_keys) data.)
+			}
+		);
+		BIGSdb::Exception::Data->throw('Invalid primary key');
+	}
+	$self->print_bad_status(
 		{
-			$arg_ref->{'problems'}->{$pk_combination} .=
-			  'Profile has already been defined - delete it before you retire the identifier.';
+			message => q(Your pasted data does not appear to contain the primary )
+			  . qq(key field$plural (@primary_keys) required for this table.)
+		}
+	);
+	BIGSdb::Exception::Data->throw("no primary key field$plural (@primary_keys)");
+	return;
+}
+
+sub _record_existing_primary_key {
+	my ( $self, $args ) = @_;
+	my %warn_tables = map { $_ => 1 } qw(
+	  codon_tables project_members refs isolate_aliases locus_aliases
+	  scheme_members profile_refs sequence_refs
+	);
+	if ( !$warn_tables{ $args->{'table'} } ) {
+		$self->_record_primary_key_problem( $args, 'Primary key already exists in the database.' );
+		return;
+	}
+	my $message        = 'Primary key already exists in the database - upload will be skipped.';
+	my $pk_combination = $args->{'pk_combination'};
+
+	my $already_reported = $self->_has_validation_message( $args->{'diagnostics'}, $pk_combination, 'advisory' );
+	if ( !$already_reported ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $pk_combination,
+				message        => $message,
+				type           => 'advisory'
+			}
+		);
+	}
+	BIGSdb::Exception::Data::Warning->throw('Primary key already exists.');
+	return;
+}
+
+sub _check_data_primary_key {
+	my ( $self, $args ) = @_;
+	my $pk_combination = $args->{'pk_combination'};
+	if (   $self->{'primary_key_combination'}->{$pk_combination}
+		&& $pk_combination !~ /\:\s*$/x )
+	{
+		$self->_record_primary_key_problem( $args, 'Primary key submitted more than once in this batch.' );
+	}
+	$self->{'primary_key_combination'}->{$pk_combination}++;
+	return if !@{ $args->{'pk_values'} };
+	if ( $self->_execute_primary_key_check($args) ) {
+		$self->_record_existing_primary_key($args);
+	}
+	return;
+}
+
+sub _check_data_loci {
+	my ( $self, $args ) = @_;
+
+	my $data            = $args->{'data'};
+	my $file_header_pos = $args->{'file_header_pos'};
+
+	my $length_varies =
+	  defined $file_header_pos->{'length_varies'}
+	  ? $data->[ $file_header_pos->{'length_varies'} ]
+	  : undef;
+
+	my $length =
+	  defined $file_header_pos->{'length'}
+	  ? $data->[ $file_header_pos->{'length'} ]
+	  : undef;
+	my %true = map { $_ => 1 } qw(true TRUE 1);
+	if ( defined $length_varies && !$true{$length_varies} && !$length ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'length',
+				message        => 'Locus set as non variable length but no length is set.'
+			}
+		);
+	}
+
+	my $locus =
+	  defined $file_header_pos->{'id'}
+	  ? $data->[ $file_header_pos->{'id'} ]
+	  : undef;
+
+	if ( defined $locus && $locus =~ /[^\w_\-']/x ) {
+		$self->record_validation_message(
+			{
+				diagnostics    => $args->{'diagnostics'},
+				pk_combination => $args->{'pk_combination'},
+				field          => 'id',
+				message        => q(Locus names can only contain alphanumeric, underscore (_), hyphen (-) )
+				  . q(and prime (') characters (no spaces or other symbols).)
+			}
+		);
+	}
+	return;
+}
+
+sub check_data_duplicates {
+	my ( $self, $arg_ref ) = @_;
+	my $field = $arg_ref->{'field'};
+	my $value = ${ $arg_ref->{'value'} };
+	return if !defined $value;
+	return if !$arg_ref->{'unique_field'}->{$field};
+	if ( $self->{'unique_values'}->{$field}->{$value} ) {
+		my $message = "Unique field '$field' already has a value of '$value' set within this submission.";
+
+		$self->record_field_problem( $field, $message, $arg_ref->{'pk_combination'}, $arg_ref->{'diagnostics'} );
+		${ $arg_ref->{'special_problem'} } = 1;
+	}
+	$self->{'unique_values'}->{$field}->{$value}++;
+	return;
+}
+
+sub _check_data_allele_designations {
+	my ( $self, $args ) = @_;
+	return if $args->{'field'} ne 'allele_id';
+	my $file_header_pos = $args->{'file_header_pos'};
+	return if !defined $file_header_pos->{'locus'};
+	my $locus = $args->{'data'}->[ $file_header_pos->{'locus'} ];
+	return if !defined $locus || $locus eq q();
+	my $format = $self->{'datastore'}
+	  ->run_query( 'SELECT allele_id_format,allele_id_regex FROM loci WHERE id=?', $locus, { fetch => 'row_hashref' } );
+	return if !$format;
+	my $value = ${ $args->{'value'} };
+	my $message;
+
+	if (   defined $format->{'allele_id_format'}
+		&& $format->{'allele_id_format'} eq 'integer'
+		&& !BIGSdb::Utils::is_int($value) )
+	{
+		$message = 'Must be an integer.';
+	} elsif ( $format->{'allele_id_regex'}
+		&& defined $value
+		&& $value !~ /$format->{'allele_id_regex'}/x )
+	{
+		$message = "Value is invalid - it must match the regular expression /$format->{'allele_id_regex'}/.";
+	}
+
+	return if !defined $message;
+
+	$self->record_validation_message(
+		{
+			diagnostics    => $args->{'diagnostics'},
+			pk_combination => $args->{'pk_combination'},
+			field          => 'allele_id',
+			message        => $message
+		}
+	);
+	${ $args->{'special_problem'} } = 1;
+	return;
+}
+
+sub _check_data_scheme_group_group_members {
+	my ( $self, $arg_ref ) = @_;
+	return if $arg_ref->{'field'} ne 'group_id';
+	my $data            = $arg_ref->{'data'};
+	my $file_header_pos = $arg_ref->{'file_header_pos'};
+	my $parent_group_id = $data->[ $file_header_pos->{'parent_group_id'} ];
+	my $group_id        = $data->[ $file_header_pos->{'group_id'} ];
+	return if !defined $parent_group_id || !defined $group_id;
+	return if $parent_group_id ne $group_id;
+
+	$self->record_validation_message(
+		{
+			diagnostics    => $arg_ref->{'diagnostics'},
+			pk_combination => $arg_ref->{'pk_combination'},
+			field          => 'group_id',
+			message        => 'A scheme group cannot be a member of itself.'
+		}
+	);
+	${ $arg_ref->{'special_problem'} } = 1;
+	return;
+}
+
+sub _check_retired_allele_ids {
+	my ( $self, $arg_ref ) = @_;
+	return if $arg_ref->{'field'} ne 'allele_id';
+	my $data            = $arg_ref->{'data'};
+	my $file_header_pos = $arg_ref->{'file_header_pos'};
+	my $locus           = $data->[ $file_header_pos->{'locus'} ];
+	my $allele_id       = $data->[ $file_header_pos->{'allele_id'} ];
+	return if !defined $locus || !defined $allele_id;
+
+	my $exists = $self->{'datastore'}
+	  ->run_query( 'SELECT EXISTS (SELECT * FROM sequences WHERE (locus,allele_id)=(?,?))', [ $locus, $allele_id ] );
+	return if !$exists;
+
+	$self->record_validation_message(
+		{
+			diagnostics    => $arg_ref->{'diagnostics'},
+			pk_combination => $arg_ref->{'pk_combination'},
+			field          => 'allele_id',
+			message        => 'This allele has already been defined - delete it before you retire the identifier.'
+		}
+	);
+	${ $arg_ref->{'special_problem'} } = 1;
+	return;
+}
+
+sub _check_retired_profile_id {
+	my ( $self,  $arg_ref )         = @_;
+	my ( $field, $file_header_pos ) = @{$arg_ref}{qw(field file_header_pos)};
+	my $scheme_id = $arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ];
+	return if !BIGSdb::Utils::is_int($scheme_id);
+	if ( $field eq 'profile_id' ) {
+		my $profile_id = $arg_ref->{'data'}->[ $file_header_pos->{'profile_id'} ];
+
+		if ( $self->{'datastore'}->profile_exists( $scheme_id, $profile_id ) ) {
+			$self->record_validation_message(
+				{
+					diagnostics    => $arg_ref->{'diagnostics'},
+					pk_combination => $arg_ref->{'pk_combination'},
+					field          => 'profile_id',
+					message        => 'Profile has already been defined - delete it before you retire the identifier.'
+				}
+			);
 			${ $arg_ref->{'special_problem'} } = 1;
 		}
 	}
-	if ( $field eq 'scheme_id' ) {
-		if (   !$self->is_admin
-			&& !$self->{'datastore'}
-			->is_scheme_curator( $arg_ref->{'data'}->[ $file_header_pos->{'scheme_id'} ], $self->get_curator_id ) )
-		{
-			$arg_ref->{'problems'}->{$pk_combination} .= 'You are not a curator for this scheme.';
-			${ $arg_ref->{'special_problem'} } = 1;
-		}
+
+	if (   $field eq 'scheme_id'
+		&& !$self->is_admin
+		&& !$self->{'datastore'}->is_scheme_curator( $scheme_id, $self->get_curator_id ) )
+	{
+		$self->record_validation_message(
+			{
+				diagnostics    => $arg_ref->{'diagnostics'},
+				pk_combination => $arg_ref->{'pk_combination'},
+				field          => 'scheme_id',
+				message        => 'You are not a curator for this scheme.'
+			}
+		);
+		${ $arg_ref->{'special_problem'} } = 1;
 	}
 	return;
 }
 
 sub _check_retired_isolate_id {
 	my ( $self, $arg_ref ) = @_;
-	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
-	return if $field ne 'isolate_id';
-	return if !BIGSdb::Utils::is_int( $arg_ref->{'data'}->[ $file_header_pos->{'isolate_id'} ] );
-	if ( $self->{'datastore'}->isolate_exists( $arg_ref->{'data'}->[ $file_header_pos->{'isolate_id'} ], ) ) {
-		$arg_ref->{'problems'}->{$pk_combination} .=
-		  'Isolate has already been defined - delete it before you retire the identifier.';
-		${ $arg_ref->{'special_problem'} } = 1;
-	}
-	return;
-}
+	return if $arg_ref->{'field'} ne 'isolate_id';
+	my $isolate_id = $arg_ref->{'data'}->[ $arg_ref->{'file_header_pos'}->{'isolate_id'} ];
 
-sub _check_isolate_id_not_retired {
-	my ( $self, $arg_ref ) = @_;
-	my ( $pk_combination, $field, $file_header_pos ) = @{$arg_ref}{qw(pk_combination field file_header_pos)};
-	return
-		 if $field ne 'id'
-	  || !defined $file_header_pos->{'id'}
-	  || !BIGSdb::Utils::is_int( $arg_ref->{'data'}->[ $file_header_pos->{'id'} ] );
-	if (
-		$self->{'datastore'}->run_query(
-			'SELECT EXISTS(SELECT * FROM retired_isolates WHERE isolate_id=?)',
-			$arg_ref->{'data'}->[ $file_header_pos->{'id'} ],
-		)
-	  )
-	{
-		$arg_ref->{'problems'}->{$pk_combination} .= 'Isolate id has been retired.';
-		${ $arg_ref->{'special_problem'} } = 1;
-	}
+	return if !BIGSdb::Utils::is_int($isolate_id);
+	return if !$self->{'datastore'}->isolate_exists($isolate_id);
+
+	$self->record_validation_message(
+		{
+			diagnostics    => $arg_ref->{'diagnostics'},
+			pk_combination => $arg_ref->{'pk_combination'},
+			field          => 'isolate_id',
+			message        => 'Isolate has already been defined - delete it before you retire the identifier.'
+		}
+	);
+	${ $arg_ref->{'special_problem'} } = 1;
 	return;
 }
 
@@ -1878,9 +2594,9 @@ sub _upload_data {
 		if ($grandkid) {
 			CORE::exit(0);
 		} else {
-			open STDIN,  '<', '/dev/null' || $self->{'logger'}->error("Can't detach STDIN: $!");
-			open STDOUT, '>', '/dev/null' || $self->{'logger'}->error("Can't detach STDOUT: $!");
-			open STDERR, '>&STDOUT' || $self->{'logger'}->error("Can't detach STDERR: $!");
+			open STDIN,  '<',  '/dev/null' || $self->{'logger'}->error("Can't detach STDIN: $!");
+			open STDOUT, '>',  '/dev/null' || $self->{'logger'}->error("Can't detach STDOUT: $!");
+			open STDERR, '>&', \*STDOUT    || $self->{'logger'}->error("Can't detach STDERR: $!");
 			my $uploader = BIGSdb::Offline::BatchUploader->new(
 				{
 					config_dir       => $self->{'config_dir'},
@@ -2223,6 +2939,32 @@ sub _is_id_used {
 	return $self->{'datastore'}->run_query( $qry, $id, { cache => "CurateBatchAdd::is_id_used::$table" } );
 }
 
+sub _prefetch_occupied_isolate_ids {
+	my ( $self, $id, $cache ) = @_;
+	my $range_size = 1000;
+	my $end_id     = $id + $range_size - 1;
+	my $qry =
+		'SELECT id FROM isolates WHERE id BETWEEN ? AND ? '
+	  . 'UNION SELECT isolate_id AS id FROM retired_isolates WHERE isolate_id BETWEEN ? AND ?';
+	my $occupied = $self->{'datastore'}->run_query(
+		$qry, [ $id, $end_id, $id, $end_id ], { fetch => 'col_arrayref' }
+	);
+	$cache->{'start'}    = $id;
+	$cache->{'end'}      = $end_id;
+	$cache->{'occupied'} = { map { $_ => 1 } @$occupied };
+	return;
+}
+
+sub _is_id_used_in_batch {
+	my ( $self, $table, $id, $cache ) = @_;
+	return $self->_is_id_used( $table, $id ) if $table ne 'isolates';
+
+	if ( !defined $cache->{'start'} || $id < $cache->{'start'} || $id > $cache->{'end'} ) {
+		$self->_prefetch_occupied_isolate_ids( $id, $cache );
+	}
+	return $cache->{'occupied'}->{$id} ? 1 : 0;
+}
+
 sub _convert_query {
 	my ( $self, $table, $qry ) = @_;
 	return if !$self->{'datastore'}->is_table($table);
@@ -2313,7 +3055,7 @@ sub _set_submission_params {
 
 sub initiate {
 	my ($self) = @_;
-	$self->{$_} = 1 foreach qw (jQuery noCache allowExpand jQuery.multiselect);
+	$self->{$_} = 1 foreach qw (jQuery noCache allowExpand select2);
 	my $q = $self->{'cgi'};
 	if ( $q->param('query') || $q->param('data') || $q->param('checked_buffer') ) {
 		$self->{'processing'} = 1;
@@ -2326,13 +3068,10 @@ sub get_javascript {
 	my ($self) = @_;
 	my $buffer = << "END";
 \$(function () {
-   \$('#sender').multiselect({
-  	classes: 'filter',
- 	menuHeight: 250,
- 	menuWidth: 400,
- 	noneSelectedText: '',
- 	selectedList: 1,
-  }).multiselectfilter();
+  \$("select#sender").select2({
+		width: '240px',
+		dropdownAutoWidth: true,
+	});
 });
 END
 	return $buffer;

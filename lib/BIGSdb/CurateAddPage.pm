@@ -150,8 +150,7 @@ sub print_content {
 	}
 	if ( ( $retval // 0 ) == SUCCESS ) {
 		$self->_run_post_insert_methods($table);
-	}
-	else {
+	} else {
 		print $buffer ;
 		$self->_print_copy_locus_record_form if $self->{'system'}->{'dbtype'} eq 'isolates' && $table eq 'loci';
 	}
@@ -159,9 +158,9 @@ sub print_content {
 }
 
 sub _run_post_insert_methods {
-	my ($self, $table) = @_;
-	if (($self->{'system'}->{'dbtype'} // q()) eq 'sequences'){
-		if ($table eq 'schemes'){
+	my ( $self, $table ) = @_;
+	if ( ( $self->{'system'}->{'dbtype'} // q() ) eq 'sequences' ) {
+		if ( $table eq 'schemes' ) {
 			$self->retrieve_ncbi_taxa;
 		}
 	}
@@ -1154,23 +1153,22 @@ sub _next_id_profiles {
 sub _next_id_isolates {
 	my ($self) = @_;
 	my $start_id =
-	  ( BIGSdb::Utils::is_int( $self->{'system'}->{'start_id'} ) )
+	  BIGSdb::Utils::is_int( $self->{'system'}->{'start_id'} )
 	  ? $self->{'system'}->{'start_id'}
 	  : 1;
-	my $start_id_clause = $start_id > 1 ? " AND id >= $start_id" : '';
-	my $qry             = "SELECT id FROM isolates WHERE id>0 $start_id_clause UNION SELECT isolate_id AS id "
-	  . 'FROM retired_isolates ORDER BY id';
-	my $test          = $start_id - 1 // 0;
-	my $used_isolates = $self->{'datastore'}->run_query( $qry, undef, { fetch => 'col_arrayref' } );
-	return $start_id if !@$used_isolates;
-	my %used = map { $_ => 1 } @$used_isolates;
 
-	foreach my $isolate_id (@$used_isolates) {
-		$test++;
-		return $test if !$used{$test};
-	}
-	$test++;
-	return $test;
+	my $qry =
+		'WITH occupied AS ('
+	  . 'SELECT id FROM isolates WHERE id >= ? '
+	  . 'UNION SELECT isolate_id AS id FROM retired_isolates WHERE isolate_id >= ?'
+	  . '), numbered AS ('
+	  . 'SELECT id, LEAD(id) OVER (ORDER BY id) AS next_id FROM ('
+	  . 'SELECT CAST(? AS integer) - 1 AS id UNION SELECT id FROM occupied'
+	  . ') AS ids'
+	  . ') SELECT id + 1 FROM numbered '
+	  . 'WHERE next_id IS NULL OR next_id > id + 1 ORDER BY id LIMIT 1';
+
+	return $self->{'datastore'}->run_query( $qry, [ $start_id, $start_id, $start_id ] );
 }
 
 sub id_exists {

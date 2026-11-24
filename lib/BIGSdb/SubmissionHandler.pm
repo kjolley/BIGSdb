@@ -66,14 +66,11 @@ sub get_missing_assembly_filenames {
 			{ fetch => 'col_arrayref' }
 		);
 	} else {
-		$filenames = $self->{'datastore'}->run_query(
-			'SELECT filename FROM assembly_submissions WHERE submission_id=?',
-			$submission_id,
-			{ fetch => 'col_arrayref' }
-		);
+		$filenames = $self->{'datastore'}->run_query( 'SELECT filename FROM assembly_submissions WHERE submission_id=?',
+			$submission_id, { fetch => 'col_arrayref' } );
 	}
 
-	my $dir = $self->get_submission_dir($submission_id) . '/supporting_files';
+	my $dir     = $self->get_submission_dir($submission_id) . '/supporting_files';
 	my @missing = grep { !-e "$dir/$_" } @$filenames;
 	return \@missing;
 }
@@ -989,7 +986,9 @@ sub is_field_bad {
 }
 
 sub _is_field_bad_isolates {
+
 	my ( $self, $fieldname, $value, $flag, $set_id, $options ) = @_;
+
 	$value //= q();
 	$flag  //= q();
 	if ( $flag eq 'update' ) {
@@ -1042,16 +1041,24 @@ sub _is_field_bad_isolates {
 	if ( $thisfield->{'required'} eq 'expected' && $value eq 'null' ) {
 		return;
 	}
-	my @insert_checks = qw(date_entered id_exists);
-	foreach my $insert_check (@insert_checks) {
-		next if !( ( $flag // q() ) eq 'insert' );
-		my $method  = "_check_isolate_$insert_check";
-		my $message = $self->$method( $fieldname, $value );
-		return $message if $message;
+
+	state $insert_checks = [qw(_check_isolate_date_entered _check_isolate_id_exists)];
+	state $checks        = [
+		qw(
+		  _check_isolate_sender _check_isolate_regex _check_isolate_datestamp
+		  _check_isolate_integer _check_isolate_date _check_isolate_float
+		  _check_isolate_boolean _check_isolate_geography_point _check_isolate_optlist
+		  _check_isolate_length _check_isolate_optional
+		)
+	];
+
+	if ( $flag eq 'insert' ) {
+		foreach my $method (@$insert_checks) {
+			my $message = $self->$method( $fieldname, $value );
+			return $message if $message;
+		}
 	}
-	my @checks = qw(sender regex datestamp integer date float boolean geography_point optlist length optional);
-	foreach my $check (@checks) {
-		my $method  = "_check_isolate_$check";
+	foreach my $method (@$checks) {
 		my $message = $self->$method( $fieldname, $value );
 		return $message if $message;
 	}
@@ -1797,6 +1804,7 @@ sub _check_other_optlist {    ## no critic (ProhibitUnusedPrivateSubroutines) #C
 #Make sure field is not too long
 sub _check_other_length {    ## no critic (ProhibitUnusedPrivateSubroutines) #Called by dispatch table
 	my ( $self, $thisfield, $value ) = @_;
+	$value //= q();
 	if ( $thisfield->{length} && length($value) > $thisfield->{'length'} ) {
 		return "field is too long (maximum length $thisfield->{'length'}).";
 	}

@@ -943,7 +943,7 @@ sub get_sequence_extended_attributes_table_attributes {
 sub get_client_dbases_table_attributes {
 	my $attributes = [
 		{ name => 'id',          type => 'int',  required => 1, primary_key => 1 },
-		{ name => 'name',        type => 'text', required => 1, length      => 30 },
+		{ name => 'name',        type => 'text', required => 1, unique      => 1, length => 30 },
 		{ name => 'description', type => 'text', required => 1, length      => 500 },
 		{
 			name     => 'dbase_name',
@@ -1235,7 +1235,8 @@ sub get_schemes_table_attributes {
 		{ name => 'description', type => 'text', hide => 1, length => 1000 }
 	];
 	if ( $self->{'system'}->{'dbtype'} eq 'sequences' ) {
-		push @$attributes, {
+		push @$attributes,
+		  {
 			name     => 'NCBI_taxon',
 			type     => 'int',
 			multiple => 1,
@@ -1247,7 +1248,7 @@ sub get_schemes_table_attributes {
 			tooltip => 'NCBI_taxon - List of NCBI taxa that the scheme has been developed for use with. '
 			  . 'This is primarily for the convenience of third-party tools and will link out to the '
 			  . 'NCBI Taxonomy Browser entry for each taxon in the REST API and scheme description pages.'
-		};
+		  };
 	}
 	if ( $self->{'system'}->{'dbtype'} eq 'isolates' ) {
 		push @$attributes,
