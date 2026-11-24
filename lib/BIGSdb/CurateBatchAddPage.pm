@@ -30,7 +30,6 @@ use BIGSdb::Utils;
 use BIGSdb::Offline::BatchUploader;
 use File::Type;
 use Try::Tiny;
-use Time::HiRes qw(time);
 my $logger = get_logger('BIGSdb.Page');
 
 my %FIELD_CHECKS = (
@@ -476,13 +475,13 @@ sub _get_unique_fields {
 }
 
 sub _increment_id {
-	my ( $self, $table, $id_pos_defined, $integer_id, $first_record, $id_ref, $benchmark, $cache ) = @_;
+	my ( $self, $table, $id_pos_defined, $integer_id, $first_record, $id_ref, $cache ) = @_;
 	if ( !$id_pos_defined && $integer_id && !$first_record ) {
 		do {
 			$$id_ref++;
 		} while (
 			$cache
-			? $self->_is_id_used_in_batch( $table, $$id_ref, $cache, $benchmark )
+			? $self->_is_id_used_in_batch( $table, $$id_ref, $cache )
 			: $self->_is_id_used( $table, $$id_ref )
 		);
 	}
@@ -505,20 +504,6 @@ sub _show_preview {
 sub _check_data {
 	my ( $self, $args ) = @_;
 	my ( $table, $locus, $uploaded ) = @{$args}{qw (table locus uploaded_file_contents)};
-
-	my $benchmark  = $logger->is_debug;
-	my $start_time = time if $benchmark;
-	my $id_benchmark =
-	  $benchmark
-	  ? {
-		initial_elapsed   => 0,
-		increment_elapsed => 0,
-		prefetch_elapsed  => 0,
-		prefetch_calls    => 0,
-		occupied          => 0
-	  }
-	  : undef;
-
 	my $id_cache = $table eq 'isolates' ? {} : undef;
 	my $q        = $self->{'cgi'};
 	if ( !$q->param('data') ) {
@@ -549,11 +534,8 @@ sub _check_data {
 		my $table_header = $self->_get_field_table_header($table);
 		$tablebuffer = qq(<div class="scrollable"><table class="resultstable"><tr>$table_header</tr>);
 	}
-	my $td = 1;
-
-	my $id_start = time if $id_benchmark;
-	my $id       = $self->_get_id($table);
-	$id_benchmark->{'initial_elapsed'} += time - $id_start if $id_benchmark;
+	my $td           = 1;
+	my $id           = $self->_get_id($table);
 	my $unique_field = $self->_get_unique_fields($table);
 	my @primary_keys = $self->{'datastore'}->get_primary_keys($table);
 	my ( %locus_format, %locus_regex, $header_row, $header_complete, $record_count );
@@ -566,17 +548,13 @@ sub _check_data {
 		if ($record) {
 			my @data = split /\t/x, $record;
 			BIGSdb::Utils::remove_trailing_spaces_from_list( \@data );
-			my $first    = 1;
-			my $id_start = time if $id_benchmark;
+			my $first = 1;
 			$self->_increment_id(
 				$table,
 				defined $file_header_pos->{'id'},
 				$args->{'uses_integer_id'},
-				$first_record, \$id, $id_benchmark, $id_cache
+				$first_record, \$id, $id_cache
 			);
-			if ($id_benchmark) {
-				$id_benchmark->{'increment_elapsed'} += time - $id_start;
-			}
 			my ( $pk_combination, $pk_values_ref ) = $self->_get_primary_key_values(
 				{
 					primary_keys    => \@primary_keys,
@@ -716,25 +694,6 @@ sub _check_data {
 			diagnostics    => $diagnostics,
 		}
 	);
-
-	if ($benchmark) {
-		my $elapsed = time - $start_time;
-		$logger->debug(
-			sprintf(
-				'Batch validation benchmark: table=%s, records=%d, elapsed=%.3fs, rate=%.1f records/s',
-				$table, $record_total, $elapsed, $record_total / ( $elapsed || 0.000001 )
-			)
-		);
-		$logger->debug(
-			sprintf(
-				'Batch ID allocation: initial=%.3fs, increment=%.3fs, prefetch=%.3fs, queries=%d, occupied=%d',
-				$id_benchmark->{'initial_elapsed'},  $id_benchmark->{'increment_elapsed'},
-				$id_benchmark->{'prefetch_elapsed'}, $id_benchmark->{'prefetch_calls'},
-				$id_benchmark->{'occupied'}
-			)
-		);
-	}
-
 	return;
 }
 
@@ -2981,18 +2940,15 @@ sub _is_id_used {
 }
 
 sub _prefetch_occupied_isolate_ids {
-	my ( $self, $id, $cache, $benchmark ) = @_;
+	my ( $self, $id, $cache ) = @_;
 	my $range_size = 1000;
 	my $end_id     = $id + $range_size - 1;
 	my $qry =
 		'SELECT id FROM isolates WHERE id BETWEEN ? AND ? '
 	  . 'UNION SELECT isolate_id AS id FROM retired_isolates WHERE isolate_id BETWEEN ? AND ?';
-	my $start_time = time if $benchmark;
-	my $occupied = $self->{'datastore'}->run_query( $qry, [ $id, $end_id, $id, $end_id ], { fetch => 'col_arrayref' } );
-	if ($benchmark) {
-		$benchmark->{'prefetch_elapsed'} += time - $start_time;
-		$benchmark->{'prefetch_calls'}++;
-	}
+	my $occupied = $self->{'datastore'}->run_query(
+		$qry, [ $id, $end_id, $id, $end_id ], { fetch => 'col_arrayref' }
+	);
 	$cache->{'start'}    = $id;
 	$cache->{'end'}      = $end_id;
 	$cache->{'occupied'} = { map { $_ => 1 } @$occupied };
@@ -3000,15 +2956,13 @@ sub _prefetch_occupied_isolate_ids {
 }
 
 sub _is_id_used_in_batch {
-	my ( $self, $table, $id, $cache, $benchmark ) = @_;
+	my ( $self, $table, $id, $cache ) = @_;
 	return $self->_is_id_used( $table, $id ) if $table ne 'isolates';
 
 	if ( !defined $cache->{'start'} || $id < $cache->{'start'} || $id > $cache->{'end'} ) {
-		$self->_prefetch_occupied_isolate_ids( $id, $cache, $benchmark );
+		$self->_prefetch_occupied_isolate_ids( $id, $cache );
 	}
-	my $exists = $cache->{'occupied'}->{$id} ? 1 : 0;
-	$benchmark->{'occupied'}++ if $benchmark && $exists;
-	return $exists;
+	return $cache->{'occupied'}->{$id} ? 1 : 0;
 }
 
 sub _convert_query {
